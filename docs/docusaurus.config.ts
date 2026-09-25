@@ -8,17 +8,17 @@ const config: Config = {
   favicon: 'img/favicon.ico',
 
   // Set the production url of your site here
-  url: 'https://www.bagetter.com/',
+  url: 'https://letreset.github.io',
   // Set the /<baseUrl>/ pathname under which your site is served
   // For GitHub pages deployment, it is often '/<projectName>/'
-  baseUrl: '/',
+  baseUrl: '/BaGetter/',
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
-  organizationName: 'bagetter', // Usually your GitHub org/user name.
-  projectName: 'BaGetter', // Usually your repo name.
+  organizationName: 'letreset',
+  projectName: 'BaGetter',
 
-  deploymentBranch: "gh-pages",
+  // Deployed by .github/workflows/docs.yml (GitHub Pages via Actions).
   trailingSlash: false,
 
   onBrokenLinks: 'throw',
@@ -42,7 +42,7 @@ const config: Config = {
           // Please change this to your repo.
           // Remove this to remove the "edit this page" links.
           editUrl:
-            'https://github.com/bagetter/BaGetter/tree/main/docs',
+            'https://github.com/letreset/BaGetter/tree/main/docs/',
         },
         theme: {
           customCss: './src/css/custom.css',
@@ -73,7 +73,7 @@ const config: Config = {
           label: 'Docs',
         },
         {
-          href: 'https://github.com/bagetter/BaGetter',
+          href: 'https://github.com/letreset/BaGetter',
           label: 'GitHub',
           position: 'right',
         },
@@ -95,12 +95,8 @@ const config: Config = {
           title: 'Community',
           items: [
             {
-              label: 'Stack Overflow',
-              href: 'https://stackoverflow.com/questions/tagged/bagetter',
-            },
-            {
-              label: 'Discord',
-              href: 'https://discord.gg/XsAmm6f2hZ',
+              label: 'Issues',
+              href: 'https://github.com/letreset/BaGetter/issues',
             },
           ],
         },
@@ -109,7 +105,15 @@ const config: Config = {
           items: [
             {
               label: 'GitHub',
-              href: 'https://github.com/bagetter/BaGetter',
+              href: 'https://github.com/letreset/BaGetter',
+            },
+            {
+              label: 'Releases',
+              href: 'https://github.com/letreset/BaGetter/releases',
+            },
+            {
+              label: 'Docker Hub',
+              href: 'https://hub.docker.com/r/letreset/bagetter',
             },
           ],
         },

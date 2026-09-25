@@ -3,7 +3,7 @@
 ## Run BaGetter
 
 1. Install the [.NET Core SDK](https://www.microsoft.com/net/download)
-2. Download and extract [BaGetter's latest release](https://github.com/bagetter/BaGetter/releases)
+2. Download and extract [BaGetter's latest release](https://github.com/letreset/BaGetter/releases)
 3. Start the service with `dotnet BaGetter.dll`
 4. Browse `http://localhost:5000/` in your browser
 

@@ -31,10 +31,10 @@ If this step is omitted the default mode (unconfigured) will be Sqlite with the 
 ## Run BaGetter
 
 1. Create a folder named `bagetter-data` in the same directory as the `bagetter.env` file. This will be used by BaGetter to persist its state.
-2. Pull BaGetter's latest [docker image](https://hub.docker.com/r/bagetter/bagetter):
+2. Pull BaGetter's latest [docker image](https://hub.docker.com/r/letreset/bagetter):
 
 ```shell
-docker pull bagetter/bagetter
+docker pull letreset/bagetter
 ```
 
 You can now run BaGetter...
@@ -42,13 +42,13 @@ You can now run BaGetter...
 - ...with optional `.env` file:
 
 ```shell
-docker run --rm --name nuget-server -p 5000:8080 --env-file bagetter.env -v "$(pwd)/bagetter-data:/data" bagetter/bagetter:latest
+docker run --rm --name nuget-server -p 5000:8080 --env-file bagetter.env -v "$(pwd)/bagetter-data:/data" letreset/bagetter:latest
 ```
 
 - ...or without:
 
 ```shell
-docker run --rm --name nuget-server -p 5000:8080 -v "$(pwd)/bagetter-data:/data" bagetter/bagetter:latest
+docker run --rm --name nuget-server -p 5000:8080 -v "$(pwd)/bagetter-data:/data" letreset/bagetter:latest
 ```
 
 ## Publish packages

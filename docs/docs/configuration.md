@@ -575,7 +575,7 @@ This allows for sensitive values to be provided individually to the application,
 ```yaml
 services:
   bagetter:
-    image: bagetter/bagetter:latest
+    image: letreset/bagetter:latest
     volumes:
       # Single file mounted for API key
       - ./secrets/api-key.txt:/run/secrets/ApiKey:ro
