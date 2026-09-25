@@ -24,12 +24,28 @@ public class ConfigureBaGetterServer
 
     public void Configure(CorsOptions options)
     {
-        // TODO: Consider disabling this on production builds.
+        var cors = _baGetterOptions.Cors ?? new CorsPolicyOptions();
+
         options.AddPolicy(
             CorsPolicy,
-            builder => builder.AllowAnyOrigin()
-                .AllowAnyMethod()
-                .AllowAnyHeader());
+            builder =>
+            {
+                // No configured origins keeps the historical allow-all behavior.
+                if (cors.AllowedOrigins is not { Length: > 0 })
+                {
+                    builder.AllowAnyOrigin();
+                }
+                else
+                {
+                    builder.WithOrigins(cors.AllowedOrigins);
+                    if (cors.AllowCredentials)
+                    {
+                        builder.AllowCredentials();
+                    }
+                }
+
+                builder.AllowAnyMethod().AllowAnyHeader();
+            });
     }
 
     public void Configure(FormOptions options)
@@ -43,7 +59,7 @@ public class ConfigureBaGetterServer
         options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;
 
         // Do not restrict to local network/proxy
-        options.KnownNetworks.Clear();
+        options.KnownIPNetworks.Clear();
         options.KnownProxies.Clear();
     }
 

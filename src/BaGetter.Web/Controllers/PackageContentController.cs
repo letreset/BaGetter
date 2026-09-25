@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using BaGetter.Core.Authentication;
@@ -110,6 +111,42 @@ public class PackageContentController : Controller
             return NotFound();
         }
 
-        return File(iconStream, "image/xyz");
+        await using var bufferedStream = new MemoryStream();
+        await iconStream.CopyToAsync(bufferedStream, cancellationToken);
+        var iconBytes = bufferedStream.ToArray();
+
+        return File(iconBytes, DetectImageContentType(iconBytes));
+    }
+
+    private static string DetectImageContentType(byte[] bytes)
+    {
+        ReadOnlySpan<byte> span = bytes;
+
+        if (span.StartsWith(new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A }))
+        {
+            return "image/png";
+        }
+
+        if (span.StartsWith(new byte[] { 0xFF, 0xD8, 0xFF }))
+        {
+            return "image/jpeg";
+        }
+
+        if (span.StartsWith("GIF87a"u8) || span.StartsWith("GIF89a"u8))
+        {
+            return "image/gif";
+        }
+
+        if (span.StartsWith("BM"u8))
+        {
+            return "image/bmp";
+        }
+
+        if (span.Length >= 12 && span.StartsWith("RIFF"u8) && span[8..12].SequenceEqual("WEBP"u8))
+        {
+            return "image/webp";
+        }
+
+        return "application/octet-stream";
     }
 }

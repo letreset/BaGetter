@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using BaGetter.Core.Configuration;
@@ -83,15 +84,62 @@ public class FileStorageService : IStorageService
     {
         cancellationToken.ThrowIfCancellationRequested();
 
+        var fullPath = GetFullPath(path);
+
         try
         {
-            File.Delete(GetFullPath(path));
+            File.Delete(fullPath);
         }
         catch (DirectoryNotFoundException)
         {
         }
 
+        DeleteEmptyParentDirectories(fullPath);
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Removes empty directories left behind by a delete, walking up from the file's directory.
+    /// Stops before the top-level namespace folder (e.g. "packages" or "symbols") directly under the store path.
+    /// </summary>
+    private void DeleteEmptyParentDirectories(string filePath)
+    {
+        var storePath = Path.TrimEndingDirectorySeparator(_storePath);
+        var directory = Directory.GetParent(filePath);
+
+        // Only directories strictly below the top-level namespace folder are candidates.
+        while (directory?.Parent != null &&
+               directory.FullName.StartsWith(_storePath, StringComparison.Ordinal) &&
+               !PathsEqual(directory.Parent.FullName, storePath))
+        {
+            if (directory.Exists && directory.EnumerateFileSystemInfos().Any())
+            {
+                break;
+            }
+
+            try
+            {
+                directory.Delete(recursive: false);
+            }
+            catch (DirectoryNotFoundException)
+            {
+            }
+            catch (IOException)
+            {
+                // Directory became non-empty or is in use; leave it.
+                break;
+            }
+
+            directory = directory.Parent;
+        }
+    }
+
+    private static bool PathsEqual(string left, string right)
+    {
+        return string.Equals(
+            Path.TrimEndingDirectorySeparator(left),
+            Path.TrimEndingDirectorySeparator(right),
+            OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
     }
 
     private string GetFullPath(string path)

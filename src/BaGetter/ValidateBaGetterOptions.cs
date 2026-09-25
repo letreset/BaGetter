@@ -58,6 +58,15 @@ public class ValidateBaGetterOptions
         if (options.Mirror == null) failures.Add($"The '{nameof(BaGetterOptions.Mirror)}' config is required");
         if (options.Search == null) failures.Add($"The '{nameof(BaGetterOptions.Search)}' config is required");
         if (options.Storage == null) failures.Add($"The '{nameof(BaGetterOptions.Storage)}' config is required");
+        if (options.RegistrationPageSize < 1) failures.Add($"The '{nameof(BaGetterOptions.RegistrationPageSize)}' config must be at least 1");
+        if (options.Cors is { AllowCredentials: true } && options.Cors.AllowedOrigins is not { Length: > 0 })
+        {
+            failures.Add($"The '{nameof(BaGetterOptions.Cors)}:{nameof(CorsPolicyOptions.AllowCredentials)}' config requires '{nameof(BaGetterOptions.Cors)}:{nameof(CorsPolicyOptions.AllowedOrigins)}' to be set");
+        }
+        if (options.SecurityHeaders is { EnableHsts: true, HstsMaxAgeDays: < 1 })
+        {
+            failures.Add($"The '{nameof(BaGetterOptions.SecurityHeaders)}:{nameof(SecurityHeadersOptions.HstsMaxAgeDays)}' config must be at least 1");
+        }
 
         if (!_validDatabaseTypes.Contains(options.Database?.Type))
         {

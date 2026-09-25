@@ -41,6 +41,25 @@ public class PackageMetadataController : Controller
         return index;
     }
 
+    // GET v3/registration/{id}/page/{lower}/{upper}.json
+    [HttpGet]
+    public async Task<ActionResult<BaGetterRegistrationPageResponse>> RegistrationPageAsync(string id, string lower, string upper, CancellationToken cancellationToken)
+    {
+        if (!NuGetVersion.TryParse(lower, out var lowerVersion) ||
+            !NuGetVersion.TryParse(upper, out var upperVersion))
+        {
+            return NotFound();
+        }
+
+        var page = await _metadata.GetRegistrationPageOrNullAsync(_feedContext.CurrentFeed.Id, _feedContext.CurrentFeed.Slug, id, lowerVersion, upperVersion, cancellationToken);
+        if (page == null)
+        {
+            return NotFound();
+        }
+
+        return page;
+    }
+
     // GET v3/registration/{id}/{version}.json
     [HttpGet]
     public async Task<ActionResult<RegistrationLeafResponse>> RegistrationLeafAsync(string id, string version, CancellationToken cancellationToken)

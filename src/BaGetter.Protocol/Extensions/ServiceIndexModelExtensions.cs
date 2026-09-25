@@ -14,6 +14,7 @@ public static class ServiceIndexModelExtensions
     private static readonly string _version300Beta = "/3.0.0-beta";
     private static readonly string _version300 = "/3.0.0";
     private static readonly string _version340 = "/3.4.0";
+    private static readonly string _version350 = "/3.5.0";
     private static readonly string _version360 = "/3.6.0";
     private static readonly string _version470 = "/4.7.0";
     private static readonly string _version490 = "/4.9.0";
@@ -21,9 +22,9 @@ public static class ServiceIndexModelExtensions
     private static readonly string _version510 = "/5.1.0";
 
     private static readonly string[] _catalog = { "Catalog" + _version300 };
-    private static readonly string[] _searchQueryService = { "SearchQueryService" + _version340, "SearchQueryService" + _version300Beta, "SearchQueryService" };
+    private static readonly string[] _searchQueryService = { "SearchQueryService" + _version350, "SearchQueryService" + _version340, "SearchQueryService" + _version300Beta, "SearchQueryService" };
     private static readonly string[] _registrationsBaseUrl = { "RegistrationsBaseUrl" + _version360, "RegistrationsBaseUrl" + _version340, "RegistrationsBaseUrl" + _version300Beta, "RegistrationsBaseUrl" };
-    private static readonly string[] _searchAutocompleteService = { "SearchAutocompleteService", "SearchAutocompleteService" + _version300Beta };
+    private static readonly string[] _searchAutocompleteService = { "SearchAutocompleteService" + _version350, "SearchAutocompleteService", "SearchAutocompleteService" + _version300Beta };
     private static readonly string[] _reportAbuse = { "ReportAbuseUriTemplate", "ReportAbuseUriTemplate" + _version300 };
     private static readonly string[] _packageDetailsUriTemplate = { "PackageDetailsUriTemplate" + _version510 };
     private static readonly string[] _legacyGallery = { "LegacyGallery" + _version200 };

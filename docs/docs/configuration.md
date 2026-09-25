@@ -396,6 +396,63 @@ This can be useful if you are hosting a private feed and need to host large pack
 }
 ```
 
+## Registration page size
+
+Packages with many versions are served as a paged [registration index](https://learn.microsoft.com/nuget/api/registration-base-url-resource).
+If a package has more versions than `RegistrationPageSize` (default `64`), the registration index only links to its pages, and the NuGet client fetches each page separately.
+Packages with fewer versions are returned in a single response, as before.
+
+```json
+{
+    ...
+
+    "RegistrationPageSize": 64,
+
+    ...
+}
+```
+
+## CORS
+
+By default, BaGetter allows cross-origin requests from any origin.
+To restrict this, list the allowed origins in `Cors:AllowedOrigins`.
+Set `AllowCredentials` to `true` only if a browser application on one of those origins must send cookies or an `Authorization` header. It requires `AllowedOrigins` to be set.
+
+```json
+{
+    ...
+
+    "Cors": {
+        "AllowedOrigins": [ "https://portal.example.com" ],
+        "AllowCredentials": false
+    },
+
+    ...
+}
+```
+
+## Security headers
+
+BaGetter adds the `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `X-Permitted-Cross-Domain-Policies` and `Permissions-Policy` headers to every response.
+Set `SecurityHeaders:Enabled` to `false` if your reverse proxy already sets them.
+
+`EnableHsts` sends the `Strict-Transport-Security` header (outside the Development environment).
+Only enable it when BaGetter is always served over HTTPS, because browsers will then refuse plain HTTP for `HstsMaxAgeDays` days.
+
+```json
+{
+    ...
+
+    "SecurityHeaders": {
+        "Enabled": true,
+        "EnableHsts": false,
+        "HstsMaxAgeDays": 365
+    },
+
+    ...
+}
+```
+
 ## Statistics
 
 On the application's statistics page the currently used services and overall package and version counts are listed.

@@ -50,6 +50,13 @@ public class BaGetterOptions
     public uint MaxPackageSizeGiB { get; set; } = 8;
 
     /// <summary>
+    /// The maximum number of package versions in a single registration page.
+    /// Packages with more versions than this return a paged registration index,
+    /// and clients fetch each page separately.
+    /// </summary>
+    public int RegistrationPageSize { get; set; } = 64;
+
+    /// <summary>
     /// If this is set to a value, it will limit the number of versions that can be pushed for a package.
     /// the older versions will be deleted.
     /// This setting is not used anymore and is deprecated.
@@ -76,6 +83,10 @@ public class BaGetterOptions
     public HealthCheckOptions HealthCheck { get; set; }
 
     public StatisticsOptions Statistics { get; set; }
+
+    public CorsPolicyOptions Cors { get; set; } = new();
+
+    public SecurityHeadersOptions SecurityHeaders { get; set; } = new();
 
     public NugetAuthenticationOptions Authentication { get; set; }
 
