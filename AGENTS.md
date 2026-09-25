@@ -104,7 +104,7 @@ Storage, database, search and email use `IProvider<T>`. Every implementation is 
 All entities are defined in `Core/Entities/AbstractContext.cs`: Feed, Package, PackageDependency, PackageType, TargetFramework, User, Group, UserGroup, FeedPermission, PersonalAccessToken.
 
 ### HTTP pipeline (`Startup.Configure`, in order)
-ForwardedHeaders → PathBase → HSTS (optional) → `SecurityHeadersMiddleware` → ResponseCompression → `/livez` → `FeedStaticFilePathMiddleware` → StaticFiles → Authentication → `FeedResolutionMiddleware` → Routing → Authorization → CORS → `OperationCancelledMiddleware` (maps `OperationCanceledException` to 409) → endpoints → health check (`HealthCheck:Path`).
+ForwardedHeaders → PathBase → HSTS (optional) → `SecurityHeadersMiddleware` → ResponseCompression → `/livez` → `FeedStaticFilePathMiddleware` → StaticFiles → Authentication → RateLimiter (only when `RequestRateLimit:Enabled`) → `FeedResolutionMiddleware` → Routing → Authorization → CORS → `OperationCancelledMiddleware` (maps `OperationCanceledException` to 409) → endpoints → health check (`HealthCheck:Path`).
 
 ### API routes (`BaGetterEndpointBuilder`; every route is also available under `/feeds/{slug}/`)
 - `GET /v3/index.json`: the service index.
@@ -117,13 +117,13 @@ ForwardedHeaders → PathBase → HSTS (optional) → `SecurityHeadersMiddleware
 
 ## Configuration
 
-`BaGetterOptions` (`Core/Configuration/`) is bound from the config root. Sources: `appsettings.json`, environment variables, user secrets, `/run/secrets` (key-per-file), and optionally `BAGET_CONFIG_ROOT`. `ValidateBaGetterOptions` fails startup on invalid values.
+`BaGetterOptions` (`Core/Configuration/`) is bound from the config root. Sources, later ones winning: `appsettings*.json` (from `BAGET_CONFIG_ROOT` if set), user secrets, the optional machine-wide file (`%ProgramData%\BaGetter\appsettings.json` or `/etc/bagetter/appsettings.json`, see `Program.AddPlatformConfigFile`), environment variables, command line, `/run/secrets` (key-per-file). `ValidateBaGetterOptions` fails startup on invalid values.
 
 Main keys:
 - `Database`, `Storage`, `Search`: each has a `Type`.
 - `Authentication`: `Mode`, `Entra`, token and lockout limits.
 - `Email`, `PatExpiryNotification`.
-- `MaxPackageSizeGiB`, `RegistrationPageSize`, `Cors` (`AllowedOrigins`, `AllowCredentials`), `SecurityHeaders` (`Enabled`, `EnableHsts`, `HstsMaxAgeDays`).
+- `MaxPackageSizeGiB`, `RegistrationPageSize`, `Cors` (`AllowedOrigins`, `AllowCredentials`), `SecurityHeaders` (`Enabled`, `EnableHsts`, `HstsMaxAgeDays`), `RequestRateLimit` (`Enabled`, `PermitLimit`, `WindowSeconds`, `QueueLimit`; off by default).
 - `HealthCheck`, `Statistics`.
 - `Mirror`, `AllowPackageOverwrites`, `PackageDeletionBehavior` and `Retention` are only **defaults and seeds**. Per-feed values in the DB override them. The global `Mirror` block is `[Obsolete]` and is only read once, to seed the default feed.
 
