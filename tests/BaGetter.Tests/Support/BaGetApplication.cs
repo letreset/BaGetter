@@ -27,14 +27,20 @@ namespace BaGetter.Tests.Support;
 public class BaGetterApplication : WebApplicationFactory<Startup>
 {
     private readonly ITestOutputHelper _output;
-    private readonly HttpClient _upstreamClient;
+    private readonly HttpMessageHandler _upstreamHandler;
     private readonly Action<Dictionary<string, string>> _inMemoryConfiguration;
+    private readonly IReadOnlyList<string> _upstreamSources;
 
-    public BaGetterApplication(ITestOutputHelper output, HttpClient upstreamClient = null, Action<Dictionary<string, string>> inMemoryConfiguration = null)
+    public BaGetterApplication(
+        ITestOutputHelper output,
+        HttpMessageHandler upstreamHandler = null,
+        Action<Dictionary<string, string>> inMemoryConfiguration = null,
+        IReadOnlyList<string> upstreamSources = null)
     {
         _output = output ?? throw new ArgumentNullException(nameof(output));
-        _upstreamClient = upstreamClient;
+        _upstreamHandler = upstreamHandler;
         this._inMemoryConfiguration = inMemoryConfiguration;
+        _upstreamSources = upstreamSources ?? ["http://localhost/v3/index.json"];
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -73,7 +79,7 @@ public class BaGetterApplication : WebApplicationFactory<Startup>
                     { "Storage:Type", "FileSystem" },
                     { "Storage:Path", storagePath },
                     { "Search:Type", "Database" },
-                    { "Mirror:Enabled", _upstreamClient != null ? "true": "false" },
+                    { "Mirror:Enabled", _upstreamHandler != null ? "true": "false" },
                     { "Mirror:PackageSource", "http://localhost/v3/index.json" },
                 };
                 _inMemoryConfiguration?.Invoke(dict);
@@ -90,9 +96,9 @@ public class BaGetterApplication : WebApplicationFactory<Startup>
                     .Returns(DateTime.Parse("2020-01-01T00:00:00.000Z"));
 
                 services.AddSingleton(time.Object);
-                if (_upstreamClient != null)
+                if (_upstreamHandler != null)
                 {
-                    services.AddSingleton(_upstreamClient);
+                    services.AddSingleton(_upstreamHandler);
                 }
 
                 services.Configure<HealthCheckServiceOptions>(opts => opts.Registrations.Clear());
@@ -122,14 +128,20 @@ public class BaGetterApplication : WebApplicationFactory<Startup>
                 var feedService = scope.ServiceProvider.GetRequiredService<IFeedService>();
                 feedService.EnsureDefaultFeedExistsAsync(CancellationToken.None).GetAwaiter().GetResult();
 
-                // When an upstream client is provided, configure the default feed for mirroring
-                // so that the per-feed UpstreamClientFactory returns a live client.
-                if (_upstreamClient != null)
+                // When an upstream handler is provided, configure the default feed to mirror each
+                // upstream source, in order, so that the per-feed UpstreamClientFactory returns a live client.
+                if (_upstreamHandler != null)
                 {
                     var defaultFeed = feedService.GetDefaultFeedAsync(CancellationToken.None).GetAwaiter().GetResult();
-                    defaultFeed.MirrorEnabled = true;
-                    defaultFeed.MirrorPackageSource = "http://localhost/v3/index.json";
-                    defaultFeed.MirrorLegacy = false;
+                    for (var i = 0; i < _upstreamSources.Count; i++)
+                    {
+                        defaultFeed.Mirrors.Add(new FeedMirror
+                        {
+                            SortOrder = i,
+                            Enabled = true,
+                            PackageSource = _upstreamSources[i],
+                        });
+                    }
                     feedService.UpdateFeedAsync(defaultFeed, CancellationToken.None).GetAwaiter().GetResult();
                 }
             });
@@ -153,8 +165,6 @@ internal static class BaGetWebApplicationFactoryExtensions
         {
             Slug = slug,
             Name = name ?? slug,
-            MirrorEnabled = false,
-            MirrorLegacy = false,
         }, cancellationToken);
     }
 

@@ -25,20 +25,10 @@ public class Feed
     public int? RetentionMaxPatchVersions { get; set; }
     public int? RetentionMaxPrereleaseVersions { get; set; }
 
-    // Mirror settings
-    public bool MirrorEnabled { get; set; }
-    public string MirrorPackageSource { get; set; }
-    public bool MirrorLegacy { get; set; }
-    public int? MirrorDownloadTimeoutSeconds { get; set; }
-    public MirrorAuthenticationType? MirrorAuthType { get; set; }
-    public string MirrorAuthUsername { get; set; }
-    public string MirrorAuthPassword { get; set; }
-    public string MirrorAuthToken { get; set; }
-    public string MirrorAuthCustomHeaders { get; set; }
-
     public DateTime CreatedAtUtc { get; set; }
     public DateTime UpdatedAtUtc { get; set; }
 
     public List<Package> Packages { get; set; }
     public List<FeedPermission> Permissions { get; set; }
+    public List<FeedMirror> Mirrors { get; set; } = [];
 }

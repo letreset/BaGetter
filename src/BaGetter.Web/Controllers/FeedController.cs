@@ -64,8 +64,6 @@ public class FeedController : ControllerBase
             Slug = request.Slug,
             Name = request.Name,
             Description = request.Description,
-            MirrorEnabled = false,
-            MirrorLegacy = false,
         };
 
         try

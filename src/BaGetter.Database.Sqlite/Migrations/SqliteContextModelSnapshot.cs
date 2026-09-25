@@ -39,33 +39,6 @@ namespace BaGetter.Database.Sqlite.Migrations
                     b.Property<uint?>("MaxPackageSizeGiB")
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("MirrorAuthCustomHeaders")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("MirrorAuthPassword")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("MirrorAuthToken")
-                        .HasColumnType("TEXT");
-
-                    b.Property<int?>("MirrorAuthType")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("MirrorAuthUsername")
-                        .HasColumnType("TEXT");
-
-                    b.Property<int?>("MirrorDownloadTimeoutSeconds")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("MirrorEnabled")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("MirrorLegacy")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("MirrorPackageSource")
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(256)
@@ -105,6 +78,53 @@ namespace BaGetter.Database.Sqlite.Migrations
                         .IsUnique();
 
                     b.ToTable("Feeds");
+                });
+
+            modelBuilder.Entity("BaGetter.Core.Entities.FeedMirror", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("AuthCustomHeaders")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AuthPassword")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AuthToken")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("AuthType")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("AuthUsername")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("DownloadTimeoutSeconds")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("FeedId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Legacy")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("PackageSource")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FeedId", "SortOrder");
+
+                    b.ToTable("FeedMirrors");
                 });
 
             modelBuilder.Entity("BaGetter.Core.Entities.FeedPermission", b =>
@@ -525,6 +545,17 @@ namespace BaGetter.Database.Sqlite.Migrations
                     b.ToTable("UserGroups");
                 });
 
+            modelBuilder.Entity("BaGetter.Core.Entities.FeedMirror", b =>
+                {
+                    b.HasOne("BaGetter.Core.Entities.Feed", "Feed")
+                        .WithMany("Mirrors")
+                        .HasForeignKey("FeedId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Feed");
+                });
+
             modelBuilder.Entity("BaGetter.Core.Entities.FeedPermission", b =>
                 {
                     b.HasOne("BaGetter.Core.Entities.Feed", "Feed")
@@ -619,6 +650,8 @@ namespace BaGetter.Database.Sqlite.Migrations
 
             modelBuilder.Entity("BaGetter.Core.Entities.Feed", b =>
                 {
+                    b.Navigation("Mirrors");
+
                     b.Navigation("Packages");
 
                     b.Navigation("Permissions");

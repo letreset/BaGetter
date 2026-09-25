@@ -45,33 +45,6 @@ namespace BaGetter.Database.PostgreSql.Migrations
                     b.Property<long?>("MaxPackageSizeGiB")
                         .HasColumnType("bigint");
 
-                    b.Property<string>("MirrorAuthCustomHeaders")
-                        .HasColumnType("text");
-
-                    b.Property<string>("MirrorAuthPassword")
-                        .HasColumnType("text");
-
-                    b.Property<string>("MirrorAuthToken")
-                        .HasColumnType("text");
-
-                    b.Property<int?>("MirrorAuthType")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("MirrorAuthUsername")
-                        .HasColumnType("text");
-
-                    b.Property<int?>("MirrorDownloadTimeoutSeconds")
-                        .HasColumnType("integer");
-
-                    b.Property<bool>("MirrorEnabled")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("MirrorLegacy")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("MirrorPackageSource")
-                        .HasColumnType("text");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(256)
@@ -111,6 +84,55 @@ namespace BaGetter.Database.PostgreSql.Migrations
                         .IsUnique();
 
                     b.ToTable("Feeds");
+                });
+
+            modelBuilder.Entity("BaGetter.Core.Entities.FeedMirror", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AuthCustomHeaders")
+                        .HasColumnType("text");
+
+                    b.Property<string>("AuthPassword")
+                        .HasColumnType("text");
+
+                    b.Property<string>("AuthToken")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("AuthType")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("AuthUsername")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("DownloadTimeoutSeconds")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("FeedId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("Legacy")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("PackageSource")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FeedId", "SortOrder");
+
+                    b.ToTable("FeedMirrors");
                 });
 
             modelBuilder.Entity("BaGetter.Core.Entities.FeedPermission", b =>
@@ -539,6 +561,17 @@ namespace BaGetter.Database.PostgreSql.Migrations
                     b.ToTable("UserGroups");
                 });
 
+            modelBuilder.Entity("BaGetter.Core.Entities.FeedMirror", b =>
+                {
+                    b.HasOne("BaGetter.Core.Entities.Feed", "Feed")
+                        .WithMany("Mirrors")
+                        .HasForeignKey("FeedId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Feed");
+                });
+
             modelBuilder.Entity("BaGetter.Core.Entities.FeedPermission", b =>
                 {
                     b.HasOne("BaGetter.Core.Entities.Feed", "Feed")
@@ -633,6 +666,8 @@ namespace BaGetter.Database.PostgreSql.Migrations
 
             modelBuilder.Entity("BaGetter.Core.Entities.Feed", b =>
                 {
+                    b.Navigation("Mirrors");
+
                     b.Navigation("Packages");
 
                     b.Navigation("Permissions");

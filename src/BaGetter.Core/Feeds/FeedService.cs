@@ -34,18 +34,21 @@ public class FeedService : IFeedService
     public async Task<Feed> GetDefaultFeedAsync(CancellationToken cancellationToken)
     {
         return await _context.Feeds
+            .Include(f => f.Mirrors)
             .FirstOrDefaultAsync(f => f.Slug == Feed.DefaultSlug, cancellationToken);
     }
 
     public async Task<Feed> GetFeedByIdAsync(Guid feedId, CancellationToken cancellationToken)
     {
         return await _context.Feeds
+            .Include(f => f.Mirrors)
             .FirstOrDefaultAsync(f => f.Id == feedId, cancellationToken);
     }
 
     public async Task<Feed> GetFeedBySlugAsync(string slug, CancellationToken cancellationToken)
     {
         return await _context.Feeds
+            .Include(f => f.Mirrors)
             .FirstOrDefaultAsync(f => f.Slug == slug, cancellationToken);
     }
 
@@ -54,6 +57,7 @@ public class FeedService : IFeedService
         // Sort by the admin-controlled SortOrder, with Name as a stable tiebreak.
         // The admin list, the nav dropdown, and GET /api/v1/feeds all consume this method.
         return await _context.Feeds
+            .Include(f => f.Mirrors)
             .OrderBy(f => f.SortOrder)
             .ThenBy(f => f.Name)
             .ToListAsync(cancellationToken);
@@ -180,7 +184,6 @@ public class FeedService : IFeedService
             Slug = Feed.DefaultSlug,
             Name = "Default",
             SortOrder = 0,
-            MirrorEnabled = false,
             CreatedAtUtc = DateTime.UtcNow,
             UpdatedAtUtc = DateTime.UtcNow,
         });

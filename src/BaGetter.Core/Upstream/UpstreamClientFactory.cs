@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -19,28 +20,40 @@ public class UpstreamClientFactory : IUpstreamClientFactory
     private readonly IFeedSettingsResolver _feedSettings;
     private readonly DisabledUpstreamClient _disabled;
     private readonly ILoggerFactory _loggerFactory;
-    // Allows tests (and other callers) to override the HttpClient used for upstream requests.
-    private readonly HttpClient _httpClientOverride;
+    // Allows tests to route upstream requests to an in-memory server. This is deliberately a handler
+    // rather than an HttpClient: the app registers a shared HttpClient singleton, and injecting that
+    // one would skip the per-feed authentication headers and timeout applied in CreateHttpClient.
+    private readonly HttpMessageHandler _handlerOverride;
 
     public UpstreamClientFactory(
         IFeedSettingsResolver feedSettings,
         DisabledUpstreamClient disabled,
         ILoggerFactory loggerFactory,
-        HttpClient httpClientOverride = null)
+        HttpMessageHandler handlerOverride = null)
     {
         _feedSettings = feedSettings ?? throw new ArgumentNullException(nameof(feedSettings));
         _disabled = disabled ?? throw new ArgumentNullException(nameof(disabled));
         _loggerFactory = loggerFactory ?? throw new ArgumentNullException(nameof(loggerFactory));
-        _httpClientOverride = httpClientOverride;
+        _handlerOverride = handlerOverride;
     }
 
     public IUpstreamClient CreateForFeed(Feed feed)
     {
-        var mirrorOptions = _feedSettings.GetMirrorOptions(feed);
+        var mirrors = _feedSettings.GetMirrorOptions(feed);
 
-        if (!mirrorOptions.Enabled || mirrorOptions.PackageSource == null)
+        if (mirrors.Count == 0)
             return _disabled;
 
+        // A single upstream is used directly, exactly as before multiple mirrors existed.
+        if (mirrors.Count == 1)
+            return CreateForMirror(mirrors[0], feed.Id);
+
+        var upstreams = mirrors.Select(m => CreateForMirror(m, feed.Id)).ToList();
+        return new FallbackUpstreamClient(upstreams, _loggerFactory.CreateLogger<FallbackUpstreamClient>());
+    }
+
+    private IUpstreamClient CreateForMirror(MirrorOptions mirrorOptions, Guid feedId)
+    {
         if (mirrorOptions.Legacy)
         {
             var snapshot = new StaticOptionsSnapshot<MirrorOptions>(mirrorOptions);
@@ -48,7 +61,7 @@ public class UpstreamClientFactory : IUpstreamClientFactory
         }
 
         var logger = _loggerFactory.CreateLogger<UpstreamClientFactory>();
-        var httpClient = _httpClientOverride ?? CreateHttpClient(mirrorOptions, feed.Id, logger);
+        var httpClient = CreateHttpClient(mirrorOptions, feedId, logger);
         var clientFactory = new NuGetClientFactory(httpClient, mirrorOptions.PackageSource.ToString());
         var nugetClient = new NuGetClient(clientFactory);
         return new V3UpstreamClient(nugetClient, _loggerFactory.CreateLogger<V3UpstreamClient>());
@@ -62,12 +75,14 @@ public class UpstreamClientFactory : IUpstreamClientFactory
         "Connection", "Upgrade", "Proxy-Authorization", "Set-Cookie"
     };
 
-    private static HttpClient CreateHttpClient(MirrorOptions options, Guid feedId, ILogger logger)
+    private HttpClient CreateHttpClient(MirrorOptions options, Guid feedId, ILogger logger)
     {
-        var client = new HttpClient(new HttpClientHandler
-        {
-            AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
-        });
+        var client = _handlerOverride != null
+            ? new HttpClient(_handlerOverride, disposeHandler: false)
+            : new HttpClient(new HttpClientHandler
+            {
+                AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
+            });
 
         if (options.PackageDownloadTimeoutSeconds > 0)
             client.Timeout = TimeSpan.FromSeconds(options.PackageDownloadTimeoutSeconds);
@@ -93,8 +108,8 @@ public class UpstreamClientFactory : IUpstreamClientFactory
                             if (_blockedHeaderNames.Contains(header))
                             {
                                 logger.LogWarning(
-                                    "Skipping blocked header '{HeaderName}' from feed {FeedId} MirrorAuthCustomHeaders.",
-                                    header, feedId);
+                                    "Skipping blocked header '{HeaderName}' from the custom headers of feed {FeedId} mirror {PackageSource}.",
+                                    header, feedId, options.PackageSource);
                                 continue;
                             }
                             client.DefaultRequestHeaders.Add(header, value);
