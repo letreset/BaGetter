@@ -17,7 +17,7 @@ namespace BaGetter.Core.Upstream.Clients;
 /// <summary>
 /// The mirroring client for a NuGet server that uses the V3 protocol.
 /// </summary>
-public class V3UpstreamClient : IUpstreamClient
+public partial class V3UpstreamClient : IUpstreamClient
 {
     private readonly NuGetClient _client;
     private readonly ILogger<V3UpstreamClient> _logger;
@@ -50,11 +50,7 @@ public class V3UpstreamClient : IUpstreamClient
         }
         catch (Exception e)
         {
-            _logger.LogError(
-                e,
-                "Failed to download {PackageId} {PackageVersion} from upstream",
-                id,
-                version);
+            LogDownloadFailed(e, id, version);
             return null;
         }
     }
@@ -71,7 +67,7 @@ public class V3UpstreamClient : IUpstreamClient
         }
         catch (Exception e)
         {
-            _logger.LogError(e, "Failed to mirror {PackageId}'s upstream metadata", id);
+            LogMirrorMetadataFailed(e, id);
             return new List<Package>();
         }
     }
@@ -86,7 +82,7 @@ public class V3UpstreamClient : IUpstreamClient
         }
         catch (Exception e)
         {
-            _logger.LogError(e, "Failed to mirror {PackageId}'s upstream versions", id);
+            LogMirrorVersionsFailed(e, id);
             return new List<NuGetVersion>();
         }
     }
@@ -194,4 +190,13 @@ public class V3UpstreamClient : IUpstreamClient
             TargetFramework = group.TargetFramework,
         });
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Failed to download {PackageId} {PackageVersion} from upstream")]
+    private partial void LogDownloadFailed(Exception exception, string packageId, NuGetVersion packageVersion);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Failed to mirror {PackageId}'s upstream metadata")]
+    private partial void LogMirrorMetadataFailed(Exception exception, string packageId);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Failed to mirror {PackageId}'s upstream versions")]
+    private partial void LogMirrorVersionsFailed(Exception exception, string packageId);
 }

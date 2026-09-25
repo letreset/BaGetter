@@ -13,7 +13,7 @@ namespace BaGetter.Protocol.Catalog;
 /// The cursor value is written to the file as a JSON object.
 /// </summary>
 /// <remarks>Based off: <see href="https://github.com/NuGet/NuGet.Services.Metadata/blob/3a468fe534a03dcced897eb5992209fdd3c4b6c9/src/NuGet.Protocol.Catalog/FileCursor.cs"/></remarks>
-public class FileCursor : ICursor
+public partial class FileCursor : ICursor
 {
     private readonly string _path;
     private readonly ILogger<FileCursor> _logger;
@@ -30,7 +30,7 @@ public class FileCursor : ICursor
         {
             using var file = File.OpenRead(_path);
             var data = await JsonSerializer.DeserializeAsync<Data>(file, options: null, cancellationToken);
-            _logger.LogDebug("Read cursor value {cursor:O} from {path}.", data.Value, _path);
+            LogCursorRead(data.Value, _path);
             return data.Value;
         }
         catch (Exception e) when (e is FileNotFoundException || e is JsonException)
@@ -44,7 +44,7 @@ public class FileCursor : ICursor
         var data = new Data { Value = value };
         var jsonString = JsonSerializer.Serialize(data);
         File.WriteAllText(_path, jsonString);
-        _logger.LogDebug("Wrote cursor value {cursor:O} to {path}.", data.Value, _path);
+        LogCursorWritten(data.Value, _path);
         return Task.CompletedTask;
     }
 
@@ -53,4 +53,10 @@ public class FileCursor : ICursor
         [JsonPropertyName("value")]
         public DateTimeOffset Value { get; set; }
     }
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Read cursor value {cursor:O} from {path}.")]
+    private partial void LogCursorRead(DateTimeOffset cursor, string path);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Wrote cursor value {cursor:O} to {path}.")]
+    private partial void LogCursorWritten(DateTimeOffset cursor, string path);
 }

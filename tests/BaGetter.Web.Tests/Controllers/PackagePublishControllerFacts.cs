@@ -280,8 +280,8 @@ public class PackagePublishControllerFacts
 
         protected void VerifyAudit(LogLevel level, string eventName, string packageId, string packageVersion, string actor)
         {
-            var expected = $"AUDIT {eventName} feed=default package_id={packageId ?? "(null)"} " +
-                $"package_version={packageVersion ?? "(null)"} actor={actor} ip=10.0.0.1";
+            var expected = $"AUDIT {eventName} feed=default package_id={packageId} " +
+                $"package_version={packageVersion} actor={actor} ip=10.0.0.1";
 
             Logger.Verify(
                 l => l.Log(

@@ -8,7 +8,7 @@ using Microsoft.Extensions.Options;
 
 namespace BaGetter.Core.Authentication;
 
-public class FeedAuthenticationService : IFeedAuthenticationService
+public partial class FeedAuthenticationService : IFeedAuthenticationService
 {
     private readonly IUserService _userService;
     private readonly ITokenService _tokenService;
@@ -40,8 +40,7 @@ public class FeedAuthenticationService : IFeedAuthenticationService
         var pat = await _tokenService.ValidateTokenAsync(token, cancellationToken);
         if (pat == null)
         {
-            _logger.LogWarning("Audit: {EventType} - Token authentication failed: invalid or expired token",
-                "LoginFailure");
+            LogTokenAuthenticationFailed("LoginFailure");
             return new AuthResult(false, null, null);
         }
 
@@ -66,8 +65,7 @@ public class FeedAuthenticationService : IFeedAuthenticationService
             {
                 if (!string.Equals(tokenResult.Username, username, StringComparison.OrdinalIgnoreCase))
                 {
-                    _logger.LogWarning("Audit: {EventType} - PAT username mismatch: supplied {SuppliedUsername}, token belongs to {TokenUsername}",
-                        "LoginFailure", username, tokenResult.Username);
+                    LogPatUsernameMismatch("LoginFailure", username, tokenResult.Username);
                     return new AuthResult(false, null, null);
                 }
 
@@ -81,8 +79,7 @@ public class FeedAuthenticationService : IFeedAuthenticationService
                 return localResult;
         }
 
-        _logger.LogWarning("Audit: {EventType} - Credential authentication failed for username {Username}",
-            "LoginFailure", username);
+        LogCredentialAuthenticationFailed("LoginFailure", username);
         return new AuthResult(false, null, null);
     }
 
@@ -97,15 +94,13 @@ public class FeedAuthenticationService : IFeedAuthenticationService
 
         if (!user.IsEnabled)
         {
-            _logger.LogWarning("Audit: {EventType} - Login attempt for disabled local account {Username} ({UserId})",
-                "LoginFailure", username, user.Id);
+            LogDisabledAccountLoginAttempt("LoginFailure", username, user.Id);
             return new AuthResult(false, null, null);
         }
 
         if (await _userService.IsLockedOutAsync(user))
         {
-            _logger.LogWarning("Audit: {EventType} - Login attempt for locked out local account {Username} ({UserId})",
-                "LoginFailure", username, user.Id);
+            LogLockedOutAccountLoginAttempt("LoginFailure", username, user.Id);
             return new AuthResult(false, null, null);
         }
 
@@ -113,16 +108,35 @@ public class FeedAuthenticationService : IFeedAuthenticationService
         if (!passwordValid)
         {
             await _userService.RecordFailedLoginAsync(user.Id, cancellationToken);
-            _logger.LogWarning("Audit: {EventType} - Failed login attempt for local account {Username} ({UserId})",
-                "LoginFailure", username, user.Id);
+            LogLocalLoginFailed("LoginFailure", username, user.Id);
             return new AuthResult(false, null, null);
         }
 
         await _userService.ResetFailedLoginCountAsync(user.Id, cancellationToken);
 
-        _logger.LogInformation("Audit: {EventType} - Local account {Username} ({UserId}) authenticated successfully",
-            "LoginSuccess", username, user.Id);
+        LogLocalLoginSucceeded("LoginSuccess", username, user.Id);
 
         return new AuthResult(true, user.Id, user.Username);
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Audit: {EventType} - Token authentication failed: invalid or expired token")]
+    private partial void LogTokenAuthenticationFailed(string eventType);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Audit: {EventType} - PAT username mismatch: supplied {SuppliedUsername}, token belongs to {TokenUsername}")]
+    private partial void LogPatUsernameMismatch(string eventType, string suppliedUsername, string tokenUsername);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Audit: {EventType} - Credential authentication failed for username {Username}")]
+    private partial void LogCredentialAuthenticationFailed(string eventType, string username);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Audit: {EventType} - Login attempt for disabled local account {Username} ({UserId})")]
+    private partial void LogDisabledAccountLoginAttempt(string eventType, string username, Guid userId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Audit: {EventType} - Login attempt for locked out local account {Username} ({UserId})")]
+    private partial void LogLockedOutAccountLoginAttempt(string eventType, string username, Guid userId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Audit: {EventType} - Failed login attempt for local account {Username} ({UserId})")]
+    private partial void LogLocalLoginFailed(string eventType, string username, Guid userId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Audit: {EventType} - Local account {Username} ({UserId}) authenticated successfully")]
+    private partial void LogLocalLoginSucceeded(string eventType, string username, Guid userId);
 }

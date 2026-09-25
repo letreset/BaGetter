@@ -19,7 +19,7 @@ namespace BaGetter.Azure.Table
     /// <summary>
     /// Stores the metadata of packages using Azure Table Storage.
     /// </summary>
-    public class TablePackageDatabase : IPackageDatabase
+    public partial class TablePackageDatabase : IPackageDatabase
     {
         private const int MaxPreconditionFailures = 5;
 
@@ -83,9 +83,7 @@ namespace BaGetter.Azure.Table
                     if(updateResponse.Status == (int?)HttpStatusCode.PreconditionFailed && attempt < MaxPreconditionFailures)
                     {
                         attempt++;
-                        _logger.LogWarning(
-                            "Retrying due to precondition failure, attempt {Attempt} of {MaxPreconditionFailures}",
-                            attempt, MaxPreconditionFailures);
+                        LogPreconditionRetry(null, attempt, MaxPreconditionFailures);
                         continue;
                     }
 
@@ -95,10 +93,7 @@ namespace BaGetter.Azure.Table
                     when (attempt < MaxPreconditionFailures && e.IsPreconditionFailedException())
                 {
                     attempt++;
-                    _logger.LogWarning(
-                        e,
-                        "Retrying due to precondition failure, attempt {Attempt} of {MaxPreconditionFailures}",
-                        attempt, MaxPreconditionFailures);
+                    LogPreconditionRetry(e, attempt, MaxPreconditionFailures);
                 }
             }
         }
@@ -225,5 +220,8 @@ namespace BaGetter.Azure.Table
         }
 
         private static List<string> MinimalColumnSet => ["PartitionKey"];
+
+        [LoggerMessage(Level = LogLevel.Warning, Message = "Retrying due to precondition failure, attempt {Attempt} of {MaxPreconditionFailures}")]
+        private partial void LogPreconditionRetry(Exception exception, int attempt, int maxPreconditionFailures);
     }
 }

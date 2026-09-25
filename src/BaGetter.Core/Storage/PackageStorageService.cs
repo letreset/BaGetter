@@ -8,7 +8,7 @@ using NuGet.Versioning;
 
 namespace BaGetter.Core.Storage;
 
-public class PackageStorageService : IPackageStorageService
+public partial class PackageStorageService : IPackageStorageService
 {
     private const string PackagesPathPrefix = "packages";
 
@@ -50,42 +50,26 @@ public class PackageStorageService : IPackageStorageService
         var readmePath = ReadmePath(feedSlug, lowercasedId, lowercasedNormalizedVersion);
         var iconPath = IconPath(feedSlug, lowercasedId, lowercasedNormalizedVersion);
 
-        _logger.LogInformation(
-            "Storing package {PackageId} {PackageVersion} at {Path}...",
-            lowercasedId,
-            lowercasedNormalizedVersion,
-            packagePath);
+        LogStoringPackage(lowercasedId, lowercasedNormalizedVersion, packagePath);
 
         // Store the package.
         var result = await _storage.PutAsync(packagePath, packageStream, PackageContentType, cancellationToken);
         if (result == StoragePutResult.Conflict)
         {
             // TODO: This should be returned gracefully with an enum.
-            _logger.LogInformation(
-                "Could not store package {PackageId} {PackageVersion} at {Path} due to conflict",
-                lowercasedId,
-                lowercasedNormalizedVersion,
-                packagePath);
+            LogPackageConflict(lowercasedId, lowercasedNormalizedVersion, packagePath);
 
             throw new InvalidOperationException($"Failed to store package {lowercasedId} {lowercasedNormalizedVersion} due to conflict");
         }
 
         // Store the package's nuspec.
-        _logger.LogInformation(
-            "Storing package {PackageId} {PackageVersion} nuspec at {Path}...",
-            lowercasedId,
-            lowercasedNormalizedVersion,
-            nuspecPath);
+        LogStoringNuspec(lowercasedId, lowercasedNormalizedVersion, nuspecPath);
 
         result = await _storage.PutAsync(nuspecPath, nuspecStream, NuspecContentType, cancellationToken);
         if (result == StoragePutResult.Conflict)
         {
             // TODO: This should be returned gracefully with an enum.
-            _logger.LogInformation(
-                "Could not store package {PackageId} {PackageVersion} nuspec at {Path} due to conflict",
-                lowercasedId,
-                lowercasedNormalizedVersion,
-                nuspecPath);
+            LogNuspecConflict(lowercasedId, lowercasedNormalizedVersion, nuspecPath);
 
             throw new InvalidOperationException($"Failed to store package {lowercasedId} {lowercasedNormalizedVersion} nuspec due to conflict");
         }
@@ -93,21 +77,13 @@ public class PackageStorageService : IPackageStorageService
         // Store the package's readme, if one exists.
         if (readmeStream != null)
         {
-            _logger.LogInformation(
-                "Storing package {PackageId} {PackageVersion} readme at {Path}...",
-                lowercasedId,
-                lowercasedNormalizedVersion,
-                readmePath);
+            LogStoringReadme(lowercasedId, lowercasedNormalizedVersion, readmePath);
 
             result = await _storage.PutAsync(readmePath, readmeStream, ReadmeContentType, cancellationToken);
             if (result == StoragePutResult.Conflict)
             {
                 // TODO: This should be returned gracefully with an enum.
-                _logger.LogInformation(
-                    "Could not store package {PackageId} {PackageVersion} readme at {Path} due to conflict",
-                    lowercasedId,
-                    lowercasedNormalizedVersion,
-                    readmePath);
+                LogReadmeConflict(lowercasedId, lowercasedNormalizedVersion, readmePath);
 
                 throw new InvalidOperationException($"Failed to store package {lowercasedId} {lowercasedNormalizedVersion} readme due to conflict");
             }
@@ -116,30 +92,19 @@ public class PackageStorageService : IPackageStorageService
         // Store the package's icon, if one exists.
         if (iconStream != null)
         {
-            _logger.LogInformation(
-                "Storing package {PackageId} {PackageVersion} icon at {Path}...",
-                lowercasedId,
-                lowercasedNormalizedVersion,
-                iconPath);
+            LogStoringIcon(lowercasedId, lowercasedNormalizedVersion, iconPath);
 
             result = await _storage.PutAsync(iconPath, iconStream, IconContentType, cancellationToken);
             if (result == StoragePutResult.Conflict)
             {
                 // TODO: This should be returned gracefully with an enum.
-                _logger.LogInformation(
-                    "Could not store package {PackageId} {PackageVersion} icon at {Path} due to conflict",
-                    lowercasedId,
-                    lowercasedNormalizedVersion,
-                    iconPath);
+                LogIconConflict(lowercasedId, lowercasedNormalizedVersion, iconPath);
 
                 throw new InvalidOperationException($"Failed to store package {lowercasedId} {lowercasedNormalizedVersion} icon");
             }
         }
 
-        _logger.LogInformation(
-            "Finished storing package {PackageId} {PackageVersion}",
-            lowercasedId,
-            lowercasedNormalizedVersion);
+        LogPackageStored(lowercasedId, lowercasedNormalizedVersion);
     }
 
     public async Task<Stream> GetPackageStreamAsync(string feedSlug, string id, NuGetVersion version, CancellationToken cancellationToken)
@@ -208,19 +173,13 @@ public class PackageStorageService : IPackageStorageService
                 // on filesystems that are case sensitive. Handle this case to help
                 // users migrate to the latest version of BaGetter.
                 // See https://github.com/loic-sharma/BaGet/issues/298
-                _logger.LogError(
-                    $"Unable to find the '{PackagesPathPrefix}' folder. " +
-                    "If you've recently upgraded BaGet, please make sure this folder starts with a lowercased letter. " +
-                    "For more information, please see https://github.com/loic-sharma/BaGet/issues/298");
+                LogPackagesFolderNotFound();
                 throw;
             }
         }
         catch (DirectoryNotFoundException)
         {
-            _logger.LogError(
-                $"Unable to find the '{PackagesPathPrefix}' folder. " +
-                "If you've recently upgraded BaGet, please make sure this folder starts with a lowercased letter. " +
-                "For more information, please see https://github.com/loic-sharma/BaGet/issues/298");
+            LogPackagesFolderNotFound();
             throw;
         }
     }
@@ -252,4 +211,34 @@ public class PackageStorageService : IPackageStorageService
             ? Path.Combine(PackagesPathPrefix, feedSlug, lowercasedId, lowercasedNormalizedVersion, "icon")
             : Path.Combine(PackagesPathPrefix, lowercasedId, lowercasedNormalizedVersion, "icon");
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Storing package {PackageId} {PackageVersion} at {Path}...")]
+    private partial void LogStoringPackage(string packageId, string packageVersion, string path);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Could not store package {PackageId} {PackageVersion} at {Path} due to conflict")]
+    private partial void LogPackageConflict(string packageId, string packageVersion, string path);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Storing package {PackageId} {PackageVersion} nuspec at {Path}...")]
+    private partial void LogStoringNuspec(string packageId, string packageVersion, string path);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Could not store package {PackageId} {PackageVersion} nuspec at {Path} due to conflict")]
+    private partial void LogNuspecConflict(string packageId, string packageVersion, string path);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Storing package {PackageId} {PackageVersion} readme at {Path}...")]
+    private partial void LogStoringReadme(string packageId, string packageVersion, string path);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Could not store package {PackageId} {PackageVersion} readme at {Path} due to conflict")]
+    private partial void LogReadmeConflict(string packageId, string packageVersion, string path);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Storing package {PackageId} {PackageVersion} icon at {Path}...")]
+    private partial void LogStoringIcon(string packageId, string packageVersion, string path);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Could not store package {PackageId} {PackageVersion} icon at {Path} due to conflict")]
+    private partial void LogIconConflict(string packageId, string packageVersion, string path);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Finished storing package {PackageId} {PackageVersion}")]
+    private partial void LogPackageStored(string packageId, string packageVersion);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Unable to find the 'packages' folder. If you've recently upgraded BaGet, please make sure this folder starts with a lowercased letter. For more information, please see https://github.com/loic-sharma/BaGet/issues/298")]
+    private partial void LogPackagesFolderNotFound();
 }

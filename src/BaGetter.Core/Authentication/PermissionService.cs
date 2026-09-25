@@ -9,7 +9,7 @@ using Microsoft.Extensions.Logging;
 
 namespace BaGetter.Core.Authentication;
 
-public class PermissionService : IPermissionService
+public partial class PermissionService : IPermissionService
 {
     private readonly IContext _context;
     private readonly IUserService _userService;
@@ -94,9 +94,7 @@ public class PermissionService : IPermissionService
         }
 
         await _context.SaveChangesAsync(cancellationToken);
-        _logger.LogInformation(
-            "Audit: {EventType} - Granted permission on feed {FeedId} to {PrincipalType} {PrincipalId}: Push={CanPush}, Pull={CanPull}, Delete={CanDelete}, Source={Source}",
-            "PermissionGranted", feedId, principalType, principalId, canPush, canPull, canDelete, source);
+        LogPermissionGranted("PermissionGranted", feedId, principalType, principalId, canPush, canPull, canDelete, source);
     }
 
     public async Task RevokePermissionsBySourceAsync(
@@ -118,9 +116,7 @@ public class PermissionService : IPermissionService
         _context.FeedPermissions.RemoveRange(permissions);
         await _context.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation(
-            "Audit: {EventType} - Revoked {Count} {Source} permissions on feed {FeedId} for {PrincipalType} {PrincipalId}",
-            "PermissionRevoked", permissions.Count, source, feedId, principalType, principalId);
+        LogPermissionsRevokedBySource("PermissionRevoked", permissions.Count, source, feedId, principalType, principalId);
     }
 
     public async Task RevokePermissionAsync(Guid permissionId, CancellationToken cancellationToken)
@@ -133,8 +129,7 @@ public class PermissionService : IPermissionService
         _context.FeedPermissions.Remove(permission);
         await _context.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation("Audit: {EventType} - Revoked permission {PermissionId}",
-            "PermissionRevoked", permissionId);
+        LogPermissionRevoked("PermissionRevoked", permissionId);
     }
 
     private async Task<bool> HasPermissionAsync(
@@ -169,4 +164,13 @@ public class PermissionService : IPermissionService
 
         return hasGroupPermission;
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Audit: {EventType} - Granted permission on feed {FeedId} to {PrincipalType} {PrincipalId}: Push={CanPush}, Pull={CanPull}, Delete={CanDelete}, Source={Source}")]
+    private partial void LogPermissionGranted(string eventType, Guid feedId, PrincipalType principalType, Guid principalId, bool canPush, bool canPull, bool canDelete, PermissionSource source);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Audit: {EventType} - Revoked {Count} {Source} permissions on feed {FeedId} for {PrincipalType} {PrincipalId}")]
+    private partial void LogPermissionsRevokedBySource(string eventType, int count, PermissionSource source, Guid feedId, PrincipalType principalType, Guid principalId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Audit: {EventType} - Revoked permission {PermissionId}")]
+    private partial void LogPermissionRevoked(string eventType, Guid permissionId);
 }

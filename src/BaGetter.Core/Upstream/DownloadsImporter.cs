@@ -9,7 +9,7 @@ using Microsoft.Extensions.Logging;
 
 namespace BaGetter.Core.Upstream;
 
-public class DownloadsImporter
+public partial class DownloadsImporter
 {
     private const int BatchSize = 200;
 
@@ -39,7 +39,7 @@ public class DownloadsImporter
 
         for (var batch = 0; batch < batches; batch++)
         {
-            _logger.LogInformation("Importing batch {Batch}...", batch);
+            LogImportingBatch(batch);
 
             foreach (var package in await GetBatchAsync(batch, cancellationToken))
             {
@@ -57,7 +57,7 @@ public class DownloadsImporter
 
             await _context.SaveChangesAsync(cancellationToken);
 
-            _logger.LogInformation("Imported batch {Batch}", batch);
+            LogImportedBatch(batch);
         }
     }
 
@@ -67,4 +67,10 @@ public class DownloadsImporter
             .Skip(batch * BatchSize)
             .Take(BatchSize)
             .ToListAsync(cancellationToken);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Importing batch {Batch}...")]
+    private partial void LogImportingBatch(int batch);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Imported batch {Batch}")]
+    private partial void LogImportedBatch(int batch);
 }

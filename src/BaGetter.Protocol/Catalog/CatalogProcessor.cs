@@ -14,7 +14,7 @@ namespace BaGetter.Protocol.Catalog;
 /// See: <see href="https://docs.microsoft.com/en-us/nuget/api/catalog-resource"/><br/>
 /// Based off: <see href="https://github.com/NuGet/NuGet.Services.Metadata/blob/3a468fe534a03dcced897eb5992209fdd3c4b6c9/src/NuGet.Protocol.Catalog/CatalogProcessor.cs"/>
 /// </remarks>
-public class CatalogProcessor
+public partial class CatalogProcessor
 {
     private readonly ICatalogLeafProcessor _leafProcessor;
     private readonly ICatalogClient _client;
@@ -56,10 +56,7 @@ public class CatalogProcessor
     public async Task<bool> ProcessAsync(CancellationToken cancellationToken = default)
     {
         var minCommitTimestamp = await GetMinCommitTimestamp(cancellationToken);
-        _logger.LogInformation(
-            "Using time bounds {min:O} (exclusive) to {max:O} (inclusive).",
-            minCommitTimestamp,
-            _options.MaxCommitTimestamp);
+        LogTimeBounds(minCommitTimestamp, _options.MaxCommitTimestamp);
 
         return await ProcessIndexAsync(minCommitTimestamp, cancellationToken);
     }
@@ -71,10 +68,7 @@ public class CatalogProcessor
         var pageItems = index.GetPagesInBounds(
             minCommitTimestamp,
             _options.MaxCommitTimestamp);
-        _logger.LogInformation(
-            "{pages} pages were in the time bounds, out of {totalPages}.",
-            pageItems.Count,
-            index.Items.Count);
+        LogPagesInBounds(pageItems.Count, index.Items.Count);
 
         var success = true;
         for (var i = 0; i < pageItems.Count; i++)
@@ -82,10 +76,7 @@ public class CatalogProcessor
             success = await ProcessPageAsync(minCommitTimestamp, pageItems[i], cancellationToken);
             if (!success)
             {
-                _logger.LogWarning(
-                    "{unprocessedPages} out of {pages} pages were left incomplete due to a processing failure.",
-                    pageItems.Count - i,
-                    pageItems.Count);
+                LogPagesIncomplete(pageItems.Count - i, pageItems.Count);
                 break;
             }
         }
@@ -104,11 +95,7 @@ public class CatalogProcessor
             minCommitTimestamp,
             _options.MaxCommitTimestamp,
             _options.ExcludeRedundantLeaves);
-        _logger.LogInformation(
-            "On page {page}, {leaves} out of {totalLeaves} were in the time bounds.",
-            pageItem.CatalogPageUrl,
-            leafItems.Count,
-            page.Items.Count);
+        LogLeavesInBounds(pageItem.CatalogPageUrl, leafItems.Count, page.Items.Count);
 
         DateTimeOffset? newCursor = null;
         var success = true;
@@ -126,10 +113,7 @@ public class CatalogProcessor
             success = await ProcessLeafAsync(leafItem, cancellationToken);
             if (!success)
             {
-                _logger.LogWarning(
-                    "{unprocessedLeaves} out of {leaves} leaves were left incomplete due to a processing failure.",
-                    leafItems.Count - i,
-                    leafItems.Count);
+                LogLeavesIncomplete(leafItems.Count - i, leafItems.Count);
                 break;
             }
         }
@@ -164,22 +148,13 @@ public class CatalogProcessor
         }
         catch (Exception exception)
         {
-            _logger.LogError(
-                0,
-                exception,
-                "An exception was thrown while processing leaf {leafUrl}.",
-                leafItem.CatalogLeafUrl);
+            LogLeafException(exception, leafItem.CatalogLeafUrl);
             success = false;
         }
 
         if (!success)
         {
-            _logger.LogWarning(
-                "Failed to process leaf {leafUrl} ({packageId} {packageVersion}, {leafType}).",
-                leafItem.CatalogLeafUrl,
-                leafItem.PackageId,
-                leafItem.PackageVersion,
-                leafItem.Type);
+            LogLeafFailed(leafItem.CatalogLeafUrl, leafItem.PackageId, leafItem.PackageVersion, leafItem.Type);
         }
 
         return success;
@@ -199,4 +174,25 @@ public class CatalogProcessor
 
         return minCommitTimestamp.Value;
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Using time bounds {min:O} (exclusive) to {max:O} (inclusive).")]
+    private partial void LogTimeBounds(DateTimeOffset min, DateTimeOffset max);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "{pages} pages were in the time bounds, out of {totalPages}.")]
+    private partial void LogPagesInBounds(int pages, int totalPages);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "{unprocessedPages} out of {pages} pages were left incomplete due to a processing failure.")]
+    private partial void LogPagesIncomplete(int unprocessedPages, int pages);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "On page {page}, {leaves} out of {totalLeaves} were in the time bounds.")]
+    private partial void LogLeavesInBounds(string page, int leaves, int totalLeaves);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "{unprocessedLeaves} out of {leaves} leaves were left incomplete due to a processing failure.")]
+    private partial void LogLeavesIncomplete(int unprocessedLeaves, int leaves);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "An exception was thrown while processing leaf {leafUrl}.")]
+    private partial void LogLeafException(Exception exception, string leafUrl);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Failed to process leaf {leafUrl} ({packageId} {packageVersion}, {leafType}).")]
+    private partial void LogLeafFailed(string leafUrl, string packageId, string packageVersion, string leafType);
 }

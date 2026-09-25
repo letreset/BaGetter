@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -10,7 +11,7 @@ namespace BaGetter.Core.Email;
 /// configured (<c>Email:Type</c> is unset or <c>Null</c>) so that callers can
 /// always resolve an <see cref="IEmailSender"/>.
 /// </summary>
-public class NullEmailSender : IEmailSender
+public partial class NullEmailSender : IEmailSender
 {
     private readonly ILogger<NullEmailSender> _logger;
 
@@ -23,11 +24,11 @@ public class NullEmailSender : IEmailSender
     {
         ArgumentNullException.ThrowIfNull(message);
 
-        _logger.LogDebug(
-            "Email sending is disabled; dropping message to {Recipients} with subject {Subject}.",
-            string.Join(", ", message.To),
-            message.Subject);
+        LogMessageDropped(message.To, message.Subject);
 
         return Task.CompletedTask;
     }
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Email sending is disabled; dropping message to {Recipients} with subject {Subject}.")]
+    private partial void LogMessageDropped(IReadOnlyList<string> recipients, string subject);
 }

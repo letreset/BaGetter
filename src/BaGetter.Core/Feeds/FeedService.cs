@@ -8,10 +8,11 @@ using BaGetter.Core.Entities;
 using BaGetter.Core.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using NuGet.Versioning;
 
 namespace BaGetter.Core.Feeds;
 
-public class FeedService : IFeedService
+public partial class FeedService : IFeedService
 {
     private static readonly Regex _slugRegex = new(
         @"^[a-z0-9](?:[a-z0-9-]{0,126}[a-z0-9])?$",
@@ -137,10 +138,7 @@ public class FeedService : IFeedService
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(
-                    ex,
-                    "Failed to delete stored content for package {PackageId} {PackageVersion} while deleting feed {FeedSlug}",
-                    package.Id, package.Version, feed.Slug);
+                LogPackageContentDeleteFailed(ex, package.Id, package.Version, feed.Slug);
             }
         }
 
@@ -190,4 +188,7 @@ public class FeedService : IFeedService
 
         await _context.SaveChangesAsync(cancellationToken);
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Failed to delete stored content for package {PackageId} {PackageVersion} while deleting feed {FeedSlug}")]
+    private partial void LogPackageContentDeleteFailed(Exception exception, string packageId, NuGetVersion packageVersion, string feedSlug);
 }
