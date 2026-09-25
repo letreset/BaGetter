@@ -1,24 +1,25 @@
 # NuGet.Server
 
-:::warning
+[NuGet.Server](https://github.com/NuGet/NuGet.Server) is a lightweight, standalone NuGet server for Windows and IIS. We strongly recommend moving to BaGetter if you use NuGet.Server. Feel free to open a [GitHub issue](https://github.com/letreset/BaGetter/issues) if you need help migrating.
 
-This page is a work in progress!
+## BaGetter vs NuGet.Server
 
-:::
+| | BaGetter | NuGet.Server |
+|---|---|---|
+| Runtime | .NET 10, cross-platform | .NET Framework (ASP.NET), Windows only |
+| Hosting | Docker (`amd64`, `arm64`), Kubernetes (Helm), IIS, any ASP.NET Core 10 host | IIS |
+| NuGet protocol | v3 | v2 only (OData) |
+| Metadata storage | A database: SQLite, SQL Server, PostgreSQL or MySQL | Package files on disk, with an in-memory cache |
+| Package storage | File system, Azure Blob, AWS S3, Google Cloud Storage, Aliyun OSS, Tencent COS | Local file system |
+| Scaling | Several replicas can share a database and cloud storage | A single server, slows down as the package count grows |
+| Separate package sources | [Feeds](../feeds.md), each with its own settings and permissions | One feed per site |
+| Proxy of nuget.org | Per-feed [mirrors](../feeds.md#mirror-read-through-cache) | No |
+| Authentication | Local accounts, Microsoft Entra ID, groups, per-feed permissions, personal access tokens | A single API key for pushes, plus whatever IIS provides |
+| Retention | Per-feed version-based [auto-deletion](../configuration.md#package-auto-deletion) | No |
+| Symbol server | Built in (`.snupkg`) | No |
+| Web UI | Package browser and admin UI | No |
+| Maintenance | Actively maintained | Rarely updated |
 
-[NuGet.Server](https://github.com/NuGet/NuGet.Server) is a lightweight standalone NuGet server. It is strongly recommended that you upgrade to BaGetter if you use NuGet.Server. Feel free to open [GitHub issues](https://github.com/letreset/BaGetter/issues) if you need help migrating.
-
-- NuGet.Server
-  - Only runs on Windows
-  - Supports NuGet v2 APIs (missing verified packages, signed packages, etc...)
-  - Doesn't support NuGet's v3 APIs
-  - Does not scale well
-  - Not well documented
-  - Not well maintained
-- BaGetter
-  - Cross-platform
-  - Supports NuGet v3 APIs
-
-## Migration Guide
+## Migration guide
 
 You can use the [NuGet.Server migration](../Import/nugetserver.md) guide to import your NuGet.Server packages into BaGetter.
