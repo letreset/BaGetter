@@ -39,6 +39,7 @@ public class BaGetterServiceIndex : IServiceIndexService
         resources.AddRange(BuildResource("RegistrationsBaseUrl", _url.GetPackageMetadataResourceUrl(), "", "3.0.0-rc", "3.0.0-beta", "3.4.0", "3.6.0"));
         resources.AddRange(BuildResource("PackageBaseAddress", _url.GetPackageContentResourceUrl(), "3.0.0"));
         resources.AddRange(BuildResource("SearchAutocompleteService", _url.GetAutocompleteResourceUrl(), "", "3.0.0-rc", "3.0.0-beta", "3.5.0"));
+        resources.AddRange(BuildResource("ReadmeUriTemplate", _url.GetReadmeUriTemplate(), "6.13.0"));
 
         var result = new ServiceIndexResponse
         {

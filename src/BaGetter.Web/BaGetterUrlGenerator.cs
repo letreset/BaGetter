@@ -68,6 +68,11 @@ public class BaGetterUrlGenerator : IUrlGenerator
             values: null);
     }
 
+    public string GetReadmeUriTemplate()
+    {
+        return AbsoluteUrl("v3/package/{lower_id}/{lower_version}/readme");
+    }
+
     public string GetRegistrationIndexUrl(string id)
     {
         return _linkGenerator.GetUriByRouteValues(
