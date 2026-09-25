@@ -483,6 +483,7 @@ public class PackageServiceTests
                 upstreamFactory.Object,
                 feedService.Object,
                 Indexer.Object,
+                new PackageMirrorLock(),
                 Mock.Of<ILogger<PackageService>>());
         }
     }

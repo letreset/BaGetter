@@ -80,6 +80,7 @@ public class PerFeedMirrorTests
             _upstreamFactory.Object,
             feedService.Object,
             _indexer.Object,
+            new PackageMirrorLock(),
             Mock.Of<ILogger<PackageService>>());
     }
 

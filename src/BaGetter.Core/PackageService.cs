@@ -14,21 +14,11 @@ namespace BaGetter.Core;
 
 public class PackageService : IPackageService
 {
-    /// <summary>
-    /// Serializes mirroring of a single <c>(feed, id, version)</c> so that concurrent requests for the
-    /// same not-yet-cached package don't all download, store and index it in parallel. Locks are striped
-    /// across a fixed set of semaphores (bounded memory, no cleanup) and are static because the service
-    /// is registered as transient.
-    /// </summary>
-    private const int MirrorLockStripes = 64;
-
-    private static readonly SemaphoreSlim[] MirrorLocks =
-        Enumerable.Range(0, MirrorLockStripes).Select(_ => new SemaphoreSlim(1, 1)).ToArray();
-
     private readonly IPackageDatabase _db;
     private readonly IUpstreamClientFactory _upstreamFactory;
     private readonly IFeedService _feedService;
     private readonly IPackageIndexingService _indexer;
+    private readonly PackageMirrorLock _mirrorLock;
     private readonly ILogger<PackageService> _logger;
 
     public PackageService(
@@ -36,12 +26,14 @@ public class PackageService : IPackageService
         IUpstreamClientFactory upstreamFactory,
         IFeedService feedService,
         IPackageIndexingService indexer,
+        PackageMirrorLock mirrorLock,
         ILogger<PackageService> logger)
     {
         _db = db ?? throw new ArgumentNullException(nameof(db));
         _upstreamFactory = upstreamFactory ?? throw new ArgumentNullException(nameof(upstreamFactory));
         _feedService = feedService ?? throw new ArgumentNullException(nameof(feedService));
         _indexer = indexer ?? throw new ArgumentNullException(nameof(indexer));
+        _mirrorLock = mirrorLock ?? throw new ArgumentNullException(nameof(mirrorLock));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -127,81 +119,66 @@ public class PackageService : IPackageService
             return true;
         }
 
-        var mirrorLock = GetMirrorLock(feedId, id, version);
-        await mirrorLock.WaitAsync(cancellationToken);
+        using var mirrorLock = await _mirrorLock.AcquireAsync(feedId, id, version, cancellationToken);
+
+        // A concurrent request may have mirrored the package while we waited for the lock.
+        if (await _db.ExistsAsync(feedId, id, version, cancellationToken))
+        {
+            return true;
+        }
+
+        var feed = await _feedService.GetFeedByIdAsync(feedId, cancellationToken);
+        var upstream = _upstreamFactory.CreateForFeed(feed);
+
+        _logger.LogInformation(
+            "Package {PackageId} {PackageVersion} does not exist locally. Checking upstream feed ({cacheFeedUrl})...",
+            id,
+            version,
+            upstream.GetServiceIndexUrl());
 
         try
         {
-            // A concurrent request may have mirrored the package while we waited for the lock.
-            if (await _db.ExistsAsync(feedId, id, version, cancellationToken))
+            using var packageStream = await upstream.DownloadPackageOrNullAsync(id, version, cancellationToken);
+            if (packageStream == null)
             {
-                return true;
-            }
-
-            var feed = await _feedService.GetFeedByIdAsync(feedId, cancellationToken);
-            var upstream = _upstreamFactory.CreateForFeed(feed);
-
-            _logger.LogInformation(
-                "Package {PackageId} {PackageVersion} does not exist locally. Checking upstream feed ({cacheFeedUrl})...",
-                id,
-                version,
-                upstream.GetServiceIndexUrl());
-
-            try
-            {
-                using var packageStream = await upstream.DownloadPackageOrNullAsync(id, version, cancellationToken);
-                if (packageStream == null)
-                {
-                    _logger.LogWarning(
-                        "Upstream feed does not have package {PackageId} {PackageVersion}",
-                        id,
-                        version);
-                    return false;
-                }
-
-                // Read after the download: with several upstreams, this is the one that served the package.
-                var cacheFeedUrl = upstream.GetServiceIndexUrl();
-
-                _logger.LogInformation(
-                    "Downloaded package {PackageId} {PackageVersion} from {cacheFeedUrl}, indexing...",
-                    id,
-                    version,
-                    cacheFeedUrl);
-
-                var result = await _indexer.IndexAsync(feedId, feedSlug, packageStream, cacheFeedUrl, cancellationToken);
-
-                _logger.LogInformation(
-                    "Finished indexing package {PackageId} {PackageVersion} from upstream feed with result {Result}",
-                    id,
-                    version,
-                    result);
-
-                // PackageAlreadyExists means the package is present locally (indexed by another
-                // instance or pushed meanwhile), so it is available rather than a failure.
-                return result == PackageIndexingResult.Success
-                    || result == PackageIndexingResult.PackageAlreadyExists;
-            }
-            catch (Exception e)
-            {
-                _logger.LogError(
-                    e,
-                    "Failed to index package {PackageId} {PackageVersion} from upstream",
+                _logger.LogWarning(
+                    "Upstream feed does not have package {PackageId} {PackageVersion}",
                     id,
                     version);
-
                 return false;
             }
-        }
-        finally
-        {
-            mirrorLock.Release();
-        }
-    }
 
-    private static SemaphoreSlim GetMirrorLock(Guid feedId, string id, NuGetVersion version)
-    {
-        var key = $"{feedId}/{id.ToLowerInvariant()}/{version.ToNormalizedString().ToLowerInvariant()}";
-        var index = (int)((uint)StringComparer.Ordinal.GetHashCode(key) % (uint)MirrorLocks.Length);
-        return MirrorLocks[index];
+            // Read after the download: with several upstreams, this is the one that served the package.
+            var cacheFeedUrl = upstream.GetServiceIndexUrl();
+
+            _logger.LogInformation(
+                "Downloaded package {PackageId} {PackageVersion} from {cacheFeedUrl}, indexing...",
+                id,
+                version,
+                cacheFeedUrl);
+
+            var result = await _indexer.IndexAsync(feedId, feedSlug, packageStream, cacheFeedUrl, cancellationToken);
+
+            _logger.LogInformation(
+                "Finished indexing package {PackageId} {PackageVersion} from upstream feed with result {Result}",
+                id,
+                version,
+                result);
+
+            // PackageAlreadyExists means the package is present locally (indexed by another
+            // instance or pushed meanwhile), so it is available rather than a failure.
+            return result == PackageIndexingResult.Success
+                || result == PackageIndexingResult.PackageAlreadyExists;
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(
+                e,
+                "Failed to index package {PackageId} {PackageVersion} from upstream",
+                id,
+                version);
+
+            return false;
+        }
     }
 }
