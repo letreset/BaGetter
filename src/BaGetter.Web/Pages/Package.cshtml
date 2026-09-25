@@ -12,6 +12,7 @@
         : Model.Package.Id;
     var requiresAuth = AuthOptions.Value.Mode != AuthenticationMode.Config;
     var isAuthenticated = User.Identity?.IsAuthenticated == true;
+    var fallbackIconUrl = Url.Content("~/_content/BaGetter.Web/images/default-package-icon-256x256.png");
 }
 
 @if (requiresAuth && !isAuthenticated)
@@ -37,9 +38,9 @@ else
 {
     <div class="row display-package">
         <aside class="col-sm-1 package-icon">
-            <img src="@(Model.IconUrl ?? Url.Content("~/_content/BaGetter.Web/images/default-package-icon-256x256.png"))"
+            <img src="@(string.IsNullOrEmpty(Model.IconUrl) ? fallbackIconUrl : Model.IconUrl)"
                  class="img-responsive"
-                 onerror="this.src='@Url.Content("~/_content/BaGetter.Web/images/default-package-icon-256x256.png")'"
+                 onerror="this.src='@fallbackIconUrl'"
                  alt="The package icon" />
         </aside>
 
