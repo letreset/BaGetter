@@ -123,6 +123,59 @@ public class FeedSettingsMirrorTests : IDisposable
         Assert.Equal("https://api.nuget.org/v3/index.json", (await GetMirrorsAsync())[0].PackageSource);
     }
 
+    [Fact]
+    public async Task PostSavesUpstreamListingCacheOverride()
+    {
+        using var client = await SignInAsAdminAsync();
+
+        var form = await BaseFormAsync(client);
+        form.RemoveAll(f => f.Key == "UseGlobalListingCache");
+        form.Add(new("UpstreamListingCacheSeconds", "60"));
+
+        using var response = await client.PostAsync(SettingsUrl, new FormUrlEncodedContent(form));
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Contains("Settings saved.", body);
+        Assert.Equal(60, (await GetDefaultFeedAsync()).UpstreamListingCacheSeconds);
+    }
+
+    [Fact]
+    public async Task PostWithGlobalUpstreamListingCacheClearsOverride()
+    {
+        using var client = await SignInAsAdminAsync();
+
+        var form = await BaseFormAsync(client);
+        form.Add(new("UpstreamListingCacheSeconds", "60"));
+
+        using var response = await client.PostAsync(SettingsUrl, new FormUrlEncodedContent(form));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Null((await GetDefaultFeedAsync()).UpstreamListingCacheSeconds);
+    }
+
+    [Fact]
+    public async Task PostWithNegativeUpstreamListingCacheIsRejected()
+    {
+        using var client = await SignInAsAdminAsync();
+
+        var form = await BaseFormAsync(client);
+        form.RemoveAll(f => f.Key == "UseGlobalListingCache");
+        form.Add(new("UpstreamListingCacheSeconds", "-1"));
+
+        using var response = await client.PostAsync(SettingsUrl, new FormUrlEncodedContent(form));
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Contains("The upstream listing cache duration must be 0 or more seconds.", body);
+        Assert.Null((await GetDefaultFeedAsync()).UpstreamListingCacheSeconds);
+    }
+
+    private async Task<Feed> GetDefaultFeedAsync()
+    {
+        using var scope = _app.Services.CreateScope();
+        var feedService = scope.ServiceProvider.GetRequiredService<IFeedService>();
+        return await feedService.GetDefaultFeedAsync(CancellationToken.None);
+    }
+
     private async Task<(int nugetOrgId, int vendorId)> SeedMirrorsAsync()
     {
         using var scope = _app.Services.CreateScope();
@@ -198,6 +251,7 @@ public class FeedSettingsMirrorTests : IDisposable
             new("UseGlobalRetentionMinor", "true"),
             new("UseGlobalRetentionPatch", "true"),
             new("UseGlobalRetentionPrerelease", "true"),
+            new("UseGlobalListingCache", "true"),
         ];
     }
 

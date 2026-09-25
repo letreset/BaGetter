@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using BaGetter.Core.Configuration;
 using BaGetter.Core.Entities;
@@ -11,6 +12,11 @@ public interface IFeedSettingsResolver
     bool GetIsReadOnlyMode(Feed feed);
     uint GetMaxPackageSizeGiB(Feed feed);
     RetentionOptions GetRetentionOptions(Feed feed);
+
+    /// <summary>
+    /// How long upstream package listings are cached for the feed. Zero when the cache is off.
+    /// </summary>
+    TimeSpan GetUpstreamListingCacheDuration(Feed feed);
 
     /// <summary>
     /// The feed's enabled mirrors, in priority order. Empty when the feed does not mirror.

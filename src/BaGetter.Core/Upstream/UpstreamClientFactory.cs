@@ -19,6 +19,7 @@ public partial class UpstreamClientFactory : IUpstreamClientFactory
 {
     private readonly IFeedSettingsResolver _feedSettings;
     private readonly DisabledUpstreamClient _disabled;
+    private readonly UpstreamListingCache _listingCache;
     private readonly ILoggerFactory _loggerFactory;
     // Allows tests to route upstream requests to an in-memory server. This is deliberately a handler
     // rather than an HttpClient: the app registers a shared HttpClient singleton, and injecting that
@@ -28,11 +29,13 @@ public partial class UpstreamClientFactory : IUpstreamClientFactory
     public UpstreamClientFactory(
         IFeedSettingsResolver feedSettings,
         DisabledUpstreamClient disabled,
+        UpstreamListingCache listingCache,
         ILoggerFactory loggerFactory,
         HttpMessageHandler handlerOverride = null)
     {
         _feedSettings = feedSettings ?? throw new ArgumentNullException(nameof(feedSettings));
         _disabled = disabled ?? throw new ArgumentNullException(nameof(disabled));
+        _listingCache = listingCache ?? throw new ArgumentNullException(nameof(listingCache));
         _loggerFactory = loggerFactory ?? throw new ArgumentNullException(nameof(loggerFactory));
         _handlerOverride = handlerOverride;
     }
@@ -44,11 +47,23 @@ public partial class UpstreamClientFactory : IUpstreamClientFactory
         if (mirrors.Count == 0)
             return _disabled;
 
+        var upstream = CreateForMirrors(mirrors, feed.Id);
+
+        // The combined listing of all mirrors is cached, so one lookup serves a whole request.
+        var cacheDuration = _feedSettings.GetUpstreamListingCacheDuration(feed);
+        if (cacheDuration <= TimeSpan.Zero)
+            return upstream;
+
+        return new CachingUpstreamClient(upstream, _listingCache, feed, cacheDuration);
+    }
+
+    private IUpstreamClient CreateForMirrors(IReadOnlyList<MirrorOptions> mirrors, Guid feedId)
+    {
         // A single upstream is used directly, exactly as before multiple mirrors existed.
         if (mirrors.Count == 1)
-            return CreateForMirror(mirrors[0], feed.Id);
+            return CreateForMirror(mirrors[0], feedId);
 
-        var upstreams = mirrors.Select(m => CreateForMirror(m, feed.Id)).ToList();
+        var upstreams = mirrors.Select(m => CreateForMirror(m, feedId)).ToList();
         return new FallbackUpstreamClient(upstreams, _loggerFactory.CreateLogger<FallbackUpstreamClient>());
     }
 

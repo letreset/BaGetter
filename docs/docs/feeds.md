@@ -37,6 +37,7 @@ Open **Admin > Feeds > Settings** for a feed (`/Admin/Feeds/{slug}/Settings`). E
 | Deletion behavior | `PackageDeletionBehavior` | Unlist (recommended) or hard delete. See [hard deletions](configuration.md#enable-package-hard-deletions). |
 | Max package size (GiB) | `MaxPackageSizeGiB` | Largest package this feed accepts |
 | Retention | `Retention` | How many major versions, minor versions per major, patch versions per minor and prerelease versions per patch to keep. See [auto-deletion](configuration.md#package-auto-deletion). |
+| Upstream listing cache (seconds) | `UpstreamListingCacheSeconds` | How long mirrored version lists are reused before asking the upstreams again. See [upstream listing cache](#upstream-listing-cache). |
 
 :::tip
 
@@ -84,6 +85,31 @@ With more than one enabled mirror, BaGetter:
 Use the arrow buttons to change the order and **Remove** to delete a mirror, then **Save Settings**. With a single enabled mirror, the feed behaves exactly as it did before multiple mirrors existed.
 
 Put the upstream that has most of your packages first: version lists query every mirror, but a download stops at the first mirror that has the package.
+
+### Upstream listing cache
+
+A restore asks the feed for the version list and metadata of every package, and for a mirrored feed each of those requests also goes to the upstream, even when the package is already stored locally. With many build agents this adds up to thousands of upstream calls per restore, which is slow and can hit upstream rate limits (private feeds, Azure Artifacts, GitHub Packages).
+
+BaGetter therefore keeps each upstream listing in memory for a short time, per feed and package id. Set the duration on the feed's settings page with **Upstream listing cache (seconds)**, below the mirror list, or globally with `UpstreamListingCacheSeconds`:
+
+```json
+{
+    ...
+
+    "UpstreamListingCacheSeconds": 300,
+
+    ...
+}
+```
+
+- The default is `300` (5 minutes). `0` turns the cache off, so every request asks the upstreams again.
+- With several mirrors, the merged listing of all mirrors is cached.
+- Only listings that found the package are cached. When no upstream has the package, or an upstream fails, the next request asks again.
+- Package downloads are not cached here: a downloaded package is stored in the feed and served locally from then on.
+- Saving the feed's settings (for example adding, removing or reordering a mirror) invalidates the feed's cached listings.
+- The cache lives in the memory of each BaGetter instance and is empty after a restart.
+
+The tradeoff is freshness: a version newly published to an upstream shows up in this feed with a delay of up to the cache duration. Lower the value, or set it to `0`, for a feed where new upstream versions must be visible immediately.
 
 :::info
 

@@ -57,6 +57,13 @@ public class BaGetterOptions
     public int RegistrationPageSize { get; set; } = 64;
 
     /// <summary>
+    /// How long, in seconds, a mirrored feed keeps an upstream package listing (versions and
+    /// metadata) in memory before asking the upstream again. 0 disables the cache.
+    /// This is the default for feeds that don't override it in their settings.
+    /// </summary>
+    public int UpstreamListingCacheSeconds { get; set; } = 300;
+
+    /// <summary>
     /// If this is set to a value, it will limit the number of versions that can be pushed for a package.
     /// the older versions will be deleted.
     /// This setting is not used anymore and is deprecated.

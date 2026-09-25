@@ -62,6 +62,52 @@ public class UpstreamClientFactoryTests
         }
 
         [Fact]
+        public void WrapsClientInListingCacheWhenEnabled()
+        {
+            var feed = MirrorFeed();
+            feed.UpstreamListingCacheSeconds = 300;
+
+            var result = Target.CreateForFeed(feed);
+
+            Assert.IsType<CachingUpstreamClient>(result);
+        }
+
+        [Fact]
+        public void WrapsFallbackClientInListingCacheWhenEnabled()
+        {
+            var feed = MirrorFeed();
+            feed.UpstreamListingCacheSeconds = 300;
+            feed.Mirrors.Add(Mirror("https://vendor.test/v3/index.json", sortOrder: 1));
+
+            var result = Target.CreateForFeed(feed);
+
+            Assert.IsType<CachingUpstreamClient>(result);
+        }
+
+        [Fact]
+        public void DoesNotWrapClientWhenListingCacheIsZero()
+        {
+            var feed = MirrorFeed();
+            feed.UpstreamListingCacheSeconds = 0;
+
+            var result = Target.CreateForFeed(feed);
+
+            Assert.IsType<V3UpstreamClient>(result);
+        }
+
+        [Fact]
+        public void DoesNotWrapDisabledClient()
+        {
+            var feed = MirrorFeed();
+            feed.UpstreamListingCacheSeconds = 300;
+            feed.Mirrors.Clear();
+
+            var result = Target.CreateForFeed(feed);
+
+            Assert.IsType<DisabledUpstreamClient>(result);
+        }
+
+        [Fact]
         public void IgnoresDisabledMirrors()
         {
             var feed = MirrorFeed();
@@ -133,21 +179,31 @@ public class UpstreamClientFactoryTests
         }
     }
 
-    public class FactsBase
+    public class FactsBase : IDisposable
     {
         protected readonly RecordingHandler Handler = new();
+        protected readonly UpstreamListingCache ListingCache = new();
         protected readonly UpstreamClientFactory Target;
 
         protected FactsBase()
         {
+            // The listing cache is off globally so the tests see the undecorated clients; tests
+            // that cover the cache turn it on per feed.
             var options = new Mock<IOptionsSnapshot<BaGetterOptions>>();
-            options.Setup(o => o.Value).Returns(new BaGetterOptions());
+            options.Setup(o => o.Value).Returns(new BaGetterOptions { UpstreamListingCacheSeconds = 0 });
 
             Target = new UpstreamClientFactory(
                 new FeedSettingsResolver(options.Object),
                 new DisabledUpstreamClient(),
+                ListingCache,
                 NullLoggerFactory.Instance,
                 Handler);
+        }
+
+        public void Dispose()
+        {
+            ListingCache.Dispose();
+            GC.SuppressFinalize(this);
         }
 
         protected static Feed MirrorFeed()

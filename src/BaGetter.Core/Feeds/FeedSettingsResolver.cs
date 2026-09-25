@@ -61,6 +61,13 @@ public class FeedSettingsResolver : IFeedSettingsResolver
         };
     }
 
+    public TimeSpan GetUpstreamListingCacheDuration(Feed feed)
+    {
+        var seconds = feed?.UpstreamListingCacheSeconds ?? _options.Value.UpstreamListingCacheSeconds;
+
+        return seconds > 0 ? TimeSpan.FromSeconds(seconds) : TimeSpan.Zero;
+    }
+
     public IReadOnlyList<MirrorOptions> GetMirrorOptions(Feed feed)
     {
         if (feed?.Mirrors == null)

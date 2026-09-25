@@ -69,6 +69,20 @@ public class ValidateBaGetterOptionsTests
         }
 
         [Fact]
+        public void RejectsNegativeUpstreamListingCacheSeconds()
+        {
+            Assert.True(HasFailure(new BaGetterOptions { UpstreamListingCacheSeconds = -1 }, nameof(BaGetterOptions.UpstreamListingCacheSeconds)));
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(300)]
+        public void AcceptsUpstreamListingCacheSecondsOfZeroOrMore(int seconds)
+        {
+            Assert.False(HasFailure(new BaGetterOptions { UpstreamListingCacheSeconds = seconds }, nameof(BaGetterOptions.UpstreamListingCacheSeconds)));
+        }
+
+        [Fact]
         public void RejectsCorsCredentialsWithoutOrigins()
         {
             var options = new BaGetterOptions { Cors = new CorsPolicyOptions { AllowCredentials = true } };
