@@ -38,6 +38,8 @@ Secure your server by requiring an API key to publish packages. See [Require an 
 
 :::
 
+To keep your settings out of the app folder, put them in the [machine-wide config file](../configuration.md#machine-wide-config-file) instead: `%ProgramData%\BaGetter\appsettings.json` on Windows, `/etc/bagetter/appsettings.json` on Linux and macOS. This is the easiest option for Windows services and systemd units.
+
 When you upgrade, keep your `appsettings.json`, the database and the package folder, and replace the rest of the files. See [Upgrading from 1.x](../upgrading.md) if you come from upstream BaGetter.
 
 To run BaGetter as a Windows service behind IIS, see [Windows IIS proxy](iis-proxy.md).

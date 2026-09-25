@@ -23,6 +23,10 @@ You **may** need to give special permissions to the top-level BaGetter folder so
 - [Application Pools](https://docs.microsoft.com/en-us/aspnet/core/host-and-deploy/iis/?view=aspnetcore-2.2#application-pools)
 - [Application Pool Identity](https://docs.microsoft.com/en-us/aspnet/core/host-and-deploy/iis/?view=aspnetcore-2.2#application-pool-identity)
 
+## Settings outside the site folder
+
+Instead of editing `appsettings.json` in the site folder, you can put your settings in `C:\ProgramData\BaGetter\appsettings.json`. It overrides the site's `appsettings.json` and survives redeploys. Give the application pool identity (e.g. `IIS AppPool\BaGetterAppPool`) read access to it. See [Machine-wide config file](../configuration.md#machine-wide-config-file).
+
 ## Alternative storage path
 
 :::info
