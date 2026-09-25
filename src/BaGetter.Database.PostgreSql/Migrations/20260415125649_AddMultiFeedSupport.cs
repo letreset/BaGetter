@@ -34,14 +34,10 @@ namespace BaGetter.Database.PostgreSql.Migrations
             migrationBuilder.Sql(
                 @"DELETE FROM ""FeedPermissions"" WHERE ""FeedId"" !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';");
 
-            migrationBuilder.AlterColumn<Guid>(
-                name: "FeedId",
-                table: "FeedPermissions",
-                type: "uuid",
-                nullable: false,
-                oldClrType: typeof(string),
-                oldType: "character varying(128)",
-                oldMaxLength: 128);
+            // PostgreSQL has no implicit varchar -> uuid cast, so AlterColumn would fail.
+            // The statements above leave only castable values.
+            migrationBuilder.Sql(
+                @"ALTER TABLE ""FeedPermissions"" ALTER COLUMN ""FeedId"" TYPE uuid USING ""FeedId""::uuid;");
 
             migrationBuilder.CreateTable(
                 name: "Feeds",
