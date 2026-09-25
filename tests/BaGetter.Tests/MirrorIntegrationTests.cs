@@ -19,7 +19,7 @@ public class MirrorIntegrationTests : IDisposable
     public MirrorIntegrationTests(ITestOutputHelper output)
     {
         _upstream = new BaGetterApplication(output);
-        _downstream = new BaGetterApplication(output, _upstream.CreateClient());
+        _downstream = new BaGetterApplication(output, _upstream.Server.CreateHandler());
 
         _downstreamClient = _downstream.CreateClient();
         _packageStream = TestResources.GetResourceStream(TestResources.Package);
