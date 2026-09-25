@@ -3,31 +3,15 @@ import TabItem from '@theme/TabItem';
 
 # Run BaGetter on Azure
 
-:::warning
-
-This page is a work in progress!
-
-:::
-
-Use Azure to scale BaGetter. You can store metadata on Azure [SQL Database](https://azure.microsoft.com/products/azure-sql/database/) or [Table Storage](https://azure.microsoft.com/products/storage/tables/), upload packages to [Azure Blob Storage](https://azure.microsoft.com/products/storage/blobs/), and soon provide powerful search using [Azure Search](https://azure.microsoft.com/services/search/).
-
-## TODO
-
-- App Service
-- High availability setup
+On Azure, store package metadata in [Azure SQL Database](https://azure.microsoft.com/products/azure-sql/database/) (or Azure Database for PostgreSQL or MySQL) and packages in [Azure Blob Storage](https://azure.microsoft.com/products/storage/blobs/). Run BaGetter itself on [Azure App Service](#azure-app-service), [Azure Container Apps](https://azure.microsoft.com/products/container-apps/), or [AKS](https://azure.microsoft.com/products/kubernetes-service/) with the [Helm chart](kubernetes.md).
 
 ## Configure BaGetter
 
-You can modify BaGetter's configurations by editing the `appsettings.json` file or through [environment variables](https://learn.microsoft.com/aspnet/core/fundamentals/configuration/?view=aspnetcore-8.0#non-prefixed-environment-variables). For the full list of configurations, please refer to [BaGetter's configuration](../configuration.md) guide.
+Set these values in `appsettings.json` or as [environment variables](https://learn.microsoft.com/aspnet/core/fundamentals/configuration/#non-prefixed-environment-variables) (`Storage__Type`, `Database__ConnectionString`, …). For the full list of settings, see [Configuration](../configuration.md).
 
-### Package Metadata Database
+### Database
 
-To storage the package metadata, you can use any [Azure SQL database](https://azure.microsoft.com/products/category/databases/) (as any normal SQL DB), but also [Azure Table Storage](https://azure.microsoft.com/products/storage/tables/) in a Storage Account or Azure Cosmod DB in Table API mode.
-
-<Tabs>
-<TabItem value="sql" label="SQL Database" default>
-
-To use a SQL database, set the database type to the SQL provider of your choice (e.g. `SqlServer`) and provide a [connection string](https://learn.microsoft.com/ef/core/miscellaneous/connection-strings):
+Use any SQL database that BaGetter supports: Azure SQL Database (`SqlServer`), Azure Database for PostgreSQL (`PostgreSql`) or Azure Database for MySQL (`MySql`). BaGetter creates and updates its tables on startup. Set the database type and a [connection string](https://learn.microsoft.com/ef/core/miscellaneous/connection-strings):
 
 ```json
 {
@@ -42,7 +26,7 @@ To use a SQL database, set the database type to the SQL provider of your choice 
 }
 ```
 
-To authenticate using managed identity instead of a username/password, add `Authentication=Active Directory Default` to the connection string:
+To connect to Azure SQL Database with a managed identity instead of a username and password, add `Authentication=Active Directory Default` to the connection string:
 
 ```json
 {
@@ -50,14 +34,14 @@ To authenticate using managed identity instead of a username/password, add `Auth
 
     "Database": {
         "Type": "SqlServer",
-        "ConnectionString": "Server=tcp:<server>.database.windows.net,1433;Initial Catalog=<database>;Authentication=Active Directory Default;Encrypt=True;TrustServerCertificate=True;Connection Timeout=30;"
+        "ConnectionString": "Server=tcp:<server>.database.windows.net,1433;Initial Catalog=<database>;Authentication=Active Directory Default;Encrypt=True;Connection Timeout=30;"
     },
 
     ...
 }
 ```
 
-The managed identity must be added as a user in the database before BaGetter can connect:
+The managed identity must be added as a user in the database before BaGetter can connect. `db_ddladmin` lets BaGetter run its migrations on startup:
 
 ```sql
 CREATE USER [<identity-name>] FROM EXTERNAL PROVIDER;
@@ -66,38 +50,21 @@ ALTER ROLE db_datawriter ADD MEMBER [<identity-name>];
 ALTER ROLE db_ddladmin ADD MEMBER [<identity-name>];
 ```
 
-</TabItem>
+:::warning Azure Table Storage
 
-<TabItem value="table" label="Table Storage">
+Upstream BaGetter 1.x could keep its metadata in Azure Table Storage (`Database:Type` = `AzureTable`). That provider doesn't support [feeds](../feeds.md), user accounts or permissions, so it doesn't work with BaGetter 2.x. Use one of the SQL databases above.
 
-To use Azure Table Storage or Azure Cosmos DB in Table API mode, set the database type to `AzureTable` and provide a connection string and optionally a custom table name. If no table name is set, the default table name `Packages` will be used.
-If it doesn't exist, it will be created automatically.
-
-```json
-{
-    ...
-
-    "Database": {
-        "Type": "AzureTable",
-        "ConnectionString": "...",
-        "TableName": "my-nuget-packages"
-    },
-
-    ...
-}
-```
-
-</TabItem>
-</Tabs>
+:::
 
 ### Azure Blob Storage
 
-Set the storage type to `AzureBlobStorage` and provide a container name to use and credentials:
+Create a storage account and a container. Set the storage type to `AzureBlobStorage`, the container name and credentials:
 
 <Tabs groupId="blob-storage">
-<TabItem value="accessKey" label="Access Key" default>
+<TabItem value="managedIdentity" label="Managed identity (recommended)" default>
 
-To use account name and access key, add them like this:
+Set `ConnectionString` to the blob service endpoint and enable `UseAzureDefaultCredential`. BaGetter then authenticates with [`DefaultAzureCredential`](https://learn.microsoft.com/dotnet/azure/sdk/authentication/credential-chains#defaultazurecredential-overview), which uses the managed identity of the App Service, Container App or AKS workload.
+
 ```json
 {
     ...
@@ -105,19 +72,19 @@ To use account name and access key, add them like this:
     "Storage": {
         "Type": "AzureBlobStorage",
         "Container": "my-container",
-        "AccountName": "my-account",
-        "AccessKey": "abcd1234"
+        "ConnectionString": "https://<account>.blob.core.windows.net",
+        "UseAzureDefaultCredential": true
     },
 
     ...
 }
 ```
 
+The managed identity must be granted the **Storage Blob Data Contributor** role on the storage account (or the container) before BaGetter can read or write packages.
+
 </TabItem>
 
 <TabItem value="connectionString" label="Connection string">
-
-To use a connection string, add it like this:
 
 ```json
 {
@@ -135,9 +102,7 @@ To use a connection string, add it like this:
 
 </TabItem>
 
-<TabItem value="managedIdentity" label="Managed identity">
-
-To authenticate using managed identity, set `ConnectionString` to the blob service endpoint and enable `UseAzureDefaultCredential`:
+<TabItem value="accessKey" label="Access key">
 
 ```json
 {
@@ -146,72 +111,89 @@ To authenticate using managed identity, set `ConnectionString` to the blob servi
     "Storage": {
         "Type": "AzureBlobStorage",
         "Container": "my-container",
-        "ConnectionString": "https://<account>.blob.core.windows.net",
-        "UseAzureDefaultCredential": true
+        "AccountName": "my-account",
+        "AccessKey": "abcd1234"
     },
 
     ...
 }
 ```
-
-The managed identity must be granted the **Storage Blob Data Contributor** role on the storage account before BaGetter can read or write packages.
 
 </TabItem>
 </Tabs>
 
-### Azure Search
+Keep connection strings and keys out of `appsettings.json`: use App Service settings, Key Vault references, environment variables or a [secret file](../configuration.md#load-secrets-from-files).
 
-Azure Search is currently not available due to significant API changes BaGetter has to make. Once it's available, you can set the search type to `AzureSearch` and provide an account name and API key:
+### Search
 
-```json
-{
-    ...
+BaGetter searches the packages in its database (`Search:Type` = `Database`, the default). Azure AI Search (`AzureSearch`) isn't available yet.
 
-    "Search": {
-        "Type": "AzureSearch",
-        "AccountName": "my-account",
-        "ApiKey": "ABCD1234"
-    },
+### Sign-in with Microsoft Entra ID
 
-    ...
-}
-```
+To let users sign in with their Entra ID accounts and manage permissions with app roles, see [Azure Entra ID setup](../authentication.md#azure-entra-id-setup). To send PAT expiry emails through Microsoft 365, see [Microsoft Graph email](../configuration.md#microsoft-graph).
+
+## Azure App Service
+
+Run the [`letreset/bagetter`](https://hub.docker.com/r/letreset/bagetter) image on a Linux App Service:
+
+1. Create a **Web App** with **Publish: Container** and **Operating system: Linux**, and choose the `letreset/bagetter` image from Docker Hub. Pin a version tag, see [image tags](docker.md#image-tags).
+2. The container listens on port 8080. Add the app setting `WEBSITES_PORT` = `8080`.
+3. Turn on the app's **system-assigned managed identity** and grant it access to the database and the storage account as described above.
+4. Add the BaGetter settings as **App settings**, using `__` for nested keys:
+
+   | Name | Value |
+   |---|---|
+   | `Database__Type` | `SqlServer` |
+   | `Database__ConnectionString` | `Server=tcp:<server>.database.windows.net,1433;Initial Catalog=<database>;Authentication=Active Directory Default;Encrypt=True;` |
+   | `Storage__Type` | `AzureBlobStorage` |
+   | `Storage__Container` | `my-container` |
+   | `Storage__ConnectionString` | `https://<account>.blob.core.windows.net` |
+   | `Storage__UseAzureDefaultCredential` | `true` |
+   | `ApiKey` | A long random value, or set up [user accounts](../authentication.md) |
+
+5. Set **Health check** to `/health`, see [Health endpoint](../configuration.md#health-endpoint).
+
+App Service terminates TLS in front of the container and passes the original scheme and client address in `X-Forwarded-*` headers, which BaGetter reads.
+
+## Run several instances
+
+With the database and packages in Azure, you can scale out to more than one instance. [Data Protection keys](../upgrading.md#data-protection-keys) are stored in the blob container as well, so sign-in cookies work on every instance and you don't need session affinity.
 
 ## Publish packages
 
-Publish your first package with:
+Replace `your-server` with the address of your BaGetter server, for example `bagetter.azurewebsites.net`.
 
 ```shell
-dotnet nuget push -s http://localhost:5000/v3/index.json package.1.0.0.nupkg
+dotnet nuget push -s https://your-server/v3/index.json -k <api-key> package.1.0.0.nupkg
 ```
 
-Publish your first [symbol package](https://docs.microsoft.com/en-us/nuget/create-packages/symbol-packages-snupkg) with:
+Publish a [symbol package](https://docs.microsoft.com/en-us/nuget/create-packages/symbol-packages-snupkg) the same way:
 
 ```shell
-dotnet nuget push -s http://localhost:5000/v3/index.json symbol.package.1.0.0.snupkg
+dotnet nuget push -s https://your-server/v3/index.json -k <api-key> symbol.package.1.0.0.snupkg
 ```
 
 :::warning
 
-You should secure your server by requiring an API Key to publish packages. For more information, please refer to the [Require an API Key](../configuration.md#require-an-api-key) guide.
+Secure your server by requiring an API key to publish packages. See [Require an API key](../configuration.md#require-an-api-key), or set up [user accounts](../authentication.md).
 
 :::
 
 ## Restore packages
 
-You can restore packages by using the following package source:
+Use the following package source:
 
-`http://localhost:5000/v3/index.json`
+`https://your-server/v3/index.json`
 
-Some helpful guides:
+Other [feeds](../feeds.md) are at `https://your-server/feeds/{slug}/v3/index.json`. Some helpful guides:
 
 - [Visual Studio](https://docs.microsoft.com/nuget/consume-packages/install-use-packages-visual-studio#package-sources)
 - [NuGet.config](https://docs.microsoft.com/nuget/reference/nuget-config-file#package-source-sections)
 
 ## Symbol server
 
-You can load symbols by using the following symbol location:
+Use the following symbol location:
 
-`http://localhost:5000/api/download/symbols`
+`https://your-server/api/download/symbols`
 
-For Visual Studio, please refer to the [Configure Debugging](https://docs.microsoft.com/visualstudio/debugger/specify-symbol-dot-pdb-and-source-files-in-the-visual-studio-debugger?view=vs-2017#configure-symbol-locations-and-loading-options) guide.
+For Visual Studio, see [Configure symbol locations](https://docs.microsoft.com/visualstudio/debugger/specify-symbol-dot-pdb-and-source-files-in-the-visual-studio-debugger#configure-symbol-locations-and-loading-options).
