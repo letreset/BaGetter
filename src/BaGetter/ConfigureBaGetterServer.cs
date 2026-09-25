@@ -1,8 +1,13 @@
+using System;
+using System.Globalization;
+using System.Threading.RateLimiting;
 using BaGetter.Core.Configuration;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Cors.Infrastructure;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 
 namespace BaGetter;
@@ -12,6 +17,7 @@ public class ConfigureBaGetterServer
     , IConfigureOptions<FormOptions>
     , IConfigureOptions<ForwardedHeadersOptions>
     , IConfigureOptions<IISServerOptions>
+    , IConfigureOptions<RateLimiterOptions>
 {
     public const string CorsPolicy = "AllowAll";
     private readonly BaGetterOptions _baGetterOptions;
@@ -66,5 +72,46 @@ public class ConfigureBaGetterServer
     public void Configure(IISServerOptions options)
     {
         options.MaxRequestBodySize = (long)_baGetterOptions.MaxPackageSizeGiB * int.MaxValue / 2;
+    }
+
+    public void Configure(RateLimiterOptions options)
+    {
+        var rateLimit = _baGetterOptions.RequestRateLimit ?? new RequestRateLimitOptions();
+        var healthCheckPath = _baGetterOptions.HealthCheck?.Path;
+
+        options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+        options.OnRejected = (context, _) =>
+        {
+            if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+            {
+                context.HttpContext.Response.Headers.RetryAfter =
+                    ((int)Math.Ceiling(retryAfter.TotalSeconds)).ToString(CultureInfo.InvariantCulture);
+            }
+
+            return default;
+        };
+
+        options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+        {
+            // Probes must never be throttled. /livez runs before the limiter, but the health
+            // check is mapped at the end of the pipeline.
+            if (!string.IsNullOrEmpty(healthCheckPath) && context.Request.Path.Equals(healthCheckPath, StringComparison.OrdinalIgnoreCase))
+            {
+                return RateLimitPartition.GetNoLimiter(string.Empty);
+            }
+
+            var userName = context.User.Identity is { IsAuthenticated: true } identity ? identity.Name : null;
+            var partitionKey = userName != null
+                ? $"user:{userName}"
+                : $"ip:{context.Connection.RemoteIpAddress}";
+
+            return RateLimitPartition.GetFixedWindowLimiter(partitionKey, _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = rateLimit.PermitLimit,
+                Window = TimeSpan.FromSeconds(rateLimit.WindowSeconds),
+                QueueLimit = rateLimit.QueueLimit,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            });
+        });
     }
 }

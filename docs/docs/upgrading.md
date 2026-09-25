@@ -65,4 +65,5 @@ These are optional and off or safe by default. See [Configuration](configuration
 - `RegistrationPageSize`: registration index paging for packages with many versions (default 64).
 - `Cors`: allowed origins for browser clients.
 - `SecurityHeaders`: security headers (on by default) and optional HSTS.
+- `RequestRateLimit`: per-client request rate limiting (off by default).
 - `Email` and `PatExpiryNotification`: emails before personal access tokens expire.

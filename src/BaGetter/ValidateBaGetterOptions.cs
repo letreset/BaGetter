@@ -68,6 +68,8 @@ public class ValidateBaGetterOptions
             failures.Add($"The '{nameof(BaGetterOptions.SecurityHeaders)}:{nameof(SecurityHeadersOptions.HstsMaxAgeDays)}' config must be at least 1");
         }
 
+        ValidateRequestRateLimit(options, failures);
+
         if (!_validDatabaseTypes.Contains(options.Database?.Type))
         {
             failures.Add(
@@ -112,6 +114,24 @@ public class ValidateBaGetterOptions
                 $"The '{nameof(BaGetterOptions.Email)}:{nameof(EmailOptions.Type)}' config is invalid. " +
                 $"Allowed values: {string.Join(", ", _validEmailTypes)} (or omit to disable email)");
         }
+    }
+
+    private static void ValidateRequestRateLimit(BaGetterOptions options, List<string> failures)
+    {
+        var rateLimit = options.RequestRateLimit;
+        if (rateLimit is not { Enabled: true })
+            return;
+
+        const string section = nameof(BaGetterOptions.RequestRateLimit);
+
+        if (rateLimit.PermitLimit < 1)
+            failures.Add($"The '{section}:{nameof(RequestRateLimitOptions.PermitLimit)}' config must be at least 1");
+
+        if (rateLimit.WindowSeconds < 1)
+            failures.Add($"The '{section}:{nameof(RequestRateLimitOptions.WindowSeconds)}' config must be at least 1");
+
+        if (rateLimit.QueueLimit < 0)
+            failures.Add($"The '{section}:{nameof(RequestRateLimitOptions.QueueLimit)}' config must not be negative");
     }
 
     private static void ValidateAuthentication(BaGetterOptions options, List<string> failures)

@@ -88,6 +88,8 @@ public class BaGetterOptions
 
     public SecurityHeadersOptions SecurityHeaders { get; set; } = new();
 
+    public RequestRateLimitOptions RequestRateLimit { get; set; } = new();
+
     public NugetAuthenticationOptions Authentication { get; set; }
 
     public EmailOptions Email { get; set; }

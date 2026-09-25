@@ -69,6 +69,9 @@ public class Startup
 
         services.AddCors();
 
+        // Configured by ConfigureBaGetterServer; only used when RequestRateLimit:Enabled is true.
+        services.AddRateLimiter(_ => { });
+
         // text/html is left out on purpose: compressing pages that carry antiforgery tokens
         // over HTTPS enables BREACH-style attacks. The NuGet API is JSON.
         services.AddResponseCompression(options =>
@@ -161,6 +164,13 @@ public class Startup
         app.UseMiddleware<FeedStaticFilePathMiddleware>();
         app.UseStaticFiles();
         app.UseAuthentication();
+
+        // After authentication so requests can be partitioned by user name.
+        if (options.RequestRateLimit?.Enabled == true)
+        {
+            app.UseRateLimiter();
+        }
+
         app.UseMiddleware<FeedResolutionMiddleware>();
         app.UseRouting();
         app.UseAuthorization();
