@@ -166,6 +166,10 @@ public class PackageDeletionService : IPackageDeletionService
             goodVersions.UnionWith(allPreReleaseValidVersions);
         }
 
+        // Never delete the version that is being indexed: the caller (e.g. a mirror request) still has to serve it.
+        // It will be cleaned up the next time a version of this package is indexed.
+        goodVersions.Add(package.Version);
+
         // sort by version and take everything except the last maxPackages
         var versionsToDelete = packages.Where(p => !goodVersions.Contains(p.Version)).ToList();
 
