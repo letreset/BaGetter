@@ -1,9 +1,15 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
+using BaGetter.Core.Entities;
 using BaGetter.Tests.Support;
+using Microsoft.Extensions.DependencyInjection;
+using NuGet.Frameworks;
+using NuGet.Packaging;
+using NuGet.Versioning;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -15,9 +21,11 @@ public class MirrorIntegrationTests : IDisposable
     private readonly BaGetterApplication _downstream;
     private readonly HttpClient _downstreamClient;
     private readonly Stream _packageStream;
+    private readonly ITestOutputHelper _output;
 
     public MirrorIntegrationTests(ITestOutputHelper output)
     {
+        _output = output;
         _upstream = new BaGetterApplication(output);
         _downstream = new BaGetterApplication(output, _upstream.Server.CreateHandler());
 
@@ -164,6 +172,102 @@ public class MirrorIntegrationTests : IDisposable
   ""published"": ""2020-01-01T00:00:00Z"",
   ""registration"": ""http://localhost/v3/registration/testdata/index.json""
 }", json);
+    }
+
+    [Fact]
+    public async Task SeveralUpstreamsServePackagesFromEach()
+    {
+        using var nugetOrg = new BaGetterApplication(_output);
+        using var vendor = new BaGetterApplication(_output);
+        await nugetOrg.AddPackageAsync(_packageStream);
+        await vendor.AddPackageAsync(BuildPackage("Vendor.Package", "1.0.0"));
+
+        var handler = new HostRoutingHandler()
+            .Route("nuget.test", nugetOrg.Server.CreateHandler())
+            .Route("vendor.test", vendor.Server.CreateHandler());
+        using var downstream = new BaGetterApplication(
+            _output,
+            handler,
+            upstreamSources: ["http://nuget.test/v3/index.json", "http://vendor.test/v3/index.json"]);
+        using var client = downstream.CreateClient();
+
+        Assert.Equal(@"{""versions"":[""1.2.3""]}", await client.GetStringAsync("v3/package/TestData/index.json"));
+        Assert.Equal(@"{""versions"":[""1.0.0""]}", await client.GetStringAsync("v3/package/Vendor.Package/index.json"));
+
+        using var nugetOrgPackage = await client.GetAsync("v3/package/TestData/1.2.3/TestData.1.2.3.nupkg");
+        using var vendorPackage = await client.GetAsync("v3/package/Vendor.Package/1.0.0/Vendor.Package.1.0.0.nupkg");
+
+        Assert.Equal(HttpStatusCode.OK, nugetOrgPackage.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, vendorPackage.StatusCode);
+        Assert.Equal("http://nuget.test/v3/index.json", GetCachedFrom(downstream, "TestData"));
+        Assert.Equal("http://vendor.test/v3/index.json", GetCachedFrom(downstream, "Vendor.Package"));
+    }
+
+    [Fact]
+    public async Task SeveralUpstreamsMergeVersionsOfTheSamePackage()
+    {
+        using var first = new BaGetterApplication(_output);
+        using var second = new BaGetterApplication(_output);
+        await first.AddPackageAsync(BuildPackage("Shared.Package", "1.0.0"));
+        await second.AddPackageAsync(BuildPackage("Shared.Package", "1.0.0"));
+        await second.AddPackageAsync(BuildPackage("Shared.Package", "2.0.0"));
+
+        var handler = new HostRoutingHandler()
+            .Route("first.test", first.Server.CreateHandler())
+            .Route("second.test", second.Server.CreateHandler());
+        using var downstream = new BaGetterApplication(
+            _output,
+            handler,
+            upstreamSources: ["http://first.test/v3/index.json", "http://second.test/v3/index.json"]);
+        using var client = downstream.CreateClient();
+
+        var content = await client.GetStringAsync("v3/package/Shared.Package/index.json");
+
+        Assert.Equal(@"{""versions"":[""1.0.0"",""2.0.0""]}", content);
+    }
+
+    [Fact]
+    public async Task UnreachableUpstreamIsSkipped()
+    {
+        using var vendor = new BaGetterApplication(_output);
+        await vendor.AddPackageAsync(BuildPackage("Vendor.Package", "1.0.0"));
+
+        // "down.test" is not routed, so every request to it fails with 503.
+        var handler = new HostRoutingHandler().Route("vendor.test", vendor.Server.CreateHandler());
+        using var downstream = new BaGetterApplication(
+            _output,
+            handler,
+            upstreamSources: ["http://down.test/v3/index.json", "http://vendor.test/v3/index.json"]);
+        using var client = downstream.CreateClient();
+
+        using var response = await client.GetAsync("v3/package/Vendor.Package/1.0.0/Vendor.Package.1.0.0.nupkg");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    private static MemoryStream BuildPackage(string id, string version)
+    {
+        var builder = new PackageBuilder
+        {
+            Id = id,
+            Version = NuGetVersion.Parse(version),
+            Description = "Test description",
+        };
+        builder.Authors.Add("Test author");
+        builder.DependencyGroups.Add(new PackageDependencyGroup(NuGetFramework.Parse("net8.0"), []));
+        builder.Files.Add(new PhysicalPackageFile(new MemoryStream()) { TargetPath = "lib/net8.0/_._" });
+
+        var stream = new MemoryStream();
+        builder.Save(stream);
+        stream.Position = 0;
+        return stream;
+    }
+
+    private static string GetCachedFrom(BaGetterApplication app, string packageId)
+    {
+        using var scope = app.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<IContext>();
+        return context.Packages.Single(p => p.Id == packageId).CachedFrom;
     }
 
     public void Dispose()

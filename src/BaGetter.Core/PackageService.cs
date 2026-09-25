@@ -118,13 +118,12 @@ public class PackageService : IPackageService
 
         var feed = await _feedService.GetFeedByIdAsync(feedId, cancellationToken);
         var upstream = _upstreamFactory.CreateForFeed(feed);
-        var cacheFeedUrl = upstream.GetServiceIndexUrl();
 
         _logger.LogInformation(
             "Package {PackageId} {PackageVersion} does not exist locally. Checking upstream feed ({cacheFeedUrl})...",
             id,
             version,
-            cacheFeedUrl);
+            upstream.GetServiceIndexUrl());
 
         try
         {
@@ -138,10 +137,14 @@ public class PackageService : IPackageService
                 return false;
             }
 
+            // Read after the download: with several upstreams, this is the one that served the package.
+            var cacheFeedUrl = upstream.GetServiceIndexUrl();
+
             _logger.LogInformation(
-                "Downloaded package {PackageId} {PackageVersion}, indexing...",
+                "Downloaded package {PackageId} {PackageVersion} from {cacheFeedUrl}, indexing...",
                 id,
-                version);
+                version,
+                cacheFeedUrl);
 
             var result = await _indexer.IndexAsync(feedId, feedSlug, packageStream, cacheFeedUrl, cancellationToken);
 

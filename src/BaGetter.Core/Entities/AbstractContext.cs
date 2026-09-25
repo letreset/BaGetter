@@ -39,6 +39,7 @@ public abstract class AbstractContext<TContext> : DbContext, IContext where TCon
     { }
 
     public DbSet<Feed> Feeds { get; set; }
+    public DbSet<FeedMirror> FeedMirrors { get; set; }
     public DbSet<Package> Packages { get; set; }
     public DbSet<PackageDependency> PackageDependencies { get; set; }
     public DbSet<PackageType> PackageTypes { get; set; }
@@ -61,6 +62,7 @@ public abstract class AbstractContext<TContext> : DbContext, IContext where TCon
     protected override void OnModelCreating(ModelBuilder builder)
     {
         builder.Entity<Feed>(BuildFeedEntity);
+        builder.Entity<FeedMirror>(BuildFeedMirrorEntity);
         builder.Entity<Package>(BuildPackageEntity);
         builder.Entity<PackageDependency>(BuildPackageDependencyEntity);
         builder.Entity<PackageType>(BuildPackageTypeEntity);
@@ -97,6 +99,19 @@ public abstract class AbstractContext<TContext> : DbContext, IContext where TCon
             .WithOne(p => p.Feed)
             .HasForeignKey(p => p.FeedId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        feed.HasMany(f => f.Mirrors)
+            .WithOne(m => m.Feed)
+            .HasForeignKey(m => m.FeedId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+
+    private void BuildFeedMirrorEntity(EntityTypeBuilder<FeedMirror> mirror)
+    {
+        mirror.HasKey(m => m.Id);
+        mirror.HasIndex(m => new { m.FeedId, m.SortOrder });
+
+        mirror.Property(m => m.PackageSource).IsRequired();
     }
 
     private void BuildPackageEntity(EntityTypeBuilder<Package> package)

@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using BaGetter.Core.Configuration;
 using BaGetter.Core.Entities;
 using BaGetter.Core.Feeds;
@@ -188,34 +189,45 @@ public class FeedSettingsResolverTests
     public class GetMirrorOptions : FeedSettingsResolverTests
     {
         [Fact]
-        public void ReturnsDisabledWhenFeedMirrorDisabled()
+        public void ReturnsEmptyWhenFeedHasNoMirrors()
         {
-            var feed = DefaultFeed();
-            feed.MirrorEnabled = false;
+            var result = _target.GetMirrorOptions(DefaultFeed());
 
-            var result = _target.GetMirrorOptions(feed);
-
-            Assert.False(result.Enabled);
+            Assert.Empty(result);
         }
 
         [Fact]
-        public void ReturnsDisabledWhenFeedIsNull()
+        public void ReturnsEmptyWhenFeedIsNull()
         {
             var result = _target.GetMirrorOptions(null);
 
-            Assert.False(result.Enabled);
+            Assert.Empty(result);
+        }
+
+        [Fact]
+        public void SkipsDisabledMirrors()
+        {
+            var feed = DefaultFeed();
+            feed.Mirrors.Add(new FeedMirror { Enabled = false, PackageSource = "https://api.nuget.org/v3/index.json" });
+
+            var result = _target.GetMirrorOptions(feed);
+
+            Assert.Empty(result);
         }
 
         [Fact]
         public void ReturnsFeedMirrorSettings()
         {
             var feed = DefaultFeed();
-            feed.MirrorEnabled = true;
-            feed.MirrorPackageSource = "https://api.nuget.org/v3/index.json";
-            feed.MirrorLegacy = false;
-            feed.MirrorDownloadTimeoutSeconds = 300;
+            feed.Mirrors.Add(new FeedMirror
+            {
+                Enabled = true,
+                PackageSource = "https://api.nuget.org/v3/index.json",
+                Legacy = false,
+                DownloadTimeoutSeconds = 300,
+            });
 
-            var result = _target.GetMirrorOptions(feed);
+            var result = Assert.Single(_target.GetMirrorOptions(feed));
 
             Assert.True(result.Enabled);
             Assert.Equal(new Uri("https://api.nuget.org/v3/index.json"), result.PackageSource);
@@ -227,19 +239,35 @@ public class FeedSettingsResolverTests
         public void ReturnsFeedMirrorWithBasicAuth()
         {
             var feed = DefaultFeed();
-            feed.MirrorEnabled = true;
-            feed.MirrorPackageSource = "https://example.com/v3/index.json";
-            feed.MirrorAuthType = MirrorAuthenticationType.Basic;
-            feed.MirrorAuthUsername = "user";
-            feed.MirrorAuthPassword = "pass";
+            feed.Mirrors.Add(new FeedMirror
+            {
+                Enabled = true,
+                PackageSource = "https://example.com/v3/index.json",
+                AuthType = MirrorAuthenticationType.Basic,
+                AuthUsername = "user",
+                AuthPassword = "pass",
+            });
 
-            var result = _target.GetMirrorOptions(feed);
+            var result = Assert.Single(_target.GetMirrorOptions(feed));
 
-            Assert.True(result.Enabled);
             Assert.NotNull(result.Authentication);
             Assert.Equal(MirrorAuthenticationType.Basic, result.Authentication.Type);
             Assert.Equal("user", result.Authentication.Username);
             Assert.Equal("pass", result.Authentication.Password);
+        }
+
+        [Fact]
+        public void ReturnsMirrorsInSortOrder()
+        {
+            var feed = DefaultFeed();
+            feed.Mirrors.Add(new FeedMirror { Enabled = true, SortOrder = 1, PackageSource = "https://vendor.test/v3/index.json" });
+            feed.Mirrors.Add(new FeedMirror { Enabled = true, SortOrder = 0, PackageSource = "https://api.nuget.org/v3/index.json" });
+
+            var result = _target.GetMirrorOptions(feed);
+
+            Assert.Equal(
+                new[] { "api.nuget.org", "vendor.test" },
+                result.Select(m => m.PackageSource.Host));
         }
     }
 }

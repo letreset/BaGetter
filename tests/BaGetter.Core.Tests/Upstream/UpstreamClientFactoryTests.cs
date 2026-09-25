@@ -24,7 +24,7 @@ public class UpstreamClientFactoryTests
         public void ReturnsDisabledClientWhenMirrorIsDisabled()
         {
             var feed = MirrorFeed();
-            feed.MirrorEnabled = false;
+            feed.Mirrors[0].Enabled = false;
 
             var result = Target.CreateForFeed(feed);
 
@@ -32,12 +32,70 @@ public class UpstreamClientFactoryTests
         }
 
         [Fact]
+        public void ReturnsDisabledClientWhenFeedHasNoMirrors()
+        {
+            var feed = MirrorFeed();
+            feed.Mirrors.Clear();
+
+            var result = Target.CreateForFeed(feed);
+
+            Assert.IsType<DisabledUpstreamClient>(result);
+        }
+
+        [Fact]
+        public void ReturnsSingleClientForOneMirror()
+        {
+            var result = Target.CreateForFeed(MirrorFeed());
+
+            Assert.IsType<V3UpstreamClient>(result);
+        }
+
+        [Fact]
+        public void ReturnsFallbackClientForSeveralMirrors()
+        {
+            var feed = MirrorFeed();
+            feed.Mirrors.Add(Mirror("https://vendor.test/v3/index.json", sortOrder: 1));
+
+            var result = Target.CreateForFeed(feed);
+
+            Assert.IsType<FallbackUpstreamClient>(result);
+        }
+
+        [Fact]
+        public void IgnoresDisabledMirrors()
+        {
+            var feed = MirrorFeed();
+            var disabled = Mirror("https://vendor.test/v3/index.json", sortOrder: 1);
+            disabled.Enabled = false;
+            feed.Mirrors.Add(disabled);
+
+            var result = Target.CreateForFeed(feed);
+
+            Assert.IsType<V3UpstreamClient>(result);
+        }
+
+        [Fact]
+        public async Task QueriesMirrorsInSortOrder()
+        {
+            var feed = MirrorFeed();
+            feed.Mirrors[0].SortOrder = 1;
+            feed.Mirrors.Add(Mirror("https://vendor.test/v3/index.json", sortOrder: 0));
+
+            await Target.CreateForFeed(feed).DownloadPackageOrNullAsync(
+                "Package", NuGet.Versioning.NuGetVersion.Parse("1.0.0"), CancellationToken.None);
+
+            Assert.Equal(
+                new[] { "vendor.test", "upstream.test" },
+                Handler.Requests.ConvertAll(r => r.RequestUri.Host));
+        }
+
+        [Fact]
         public async Task SendsBasicAuthHeader()
         {
             var feed = MirrorFeed();
-            feed.MirrorAuthType = MirrorAuthenticationType.Basic;
-            feed.MirrorAuthUsername = "user";
-            feed.MirrorAuthPassword = "password";
+            feed.Mirrors[0].AuthType = MirrorAuthenticationType.Basic;
+            feed.Mirrors[0].AuthUsername = "user";
+            feed.Mirrors[0].AuthPassword = "password";
 
             await Target.CreateForFeed(feed).ListPackageVersionsAsync("Package", CancellationToken.None);
 
@@ -50,8 +108,8 @@ public class UpstreamClientFactoryTests
         public async Task SendsBearerAuthHeader()
         {
             var feed = MirrorFeed();
-            feed.MirrorAuthType = MirrorAuthenticationType.Bearer;
-            feed.MirrorAuthToken = "token";
+            feed.Mirrors[0].AuthType = MirrorAuthenticationType.Bearer;
+            feed.Mirrors[0].AuthToken = "token";
 
             await Target.CreateForFeed(feed).ListPackageVersionsAsync("Package", CancellationToken.None);
 
@@ -64,8 +122,8 @@ public class UpstreamClientFactoryTests
         public async Task SendsCustomHeadersExceptBlockedOnes()
         {
             var feed = MirrorFeed();
-            feed.MirrorAuthType = MirrorAuthenticationType.Custom;
-            feed.MirrorAuthCustomHeaders = "{\"X-Api-Key\":\"secret\",\"Cookie\":\"evil\"}";
+            feed.Mirrors[0].AuthType = MirrorAuthenticationType.Custom;
+            feed.Mirrors[0].AuthCustomHeaders = "{\"X-Api-Key\":\"secret\",\"Cookie\":\"evil\"}";
 
             await Target.CreateForFeed(feed).ListPackageVersionsAsync("Package", CancellationToken.None);
 
@@ -98,8 +156,17 @@ public class UpstreamClientFactoryTests
             {
                 Id = Guid.NewGuid(),
                 Slug = "feed",
-                MirrorEnabled = true,
-                MirrorPackageSource = "https://upstream.test/v3/index.json",
+                Mirrors = [Mirror("https://upstream.test/v3/index.json")],
+            };
+        }
+
+        protected static FeedMirror Mirror(string packageSource, int sortOrder = 0)
+        {
+            return new FeedMirror
+            {
+                Enabled = true,
+                PackageSource = packageSource,
+                SortOrder = sortOrder,
             };
         }
     }

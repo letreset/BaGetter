@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -38,11 +39,21 @@ public class UpstreamClientFactory : IUpstreamClientFactory
 
     public IUpstreamClient CreateForFeed(Feed feed)
     {
-        var mirrorOptions = _feedSettings.GetMirrorOptions(feed);
+        var mirrors = _feedSettings.GetMirrorOptions(feed);
 
-        if (!mirrorOptions.Enabled || mirrorOptions.PackageSource == null)
+        if (mirrors.Count == 0)
             return _disabled;
 
+        // A single upstream is used directly, exactly as before multiple mirrors existed.
+        if (mirrors.Count == 1)
+            return CreateForMirror(mirrors[0], feed.Id);
+
+        var upstreams = mirrors.Select(m => CreateForMirror(m, feed.Id)).ToList();
+        return new FallbackUpstreamClient(upstreams, _loggerFactory.CreateLogger<FallbackUpstreamClient>());
+    }
+
+    private IUpstreamClient CreateForMirror(MirrorOptions mirrorOptions, Guid feedId)
+    {
         if (mirrorOptions.Legacy)
         {
             var snapshot = new StaticOptionsSnapshot<MirrorOptions>(mirrorOptions);
@@ -50,7 +61,7 @@ public class UpstreamClientFactory : IUpstreamClientFactory
         }
 
         var logger = _loggerFactory.CreateLogger<UpstreamClientFactory>();
-        var httpClient = CreateHttpClient(mirrorOptions, feed.Id, logger);
+        var httpClient = CreateHttpClient(mirrorOptions, feedId, logger);
         var clientFactory = new NuGetClientFactory(httpClient, mirrorOptions.PackageSource.ToString());
         var nugetClient = new NuGetClient(clientFactory);
         return new V3UpstreamClient(nugetClient, _loggerFactory.CreateLogger<V3UpstreamClient>());
@@ -97,8 +108,8 @@ public class UpstreamClientFactory : IUpstreamClientFactory
                             if (_blockedHeaderNames.Contains(header))
                             {
                                 logger.LogWarning(
-                                    "Skipping blocked header '{HeaderName}' from feed {FeedId} MirrorAuthCustomHeaders.",
-                                    header, feedId);
+                                    "Skipping blocked header '{HeaderName}' from the custom headers of feed {FeedId} mirror {PackageSource}.",
+                                    header, feedId, options.PackageSource);
                                 continue;
                             }
                             client.DefaultRequestHeaders.Add(header, value);

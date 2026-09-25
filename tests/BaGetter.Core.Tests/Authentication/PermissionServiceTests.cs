@@ -398,9 +398,9 @@ public class PermissionServiceTests
 
             // Seed the feeds referenced by tests so FK constraints are satisfied.
             Context.Feeds.AddRange(
-                new Feed { Id = _defaultFeedId, Slug = "default", Name = "Default", MirrorEnabled = false, MirrorLegacy = false, CreatedAtUtc = DateTime.UtcNow, UpdatedAtUtc = DateTime.UtcNow },
-                new Feed { Id = _feedAId, Slug = "feed-a", Name = "Feed A", MirrorEnabled = false, MirrorLegacy = false, CreatedAtUtc = DateTime.UtcNow, UpdatedAtUtc = DateTime.UtcNow },
-                new Feed { Id = _feedBId, Slug = "feed-b", Name = "Feed B", MirrorEnabled = false, MirrorLegacy = false, CreatedAtUtc = DateTime.UtcNow, UpdatedAtUtc = DateTime.UtcNow });
+                new Feed { Id = _defaultFeedId, Slug = "default", Name = "Default", CreatedAtUtc = DateTime.UtcNow, UpdatedAtUtc = DateTime.UtcNow },
+                new Feed { Id = _feedAId, Slug = "feed-a", Name = "Feed A", CreatedAtUtc = DateTime.UtcNow, UpdatedAtUtc = DateTime.UtcNow },
+                new Feed { Id = _feedBId, Slug = "feed-b", Name = "Feed B", CreatedAtUtc = DateTime.UtcNow, UpdatedAtUtc = DateTime.UtcNow });
             Context.SaveChanges();
 
             UserService = new Mock<IUserService>();

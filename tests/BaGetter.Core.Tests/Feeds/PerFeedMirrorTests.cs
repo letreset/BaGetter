@@ -43,7 +43,6 @@ public class PerFeedMirrorTests
             Id = Guid.NewGuid(),
             Slug = "mirror-feed",
             Name = "Mirror Feed",
-            MirrorEnabled = true,
         };
 
         _feedWithoutMirror = new Feed
@@ -51,7 +50,6 @@ public class PerFeedMirrorTests
             Id = Guid.NewGuid(),
             Slug = "local-feed",
             Name = "Local Feed",
-            MirrorEnabled = false,
         };
 
         // Factory returns the mock upstream client only for the mirror-enabled feed.
