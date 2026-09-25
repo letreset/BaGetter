@@ -1,108 +1,141 @@
 # Run BaGetter on Docker
 
-## Configure BaGetter (optional)
+The image is [`letreset/bagetter`](https://hub.docker.com/r/letreset/bagetter) on Docker Hub, built for `linux/amd64` and `linux/arm64`.
 
-Create a file named `bagetter.env` to store BaGetter's configurations:
+## Quick start
 
 ```shell
-# The following config is the API Key used to publish packages.
-# You should change this to a secret value to secure your server.
-ApiKey=NUGET-SERVER-API-KEY
-
-Storage__Type=FileSystem
-Storage__Path=/data
-Database__Type=Sqlite
-Database__ConnectionString=Data Source=/data/db/bagetter.db
-Search__Type=Database
+docker run -d --name bagetter -p 5000:8080 -v bagetter-data:/data \
+  -e ApiKey=change-me \
+  letreset/bagetter:latest
 ```
 
-For a full list of configurations, please refer to [BaGetter's configuration](../configuration.md) guide.
-
-:::info
-
-The `bagetter.env` file stores [BaGetter's configuration](../configuration) as environment variables.
-Alternatively, the configuration can be injected via environment variables directly, e.g. the `environment` array in a docker compose file or the `--env` flag in a `docker run` command.
-To learn how these configurations work, please refer to [ASP.NET Core's configuration documentation](https://docs.microsoft.com/en-us/aspnet/core/fundamentals/configuration/?view=aspnetcore-2.1&tabs=basicconfiguration#configuration-by-environment).
-
-:::
-
-If this step is omitted the default mode (unconfigured) will be Sqlite with the sql blobs stored in the path `/data/db/bagetter.db`.
-
-## Run BaGetter
-
-1. Create a folder named `bagetter-data` in the same directory as the `bagetter.env` file. This will be used by BaGetter to persist its state.
-2. Pull BaGetter's latest [docker image](https://hub.docker.com/r/letreset/bagetter):
+Open [`http://localhost:5000/`](http://localhost:5000/) and push a package with the API key:
 
 ```shell
-docker pull letreset/bagetter
-```
-
-You can now run BaGetter...
-
-- ...with optional `.env` file:
-
-```shell
-docker run --rm --name nuget-server -p 5000:8080 --env-file bagetter.env -v "$(pwd)/bagetter-data:/data" letreset/bagetter:latest
-```
-
-- ...or without:
-
-```shell
-docker run --rm --name nuget-server -p 5000:8080 -v "$(pwd)/bagetter-data:/data" letreset/bagetter:latest
-```
-
-## Publish packages
-
-Publish your first package with:
-
-```shell
-dotnet nuget push -s http://localhost:5000/v3/index.json -k NUGET-SERVER-API-KEY package.1.0.0.nupkg
-```
-
-Publish your first [symbol package](https://docs.microsoft.com/en-us/nuget/create-packages/symbol-packages-snupkg) with:
-
-```shell
-dotnet nuget push -s http://localhost:5000/v3/index.json -k NUGET-SERVER-API-KEY symbol.package.1.0.0.snupkg
+dotnet nuget push -s http://localhost:5000/v3/index.json -k change-me MyPackage.1.0.0.nupkg
 ```
 
 :::warning
 
-The default API Key to publish packages is `NUGET-SERVER-API-KEY`.
-You should change this to a secret value to secure your server. See [Configure BaGetter](#configure-bagetter-optional).
+Without `ApiKey` (and with the default `Config` [authentication mode](../authentication.md)), anyone who can reach the server can push packages. Set a long random value.
 
 :::
 
-## Browse packages
+## Image tags
 
-You can browse packages by opening the URL [`http://localhost:5000/`](http://localhost:5000/) in your browser.
+| Tag | Meaning |
+|-----|---------|
+| `latest` | Latest stable release |
+| `2`, `2.0` | Latest release in that major or minor line |
+| `2.0.0` | Exact version, never changes |
+| `2.1.0-rc.1` | Prerelease, never tagged `latest` |
+
+Pin an exact version (or at least a major version) in production, and upgrade on purpose. The [releases page](https://github.com/letreset/BaGetter/releases) lists the changes in each version.
+
+## The `/data` volume
+
+By default the image keeps all of its state in `/data`:
+
+| Path | Contents |
+|---|---|
+| `/data/packages/…` | Packages, per feed |
+| `/data/symbols/…` | Symbol files, per feed |
+| `/data/db/bagetter.db` | The SQLite database |
+| `/data/dataprotection/keyring.xml` | Data Protection keys (sign-in cookies, forms) |
+
+Mount a named volume or a host folder there, or you lose everything when the container is recreated. These defaults come from environment variables in the image (`Storage__Path=/data`, `Database__Type=Sqlite`, `Database__ConnectionString=Data Source=/data/db/bagetter.db`, `Search__Type=Database`); override them to use another database or cloud storage.
+
+## Configure BaGetter
+
+Configure BaGetter with environment variables, using `__` (two underscores) as the section separator, for example `Database__Type` for `Database:Type`. You can pass them with `-e`, with an `--env-file`, or in a compose file. For the full list, see [Configuration](../configuration.md).
+
+Secrets can also be mounted as files under `/run/secrets`, one file per setting (see [Load secrets from files](../configuration.md#load-secrets-from-files)).
+
+## Docker Compose
+
+A production-like setup with PostgreSQL:
+
+```yaml
+services:
+  bagetter:
+    image: letreset/bagetter:2
+    restart: unless-stopped
+    ports:
+      - "5000:8080"
+    environment:
+      Database__Type: PostgreSql
+      Database__ConnectionString: Host=db;Database=bagetter;Username=bagetter;Password=${POSTGRES_PASSWORD}
+      Search__Type: Database
+    secrets:
+      - source: bagetter_api_key
+        target: ApiKey
+    volumes:
+      - bagetter-data:/data
+    depends_on:
+      - db
+
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: bagetter
+      POSTGRES_USER: bagetter
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+volumes:
+  bagetter-data:
+  postgres-data:
+
+secrets:
+  bagetter_api_key:
+    file: ./secrets/api-key.txt
+```
+
+Put `POSTGRES_PASSWORD=…` in a `.env` file next to `compose.yaml`, and the API key in `secrets/api-key.txt`, then run `docker compose up -d`. For user accounts and Entra ID sign-in, add the settings from [Authentication](../authentication.md#docker-compose-example).
+
+## Health checks
+
+| Endpoint | Checks |
+|---|---|
+| `/livez` | Only that the process is up. Use it for liveness probes. |
+| `/health` | The database and storage. Use it for readiness probes and monitoring. The path is set by `HealthCheck:Path`. |
 
 ## Restore packages
 
-You can restore packages by using the following package source:
+Use this package source:
 
 `http://localhost:5000/v3/index.json`
 
-Some helpful guides:
+Other [feeds](../feeds.md) are at `http://localhost:5000/feeds/{slug}/v3/index.json`. Some helpful guides:
 
 - [Visual Studio](https://docs.microsoft.com/en-us/nuget/consume-packages/install-use-packages-visual-studio#package-sources)
 - [NuGet.config](https://docs.microsoft.com/en-us/nuget/reference/nuget-config-file#package-source-sections)
 
 ## Symbol server
 
-You can load symbols by using the following symbol location:
+Publish a [symbol package](https://docs.microsoft.com/en-us/nuget/create-packages/symbol-packages-snupkg) the same way as a package:
+
+```shell
+dotnet nuget push -s http://localhost:5000/v3/index.json -k change-me MyPackage.1.0.0.snupkg
+```
+
+Load symbols from this symbol location:
 
 `http://localhost:5000/api/download/symbols`
 
-For Visual Studio, please refer to the [Configure Debugging](https://docs.microsoft.com/en-us/visualstudio/debugger/specify-symbol-dot-pdb-and-source-files-in-the-visual-studio-debugger?view=vs-2017#configure-symbol-locations-and-loading-options) guide.
+For Visual Studio, see [Configure symbol locations](https://learn.microsoft.com/en-us/visualstudio/debugger/specify-symbol-dot-pdb-and-source-files-in-the-visual-studio-debugger#configure-symbol-locations-and-loading-options).
 
 ## Running BaGetter behind a reverse proxy
 
-BaGetter can be run behind a reverse proxy in order to provide HTTPS, your own domain, and other features. For the API to deliver proper URLs, the proxy needs to forward the `X-Forwarded-Host` header, or the `Host` header iteslf.  
-For more information, please refer to the [ASP.NET Core documentation](https://docs.microsoft.com/en-us/aspnet/core/host-and-deploy/proxy-load-balancer).
+Run BaGetter behind a reverse proxy to add HTTPS and your own domain. For the API to return correct URLs, the proxy must forward the `Host` header (or `X-Forwarded-Host`) and `X-Forwarded-Proto`. For more information, see the [ASP.NET Core documentation](https://docs.microsoft.com/en-us/aspnet/core/host-and-deploy/proxy-load-balancer).
 
-Consider binding port 5000 to localhost only using -p 127.0.0.1:5000:8080 to avoid any transmission of non encrypted data even over internal networks
+Consider binding the port to localhost only (`-p 127.0.0.1:5000:8080`), so unencrypted traffic never leaves the machine.
 
-### Apache 2 Configuration
+### Apache 2 configuration
+
 ```config
 <IfModule mod_ssl.c>
 	<VirtualHost *:443>
@@ -115,12 +148,12 @@ Consider binding port 5000 to localhost only using -p 127.0.0.1:5000:8080 to avo
 		ProxyPassReverse / http://localhost:5000/
 		RequestHeader set X-Forwarded-Proto https
 
-		SSLCertificateFile /etc/letsencrypt/live/nuget.example.com/fullchain.pem #managed by cerbot
-		SSLCertificateKeyFile /etc/letsencrypt/live/nuget.example.com/privkey.pem #managed by cerbot
+		SSLCertificateFile /etc/letsencrypt/live/nuget.example.com/fullchain.pem #managed by certbot
+		SSLCertificateKeyFile /etc/letsencrypt/live/nuget.example.com/privkey.pem #managed by certbot
 		Include /etc/letsencrypt/options-ssl-apache.conf
-		Header always set Strict-Transport-Security "max-age=31536000"
 		Header always set Content-Security-Policy upgrade-insecure-requests
 	</VirtualHost>
 </IfModule>
 ```
 
+To send HSTS from BaGetter itself instead of the proxy, see [Security headers](../configuration.md#security-headers).
