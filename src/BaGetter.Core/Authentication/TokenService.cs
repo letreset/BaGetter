@@ -15,7 +15,7 @@ namespace BaGetter.Core.Authentication;
 
 public class TokenService : ITokenService
 {
-    private const string TokenPrefix = "bg_";
+    public const string TokenPrefix = "bg_";
     private const int TokenHexLength = 40;
     private const int TokenPrefixStoredLength = 8;
 

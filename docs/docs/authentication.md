@@ -254,11 +254,13 @@ NuGet clients send a username and password (HTTP Basic) for restores, and an API
 | Mode | Restore (username / password) | Push (`-k` API key) |
 |---|---|---|
 | `Config` | A `Credentials` entry, if any are configured | An `ApiKey`/`ApiKeys` value |
-| `Local` | Local account username and password | A PAT |
+| `Local` | Your username and a PAT (recommended), or your account password | A PAT |
 | `Entra` | Your username and a PAT as the password | A PAT |
-| `Hybrid` | A local account's password, or your username and a PAT | A PAT |
+| `Hybrid` | Your username and a PAT, or a local account's password | A PAT |
 
 The **Connect** page of each feed shows the right instructions for the current mode.
+
+Prefer a PAT over the account password on build agents and developer machines: it can expire, be revoked on its own, and failed PAT attempts never lock the account.
 
 ```shell
 # Add the source (dotnet CLI)

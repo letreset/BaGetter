@@ -56,18 +56,10 @@ public class FeedAuthenticationService : IFeedAuthenticationService
         if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
             return new AuthResult(false, null, null);
 
-        // First, try to authenticate as a local account
-        if (_authOptions.Mode is AuthenticationMode.Local or AuthenticationMode.Hybrid)
-        {
-            var localResult = await TryAuthenticateLocalAccountAsync(username, password, cancellationToken);
-            if (localResult.IsAuthenticated)
-                return localResult;
-        }
-
-        // Then, try to authenticate using the password as a PAT
-        // (NuGet clients send credentials as username/password in basic auth,
-        //  where password is the PAT token)
-        if (_authOptions.Mode is AuthenticationMode.Entra or AuthenticationMode.Hybrid)
+        // NuGet clients send a PAT as the basic auth password. A password in PAT format is only
+        // checked as a token, so a PAT never counts as a failed login against the local account
+        // (which would lock the owner out after a few restores).
+        if (password.StartsWith(TokenService.TokenPrefix, StringComparison.Ordinal))
         {
             var tokenResult = await AuthenticateByTokenAsync(password, cancellationToken);
             if (tokenResult.IsAuthenticated)
@@ -81,6 +73,12 @@ public class FeedAuthenticationService : IFeedAuthenticationService
 
                 return tokenResult;
             }
+        }
+        else if (_authOptions.Mode is AuthenticationMode.Local or AuthenticationMode.Hybrid)
+        {
+            var localResult = await TryAuthenticateLocalAccountAsync(username, password, cancellationToken);
+            if (localResult.IsAuthenticated)
+                return localResult;
         }
 
         _logger.LogWarning("Audit: {EventType} - Credential authentication failed for username {Username}",
