@@ -12,30 +12,32 @@ This is an independently maintained fork of [bagetter/BaGetter](https://github.c
 ## Quick start
 
 ```bash
-docker run -d --name bagetter -p 5000:8080 -v bagetter-data:/data letreset/bagetter:latest
+docker run -d --name bagetter -p 5000:8080 -v bagetter-data:/data \
+  -e ApiKey=change-me \
+  letreset/bagetter:latest
 ```
 
-Open http://localhost:5000, then push a package:
+Open http://localhost:5000, then push a package with the API key:
 
 ```bash
-dotnet nuget push -s http://localhost:5000/v3/index.json -k <api-key> MyPackage.1.0.0.nupkg
+dotnet nuget push -s http://localhost:5000/v3/index.json -k change-me MyPackage.1.0.0.nupkg
 ```
 
-By default the image stores packages, symbols, the SQLite database and Data Protection keys in `/data`. Mount a volume there to keep them.
+Without `ApiKey`, anyone who can reach the server can push. By default the image stores packages, symbols, the SQLite database and Data Protection keys in `/data`. Mount a volume there to keep them.
 
 ## Configuration
 
-Configure BaGetter with environment variables, using `__` as the section separator:
+Configure BaGetter with environment variables, using `__` as the section separator. For example, to use PostgreSQL:
 
 ```bash
 docker run -d -p 5000:8080 -v bagetter-data:/data \
-  -e Authentication__Mode=Local \
+  -e ApiKey=change-me \
   -e Database__Type=PostgreSql \
   -e Database__ConnectionString="Host=db;Database=bagetter;Username=bagetter;Password=..." \
   letreset/bagetter:latest
 ```
 
-Secrets can also be mounted as files under `/run/secrets` (key-per-file). See the full [configuration docs](https://letreset.github.io/BaGetter/docs/configuration).
+Secrets can also be mounted as files under `/run/secrets` (key-per-file). User accounts, groups and Entra ID sign-in are enabled with `Authentication__Mode` (`Config`, `Local`, `Entra` or `Hybrid`); see the [authentication docs](https://letreset.github.io/BaGetter/docs/authentication) and the full [configuration docs](https://letreset.github.io/BaGetter/docs/configuration).
 
 ## Tags
 
