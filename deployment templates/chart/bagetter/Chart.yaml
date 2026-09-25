@@ -3,28 +3,21 @@ name: bagetter
 description: A Helm chart for BaGetter nuget package server
 type: application
 
-# This is the chart version. This version number should be incremented each time you make changes
-# to the chart and its templates, including the app version.
-# Versions are expected to follow Semantic Versioning (https://semver.org/)
-version: 0.1.0
-
-# This is the version number of the application being deployed. This version number should be
-# incremented each time you make changes to the application. Versions are not expected to
-# follow Semantic Versioning. They should reflect the version the application is using.
-# It is recommended to use it with quotes.
-appVersion: "1.0.4"
+# Chart and app versions move together. The release workflow overrides both with the git tag
+# (helm package --version/--app-version), so these values only matter for local installs.
+version: 2.0.0
+appVersion: "2.0.0"
 
 keywords:
   - nuget
   - baget
   - bagetter
 
-home: https://github.com/bagetter/BaGetter/tree/master/charts/BaGetter
-# icon: 
+home: https://letreset.github.io/BaGetter/
 
 sources:
-  - https://github.com/bagetter/BaGetter
-  - https://hub.docker.com/r/bagetter/bagetter
+  - https://github.com/letreset/BaGetter
+  - https://hub.docker.com/r/letreset/bagetter
 
 dependencies:
   - name: common

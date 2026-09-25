@@ -322,7 +322,7 @@ All authentication settings can be provided via environment variables using the 
 ```yaml
 services:
   bagetter:
-    image: bagetter/bagetter:latest
+    image: letreset/bagetter:latest
     ports:
       - "5000:8080"
     environment:
