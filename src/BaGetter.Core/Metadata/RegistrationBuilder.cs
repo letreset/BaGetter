@@ -1,48 +1,94 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using BaGetter.Core.Configuration;
 using BaGetter.Core.Entities;
 using BaGetter.Protocol.Models;
+using Microsoft.Extensions.Options;
+using NuGet.Versioning;
 
 namespace BaGetter.Core.Metadata;
 
 public class RegistrationBuilder
 {
     private readonly IUrlGenerator _url;
+    private readonly int _registrationPageSize;
 
-    public RegistrationBuilder(IUrlGenerator url)
+    public RegistrationBuilder(IUrlGenerator url, IOptions<BaGetterOptions> options)
     {
         ArgumentNullException.ThrowIfNull(url);
+        ArgumentNullException.ThrowIfNull(options);
 
         _url = url;
+        _registrationPageSize = options.Value.RegistrationPageSize;
+        if (_registrationPageSize < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), "RegistrationPageSize must be greater than 0.");
+        }
     }
 
+    // "Un-paged" example: https://api.nuget.org/v3/registration3/newtonsoft.json/index.json
+    // Paged example: https://api.nuget.org/v3/registration3/fake/index.json
     public virtual BaGetterRegistrationIndexResponse BuildIndex(PackageRegistration registration)
     {
         ArgumentNullException.ThrowIfNull(registration);
 
         var sortedPackages = registration.Packages.OrderBy(p => p.Version).ToList();
+        var pages = sortedPackages.Chunk(_registrationPageSize).ToList();
+        var isPaged = pages.Count > 1;
 
-        // TODO: Paging of registration items.
-        // "Un-paged" example: https://api.nuget.org/v3/registration3/newtonsoft.json/index.json
-        // Paged example: https://api.nuget.org/v3/registration3/fake/index.json
         return new BaGetterRegistrationIndexResponse
         {
             RegistrationIndexUrl = _url.GetRegistrationIndexUrl(registration.PackageId),
             Type = RegistrationIndexResponse.DefaultType,
-            Count = 1,
+            Count = pages.Count,
             TotalDownloads = registration.Packages.Sum(p => p.Downloads),
-            Pages = new[]
-            {
-                new BaGetterRegistrationIndexPage
+            Pages = pages
+                .Select(page =>
                 {
-                    RegistrationPageUrl = _url.GetRegistrationIndexUrl(registration.PackageId),
-                    Count = registration.Packages.Count,
-                    Lower = sortedPackages.First().Version.ToNormalizedString().ToLowerInvariant(),
-                    Upper = sortedPackages.Last().Version.ToNormalizedString().ToLowerInvariant(),
-                    ItemsOrNull = sortedPackages.Select(ToRegistrationIndexPageItem).ToList(),
-                }
-            }
+                    var lower = page.First().Version;
+                    var upper = page.Last().Version;
+
+                    // Small registrations inline their items. Larger ones only link to each page,
+                    // and clients fetch the page contents separately.
+                    return new BaGetterRegistrationIndexPage
+                    {
+                        RegistrationPageUrl = isPaged
+                            ? _url.GetRegistrationPageUrl(registration.PackageId, lower, upper)
+                            : _url.GetRegistrationIndexUrl(registration.PackageId),
+                        Count = page.Length,
+                        Lower = lower.ToNormalizedString().ToLowerInvariant(),
+                        Upper = upper.ToNormalizedString().ToLowerInvariant(),
+                        ItemsOrNull = isPaged ? null : page.Select(ToRegistrationIndexPageItem).ToList(),
+                    };
+                })
+                .ToList()
+        };
+    }
+
+    public virtual BaGetterRegistrationPageResponse BuildPage(PackageRegistration registration, NuGetVersion lower, NuGetVersion upper)
+    {
+        ArgumentNullException.ThrowIfNull(registration);
+        ArgumentNullException.ThrowIfNull(lower);
+        ArgumentNullException.ThrowIfNull(upper);
+
+        var packages = registration.Packages
+            .Where(p => p.Version >= lower && p.Version <= upper)
+            .OrderBy(p => p.Version)
+            .ToList();
+
+        if (packages.Count == 0)
+        {
+            return null;
+        }
+
+        return new BaGetterRegistrationPageResponse
+        {
+            RegistrationPageUrl = _url.GetRegistrationPageUrl(registration.PackageId, lower, upper),
+            Count = packages.Count,
+            Lower = lower.ToNormalizedString().ToLowerInvariant(),
+            Upper = upper.ToNormalizedString().ToLowerInvariant(),
+            ItemsOrNull = packages.Select(ToRegistrationIndexPageItem).ToList(),
         };
     }
 

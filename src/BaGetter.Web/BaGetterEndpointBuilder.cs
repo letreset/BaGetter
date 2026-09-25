@@ -96,6 +96,11 @@ public class BaGetterEndpointBuilder
            defaults: new { controller = "PackageMetadata", action = "RegistrationIndex" });
 
         endpoints.MapControllerRoute(
+            name: Routes.RegistrationPageRouteName,
+            pattern: "v3/registration/{id}/page/{lower}/{upper}.json",
+            defaults: new { controller = "PackageMetadata", action = "RegistrationPage" });
+
+        endpoints.MapControllerRoute(
             name: Routes.RegistrationLeafRouteName,
             pattern: "v3/registration/{id}/{version}.json",
             defaults: new { controller = "PackageMetadata", action = "RegistrationLeaf" });

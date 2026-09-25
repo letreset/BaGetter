@@ -24,6 +24,19 @@ public interface IPackageMetadataService
     Task<BaGetterRegistrationIndexResponse> GetRegistrationIndexOrNullAsync(Guid feedId, string feedSlug, string packageId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Get a page of a package's registration index, if the package exists.
+    /// </summary>
+    /// <remarks>See: <see href="https://docs.microsoft.com/en-us/nuget/api/registration-base-url-resource#registration-page"/></remarks>
+    /// <param name="feedId">The feed's id.</param>
+    /// <param name="feedSlug">The feed's slug, used to prefix storage paths.</param>
+    /// <param name="packageId">The package's ID.</param>
+    /// <param name="lower">The inclusive lower version bound of the page.</param>
+    /// <param name="upper">The inclusive upper version bound of the page.</param>
+    /// <param name="cancellationToken">A token to cancel the task.</param>
+    /// <returns>The <see cref="BaGetterRegistrationPageResponse">registration page</see>, or <see langword="null"/> if no package versions are in the range.</returns>
+    Task<BaGetterRegistrationPageResponse> GetRegistrationPageOrNullAsync(Guid feedId, string feedSlug, string packageId, NuGetVersion lower, NuGetVersion upper, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Get the metadata for a single package version, if the package exists.
     /// </summary>
     /// <param name="feedId">The feed's id.</param>

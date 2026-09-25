@@ -175,6 +175,47 @@ public class FileStorageServiceTests
             await Target.DeleteAsync("test.txt");
 
             Assert.False(File.Exists(path));
+            Assert.True(Directory.Exists(StorePath));
+        }
+
+        [Fact]
+        public async Task DeletesEmptyParentDirectoriesButPreservesNamespaceFolder()
+        {
+            // Arrange
+            var relativePath = Path.Combine("packages", "default", "example.package", "1.0.0", "example.package.1.0.0.nupkg");
+            var namespacePath = Path.Combine(StorePath, "packages");
+            var feedPath = Path.Combine(namespacePath, "default");
+            var versionPath = Path.Combine(feedPath, "example.package", "1.0.0");
+
+            Directory.CreateDirectory(versionPath);
+            await File.WriteAllTextAsync(Path.Combine(StorePath, relativePath), "package");
+
+            // Act
+            await Target.DeleteAsync(relativePath);
+
+            // Assert
+            Assert.False(Directory.Exists(versionPath));
+            Assert.False(Directory.Exists(feedPath));
+            Assert.True(Directory.Exists(namespacePath));
+        }
+
+        [Fact]
+        public async Task KeepsParentDirectoriesWhenAnotherFileExists()
+        {
+            // Arrange
+            var versionPath = Path.Combine(StorePath, "packages", "default", "example.package", "1.0.0");
+            var nuspecPath = Path.Combine(versionPath, "example.package.nuspec");
+
+            Directory.CreateDirectory(versionPath);
+            await File.WriteAllTextAsync(Path.Combine(versionPath, "example.package.1.0.0.nupkg"), "package");
+            await File.WriteAllTextAsync(nuspecPath, "nuspec");
+
+            // Act
+            await Target.DeleteAsync(Path.Combine("packages", "default", "example.package", "1.0.0", "example.package.1.0.0.nupkg"));
+
+            // Assert
+            Assert.True(File.Exists(nuspecPath));
+            Assert.True(Directory.Exists(versionPath));
         }
 
         [Fact]

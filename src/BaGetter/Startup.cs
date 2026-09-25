@@ -24,6 +24,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.DataProtection.KeyManagement;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -67,6 +68,19 @@ public class Startup
         services.AddHealthChecks();
 
         services.AddCors();
+
+        // text/html is left out on purpose: compressing pages that carry antiforgery tokens
+        // over HTTPS enables BREACH-style attacks. The NuGet API is JSON.
+        services.AddResponseCompression(options =>
+        {
+            options.EnableForHttps = true;
+            options.MimeTypes = ["application/json", "text/css", "text/javascript", "application/javascript", "image/svg+xml"];
+            options.Providers.Add<BrotliCompressionProvider>();
+            options.Providers.Add<GzipCompressionProvider>();
+        });
+
+        var securityHeaders = Configuration.GetSection(nameof(BaGetterOptions.SecurityHeaders)).Get<SecurityHeadersOptions>() ?? new SecurityHeadersOptions();
+        services.AddHsts(options => options.MaxAge = TimeSpan.FromDays(securityHeaders.HstsMaxAgeDays));
 
         ConfigureDataProtection(services);
     }
@@ -131,6 +145,14 @@ public class Startup
 
         app.UseForwardedHeaders();
         app.UsePathBase(options.PathBase);
+
+        if (!env.IsDevelopment() && options.SecurityHeaders?.EnableHsts == true)
+        {
+            app.UseHsts();
+        }
+
+        app.UseMiddleware<SecurityHeadersMiddleware>();
+        app.UseResponseCompression();
 
         // Liveness probe
         // registered before FeedResolutionMiddleware so it never resolves the DbContext or other services.
