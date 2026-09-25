@@ -20,6 +20,7 @@ const sidebars: SidebarsConfig = {
     },
     'upgrading',
     'feeds',
+    'web-ui',
     'authentication',
     'configuration',
     {

@@ -16,7 +16,7 @@ This is [letreset/BaGetter](https://github.com/letreset/BaGetter), an independen
 
 - **[Multiple feeds](feeds.md)**: each feed has its own packages, settings, retention and read-through mirror of nuget.org or any other NuGet v3 feed.
 - **[Users and permissions](authentication.md)**: local accounts, Microsoft Entra ID sign-in, groups, per-feed pull/push/delete permissions, and personal access tokens with expiry email reminders.
-- **An admin UI** for feeds, accounts and groups.
+- **A [web UI](web-ui.md)** with per-feed search filters, package management (unlist, relist, delete) and admin pages for feeds, accounts and groups.
 - **Data Protection keys in storage**, so sign-in cookies survive restarts and work across replicas.
 - **HTTP hardening**: security headers, optional HSTS, configurable CORS and response compression.
 

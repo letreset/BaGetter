@@ -155,3 +155,5 @@ Or in a `nuget.config` next to your solution:
 ```
 
 Which username and password to use depends on the [authentication mode](authentication.md#using-bagetter-from-nuget-clients). Keep secrets out of source control: reference an environment variable as above, or add the credentials with `dotnet nuget update source … --username … --password …` on each machine.
+
+The service index advertises a readme resource (`ReadmeUriTemplate`), so Visual Studio (with NuGet 6.13 or later) shows package readmes in the package manager.

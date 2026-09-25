@@ -583,6 +583,12 @@ BaGetter sets caching headers on a few endpoints. There is nothing to configure.
 
 Responses are never marked `public` or `immutable`: feeds can require authentication, and a feed that allows package overwrites can change the content of an existing version. Make sure your reverse proxy doesn't cache these responses in a shared cache.
 
+## Response compression
+
+BaGetter compresses JSON, CSS, JavaScript and SVG responses with Brotli or gzip, whichever the client accepts, over HTTP and HTTPS. There is nothing to configure. This makes the NuGet API responses (search, registrations, version lists) much smaller.
+
+HTML pages aren't compressed on purpose: compressing pages that carry anti-forgery tokens over HTTPS enables [BREACH](https://en.wikipedia.org/wiki/BREACH)-style attacks. Package downloads (`.nupkg`, `.snupkg`) are already compressed and are sent as they are.
+
 ## Audit log
 
 BaGetter writes one log line for every package upload, delete and relist, including denied attempts. There is no separate audit store: the lines go to the normal logs, so you can collect them with whatever already reads BaGetter's output.
