@@ -198,6 +198,7 @@ jobs:
         env:
           OUTPUT: CHANGELOG.md
           CLIFF_BASELINE: ${{ env.CHANGELOG_BASELINE }}
+          GITHUB_TOKEN: ${{ github.token }}
 
       - name: Write release notes
         run: |

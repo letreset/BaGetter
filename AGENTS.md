@@ -47,6 +47,7 @@ Upstream is only a source to cherry-pick from. We don't send PRs there.
 - Versioning is independent semver starting at **2.0.0** and is unrelated to upstream's 1.x.
 - Pushing a `vX.Y.Z` tag on `main` runs `.github/workflows/release.yml`. It runs the tests, creates a GitHub release with a zip and a git-cliff changelog, pushes the Docker image `letreset/bagetter` to Docker Hub, and pushes the Helm chart to `oci://ghcr.io/letreset/charts`.
 - A `-` in the tag (e.g. `v2.1.0-rc.1`) marks a prerelease, which does not move the `latest` image tag.
+- Release notes credit contributors by GitHub username (`@nick`), never by real name. `cliff.toml` resolves authors through the GitHub API (`[remote.github]`, needs `GITHUB_TOKEN`); keep it that way, and use `@nick` when writing or editing release notes by hand.
 - Use [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `docs:`, `ci:`, …). `cliff.toml` groups the changelog by these prefixes.
 - The roadmap lives in GitHub issues on letreset/BaGetter, one issue per task.
 
