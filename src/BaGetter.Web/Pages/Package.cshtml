@@ -1,5 +1,6 @@
 @page "/packages/{id}/{version?}"
 @using BaGetter.Core.Configuration
+@using System.Globalization
 @using Humanizer
 @using Microsoft.AspNetCore.Html
 @using Microsoft.Extensions.Options
@@ -239,7 +240,7 @@ else
                 <ul class="list-unstyled ms-Icon-ul">
                     <li>
                         <i class="ms-Icon ms-Icon--History" aria-hidden="true"></i>
-                        Last updated @Html.DisplayDate(Model.LastUpdated, Model.LastUpdated.Humanize())
+                        Last updated @Html.DisplayDate(Model.LastUpdated, Model.LastUpdated.Humanize(culture: CultureInfo.InvariantCulture))
                     </li>
 
                     @if (!string.IsNullOrEmpty(Model.Package.ProjectUrlString))
