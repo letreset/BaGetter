@@ -108,6 +108,7 @@ public class FeedSortOrderUpgradeTests : IDisposable
         snapshot.Setup(s => s.Value).Returns(bagetterOptions);
 
         var services = new ServiceCollection();
+        services.AddLogging();
         services.AddSingleton(snapshot.Object);
         services.AddDbContext<SqliteContext>(opts => opts.UseSqlite(_connectionString));
 

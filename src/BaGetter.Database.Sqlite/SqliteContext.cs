@@ -1,27 +1,35 @@
+using System;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using BaGetter.Core.Configuration;
 using BaGetter.Core.Entities;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace BaGetter.Database.Sqlite;
 
-public class SqliteContext : AbstractContext<SqliteContext>
+public partial class SqliteContext : AbstractContext<SqliteContext>
 {
     private readonly DatabaseOptions _bagetterOptions;
+    private readonly ILogger<SqliteContext> _logger;
 
     /// <summary>
     /// The Sqlite error code for when a unique constraint is violated.
     /// </summary>
     private const int SqliteUniqueConstraintViolationErrorCode = 19;
 
-    public SqliteContext(DbContextOptions<SqliteContext> efOptions, IOptionsSnapshot<BaGetterOptions> bagetterOptions)
+    public SqliteContext(
+        DbContextOptions<SqliteContext> efOptions,
+        IOptionsSnapshot<BaGetterOptions> bagetterOptions,
+        ILogger<SqliteContext> logger)
         : base(efOptions)
     {
         _bagetterOptions = bagetterOptions.Value.Database;
+        _logger = logger;
     }
 
     public override bool IsUniqueConstraintViolationException(DbUpdateException exception)
@@ -64,6 +72,46 @@ public class SqliteContext : AbstractContext<SqliteContext>
         }
 
         await base.RunMigrationsAsync(cancellationToken);
+
+        if (!string.IsNullOrWhiteSpace(_bagetterOptions?.JournalMode))
+        {
+            await ApplyJournalModeAsync(_bagetterOptions.JournalMode, cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// Sets the journal mode configured in Database:JournalMode. SQLite stores it in the database file,
+    /// so it persists across connections.
+    /// </summary>
+    private async Task ApplyJournalModeAsync(string configuredMode, CancellationToken cancellationToken)
+    {
+        // Only a known mode from the allow-list ever reaches the SQL, never the raw config value.
+        var journalMode = DatabaseOptions.SqliteJournalModes
+            .FirstOrDefault(m => string.Equals(m, configuredMode, StringComparison.OrdinalIgnoreCase))
+            ?? throw new InvalidOperationException(
+                $"Unsupported SQLite journal mode '{configuredMode}'. " +
+                $"Allowed values: {string.Join(", ", DatabaseOptions.SqliteJournalModes)}");
+
+        await Database.OpenConnectionAsync(cancellationToken);
+        try
+        {
+            using var command = Database.GetDbConnection().CreateCommand();
+            command.CommandText = $"PRAGMA journal_mode={journalMode};";
+            var resultingMode = await command.ExecuteScalarAsync(cancellationToken) as string ?? string.Empty;
+
+            if (string.Equals(resultingMode, journalMode, StringComparison.OrdinalIgnoreCase))
+            {
+                LogJournalModeApplied(resultingMode);
+            }
+            else
+            {
+                LogJournalModeNotApplied(journalMode, resultingMode);
+            }
+        }
+        finally
+        {
+            await Database.CloseConnectionAsync();
+        }
     }
 
     /// <summary>
@@ -84,4 +132,10 @@ public class SqliteContext : AbstractContext<SqliteContext>
         if (!optionsBuilder.IsConfigured)
             optionsBuilder.UseSqlite(_bagetterOptions.ConnectionString);
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "SQLite journal mode is {JournalMode}")]
+    private partial void LogJournalModeApplied(string journalMode);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "SQLite journal mode {RequestedJournalMode} was not applied, the database reports {JournalMode}")]
+    private partial void LogJournalModeNotApplied(string requestedJournalMode, string journalMode);
 }

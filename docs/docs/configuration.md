@@ -334,6 +334,7 @@ These environment variables are related to database configuration:
 - **Database__Type**: The database engine to use, this should be one of the strings from the above list such as `PostgreSql` or `Sqlite`.
 - **Database__ConnectionString**: The connection string for your database engine.
 - **Database__ServerVersion**: MySQL only, optional. The version of your MySQL or MariaDB server, see [MySQL server version](#mysql-server-version).
+- **Database__JournalMode**: SQLite only, optional. The SQLite journal mode, see [SQLite journal mode](#sqlite-journal-mode).
 
 ### `appsettings.json`
 
@@ -357,6 +358,7 @@ These settings are related to the database configuration:
 - **Type**: The database engine to use, this should be one of the strings from the above list such as `PostgreSql` or `Sqlite`.
 - **ConnectionString**: The connection string for your database engine.
 - **ServerVersion**: MySQL only, optional. The version of your MySQL or MariaDB server, see [MySQL server version](#mysql-server-version).
+- **JournalMode**: SQLite only, optional. The SQLite journal mode, see [SQLite journal mode](#sqlite-journal-mode).
 
 ### MySQL server version
 
@@ -381,6 +383,36 @@ You can skip detection entirely by setting `ServerVersion` to your server's vers
 As an environment variable: `Database__ServerVersion=8.0.36-mysql` (for MariaDB, e.g. `11.4.2-mariadb`). BaGetter refuses to start if the value can't be parsed.
 
 Why it helps under load: detecting the version takes a connection from the server's connection limit, and requests that arrive while detection is running (for example a burst of CI builds restoring at once) wait for it. If the server is struggling, a failed detection is retried by the next request. With `ServerVersion` set, BaGetter never opens a connection just to find out the version, so none of this applies.
+
+### SQLite journal mode
+
+`JournalMode` sets the SQLite [journal mode](https://www.sqlite.org/pragma.html#pragma_journal_mode). BaGetter runs `PRAGMA journal_mode=<value>;` after the migrations on every startup and logs the mode the database reports. SQLite stores the mode in the database file. Allowed values (case-insensitive): `DELETE`, `TRUNCATE`, `PERSIST`, `MEMORY`, `WAL`, `OFF`. BaGetter refuses to start with any other value.
+
+When `JournalMode` is not set, BaGetter leaves the database as it is. Note that a database file that BaGetter creates from scratch is already in `WAL` mode (the Entity Framework Core default), while a database created by an older version or another tool usually uses `DELETE`.
+
+```json
+{
+    ...
+
+    "Database": {
+        "Type": "Sqlite",
+        "ConnectionString": "Data Source=/data/bagetter.db",
+        "JournalMode": "WAL"
+    },
+
+    ...
+}
+```
+
+As an environment variable: `Database__JournalMode=WAL`.
+
+`WAL` lets readers and a writer work at the same time, which avoids most `database is locked` errors under concurrent pushes and restores. It creates two extra files next to the database (`bagetter.db-wal` and `bagetter.db-shm`). They belong to the database: never delete them while BaGetter runs, and note that copying only `bagetter.db` of a running instance can miss the most recent writes.
+
+:::warning
+
+WAL is not safe on network filesystems (NFS, SMB/CIFS and many Kubernetes `ReadWriteMany` volumes such as Azure Files or EFS) when processes on different hosts share the database file. WAL relies on shared memory, which only works between processes on the same host, so the database can be corrupted. If the SQLite file lives on such a volume, set `JournalMode` to `DELETE`, or better, run a single replica on a local (`ReadWriteOnce`) volume or use a server database such as PostgreSQL.
+
+:::
 
 ## IIS server options
 
