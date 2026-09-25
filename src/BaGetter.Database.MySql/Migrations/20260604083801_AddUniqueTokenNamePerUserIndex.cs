@@ -10,28 +10,29 @@ namespace BaGetter.Database.MySql.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropIndex(
-                name: "IX_PersonalAccessTokens_UserId",
-                table: "PersonalAccessTokens");
-
+            // Create the new index first: MySQL refuses to drop an index that the UserId foreign key still needs.
             migrationBuilder.CreateIndex(
                 name: "IX_PersonalAccessTokens_UserId_Name",
                 table: "PersonalAccessTokens",
                 columns: new[] { "UserId", "Name" },
                 unique: true);
+
+            migrationBuilder.DropIndex(
+                name: "IX_PersonalAccessTokens_UserId",
+                table: "PersonalAccessTokens");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropIndex(
-                name: "IX_PersonalAccessTokens_UserId_Name",
-                table: "PersonalAccessTokens");
-
             migrationBuilder.CreateIndex(
                 name: "IX_PersonalAccessTokens_UserId",
                 table: "PersonalAccessTokens",
                 column: "UserId");
+
+            migrationBuilder.DropIndex(
+                name: "IX_PersonalAccessTokens_UserId_Name",
+                table: "PersonalAccessTokens");
         }
     }
 }
