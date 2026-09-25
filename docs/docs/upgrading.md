@@ -60,6 +60,16 @@ Nothing changes until you override a setting on a feed. See [Feed settings](feed
 
 Switching away from `Config` turns off anonymous access, `ApiKey` and `Credentials`. Plan the switch before you make it; see [Authentication](authentication.md).
 
+### MySQL: the database moves to utf8mb4
+
+Earlier versions stored MySQL data as `latin1`, so a package whose metadata contains other characters (for example the author "Havlíček", or Polish or Turkish text) failed to push or mirror, and user, group and feed names were limited to latin1 too. A migration now converts the database and every table to `utf8mb4` with the `utf8mb4_unicode_ci` collation. Existing data is kept. This also applies when you upgrade from an earlier 2.x release.
+
+- **Back up the database first.** The migration rewrites every table (one `ALTER TABLE` each), which can take a while on a large database and blocks writes to the table being converted. Plan a maintenance window.
+- The tables are set to the `DYNAMIC` row format, which MySQL 5.7.9+, MySQL 8 and MariaDB 10.2+ use by default. It is needed because utf8mb4 index keys are larger.
+- On MySQL, the nine long package columns (authors, description, summary, tags and the URLs) become `text` so that a package row still fits MySQL's row size limit. They still hold 4000 characters.
+- The new collation, like the old one, ignores case. It also ignores accents, so `Muller` and `Müller` count as the same user, group or feed name. If your database already contains two such names, the migration stops with a duplicate key error; rename one of them and start BaGetter again.
+- Rolling this migration back converts the tables to `latin1` again. It fails with `Incorrect string value` as soon as a value doesn't fit into latin1 instead of silently replacing characters, so remove or change those values first and run the rollback again.
+
 ### Data Protection keys
 
 BaGetter 2.x keeps its ASP.NET Core Data Protection keys (which protect sign-in cookies and forms) in the configured package storage, at `dataprotection/keyring.xml`. With file system storage in Docker this is inside `/data`. If `/data` isn't a persistent volume, every restart signs everybody out, and several replicas can't share cookies.
