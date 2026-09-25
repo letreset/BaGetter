@@ -106,6 +106,7 @@ public static partial class DependencyInjectionExtensions
         services.TryAddSingleton<NullSearchService>();
         services.TryAddSingleton<RegistrationBuilder>();
         services.TryAddSingleton<SystemTime>();
+        services.TryAddSingleton<UpstreamListingCache>();
         services.TryAddSingleton<ValidateStartupOptions>();
 
         services.TryAddSingleton(HttpClientFactory);

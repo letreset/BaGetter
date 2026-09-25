@@ -78,6 +78,9 @@ namespace BaGetter.Database.PostgreSql.Migrations
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int?>("UpstreamListingCacheSeconds")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Slug")

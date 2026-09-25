@@ -79,6 +79,9 @@ namespace BaGetter.Database.MySql.Migrations
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<int?>("UpstreamListingCacheSeconds")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Slug")

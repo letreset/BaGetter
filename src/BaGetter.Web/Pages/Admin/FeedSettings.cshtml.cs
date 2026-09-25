@@ -94,6 +94,12 @@ public class FeedSettingsModel : PageModel
     [BindProperty]
     public List<MirrorInput> Mirrors { get; set; } = [];
 
+    [BindProperty]
+    public int? UpstreamListingCacheSeconds { get; set; }
+
+    [BindProperty]
+    public bool UseGlobalListingCache { get; set; }
+
     public string SuccessMessage { get; set; }
     public string ErrorMessage { get; set; }
 
@@ -138,6 +144,9 @@ public class FeedSettingsModel : PageModel
 
         UseGlobalRetentionPrerelease = !feed.RetentionMaxPrereleaseVersions.HasValue;
         RetentionMaxPrereleaseVersions = feed.RetentionMaxPrereleaseVersions;
+
+        UseGlobalListingCache = !feed.UpstreamListingCacheSeconds.HasValue;
+        UpstreamListingCacheSeconds = feed.UpstreamListingCacheSeconds;
 
         // Secrets (Password/Token) are NOT populated; use the "leave blank to keep" pattern
         Mirrors = feed.Mirrors
@@ -299,6 +308,13 @@ public class FeedSettingsModel : PageModel
             return Page();
         }
 
+        if (!UseGlobalListingCache && UpstreamListingCacheSeconds is < 0)
+        {
+            ErrorMessage = "The upstream listing cache duration must be 0 or more seconds.";
+            SetSecretIndicators(Feed);
+            return Page();
+        }
+
         // Validate every mirror before touching the feed. On failure the posted form is shown
         // again as-is, so the admin doesn't lose edits to the mirror list.
         for (var i = 0; i < Mirrors.Count; i++)
@@ -323,6 +339,8 @@ public class FeedSettingsModel : PageModel
         Feed.RetentionMaxMinorVersions = UseGlobalRetentionMinor ? null : RetentionMaxMinorVersions;
         Feed.RetentionMaxPatchVersions = UseGlobalRetentionPatch ? null : RetentionMaxPatchVersions;
         Feed.RetentionMaxPrereleaseVersions = UseGlobalRetentionPrerelease ? null : RetentionMaxPrereleaseVersions;
+
+        Feed.UpstreamListingCacheSeconds = UseGlobalListingCache ? null : UpstreamListingCacheSeconds;
 
         ApplyMirrors();
 

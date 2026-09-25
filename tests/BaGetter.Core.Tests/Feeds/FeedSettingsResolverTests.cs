@@ -186,6 +186,51 @@ public class FeedSettingsResolverTests
         }
     }
 
+    public class GetUpstreamListingCacheDuration : FeedSettingsResolverTests
+    {
+        [Fact]
+        public void ReturnsGlobalWhenFeedHasNoOverride()
+        {
+            _globalOptions.UpstreamListingCacheSeconds = 120;
+
+            var result = _target.GetUpstreamListingCacheDuration(DefaultFeed());
+
+            Assert.Equal(TimeSpan.FromSeconds(120), result);
+        }
+
+        [Fact]
+        public void FeedOverrideWinsOverGlobal()
+        {
+            _globalOptions.UpstreamListingCacheSeconds = 120;
+            var feed = DefaultFeed();
+            feed.UpstreamListingCacheSeconds = 30;
+
+            var result = _target.GetUpstreamListingCacheDuration(feed);
+
+            Assert.Equal(TimeSpan.FromSeconds(30), result);
+        }
+
+        [Fact]
+        public void FeedOverrideOfZeroDisablesTheCache()
+        {
+            _globalOptions.UpstreamListingCacheSeconds = 120;
+            var feed = DefaultFeed();
+            feed.UpstreamListingCacheSeconds = 0;
+
+            var result = _target.GetUpstreamListingCacheDuration(feed);
+
+            Assert.Equal(TimeSpan.Zero, result);
+        }
+
+        [Fact]
+        public void DefaultsToFiveMinutes()
+        {
+            var result = new BaGetterOptions().UpstreamListingCacheSeconds;
+
+            Assert.Equal(300, result);
+        }
+    }
+
     public class GetMirrorOptions : FeedSettingsResolverTests
     {
         [Fact]
