@@ -3,6 +3,8 @@ ARG Version=1.0.0
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS build
 ARG Version
 ARG TARGETARCH
+# package source for `dotnet restore`; override it to build without access to nuget.org
+ARG NuGetSource=https://api.nuget.org/v3/index.json
 WORKDIR /src
 
 ## Create separate layer for `dotnet restore` to allow for caching; useful for local development
@@ -13,7 +15,7 @@ RUN for file in $(ls *.csproj); do mkdir -p ${file%.*}/ && mv $file ${file%.*}/;
 # useful for debugging to display all files
 #RUN echo $(ls)
 # restore packages
-RUN dotnet restore BaGetter/BaGetter.csproj --arch $TARGETARCH
+RUN dotnet restore BaGetter/BaGetter.csproj --arch $TARGETARCH --source "$NuGetSource"
 
 ## Publish app (implicitly builds the app)
 FROM build AS publish
