@@ -257,4 +257,41 @@ public class ValidateBaGetterOptionsTests
             Assert.True(HasServerVersionFailure(serverVersion));
         }
     }
+
+    public class ValidateDatabaseJournalMode
+    {
+        private static bool HasJournalModeFailure(string journalMode)
+        {
+            var options = new BaGetterOptions
+            {
+                Database = new DatabaseOptions { Type = "Sqlite", JournalMode = journalMode },
+            };
+            var result = new ValidateBaGetterOptions().Validate(null, options);
+            return result.Failed
+                && result.Failures.Any(f => f.Contains($"{nameof(BaGetterOptions.Database)}:{nameof(DatabaseOptions.JournalMode)}"));
+        }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData("DELETE")]
+        [InlineData("TRUNCATE")]
+        [InlineData("PERSIST")]
+        [InlineData("MEMORY")]
+        [InlineData("WAL")]
+        [InlineData("OFF")]
+        [InlineData("wal")] // case-insensitive
+        public void AcceptsMissingOrValidJournalMode(string journalMode)
+        {
+            Assert.False(HasJournalModeFailure(journalMode));
+        }
+
+        [Theory]
+        [InlineData("WAL2")]
+        [InlineData("WAL; DROP TABLE Packages")]
+        public void RejectsUnknownJournalMode(string journalMode)
+        {
+            Assert.True(HasJournalModeFailure(journalMode));
+        }
+    }
 }

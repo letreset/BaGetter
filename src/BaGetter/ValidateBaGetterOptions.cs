@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using BaGetter.Core.Configuration;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -86,6 +87,14 @@ public class ValidateBaGetterOptions
             failures.Add(
                 $"The '{nameof(BaGetterOptions.Database)}:{nameof(DatabaseOptions.ServerVersion)}' config is invalid. " +
                 "Expected a MySQL or MariaDB version such as '8.0.36-mysql' or '11.4.2-mariadb'");
+        }
+
+        if (!string.IsNullOrWhiteSpace(options.Database?.JournalMode)
+            && !DatabaseOptions.SqliteJournalModes.Contains(options.Database.JournalMode, StringComparer.OrdinalIgnoreCase))
+        {
+            failures.Add(
+                $"The '{nameof(BaGetterOptions.Database)}:{nameof(DatabaseOptions.JournalMode)}' config is invalid. " +
+                $"Allowed values: {string.Join(", ", DatabaseOptions.SqliteJournalModes)}");
         }
 
         if (!_validStorageTypes.Contains(options.Storage?.Type))

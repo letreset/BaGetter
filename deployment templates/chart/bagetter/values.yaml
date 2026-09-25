@@ -20,6 +20,9 @@ configMaps:
       Storage__Path: "/data"
       Database__Type: "Sqlite"
       Database__ConnectionString: "Data Source=/data/bagetter.db"
+      # -- SQLite journal mode: DELETE, TRUNCATE, PERSIST, MEMORY, WAL or OFF. Unset keeps the current mode.
+      # Do not use WAL on network volumes (NFS, SMB, many RWX volumes) shared by pods on different nodes.
+      #Database__JournalMode: "WAL"
       # -- Additional settings. See [BaGetter configuration](https://letreset.github.io/BaGetter/docs/configuration)
       #Mirror__Enabled: "true"
       #Mirror__PackageSource: "https://api.nuget.org/v3/index.json"
