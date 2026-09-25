@@ -82,9 +82,9 @@
                     <tr class="@(token.IsRevoked ? "text-muted" : (token.ExpiresAtUtc <= DateTime.UtcNow ? "text-muted" : ""))">
                         <td><code>@token.TokenPrefix...</code></td>
                         <td>@token.Name</td>
-                        <td>@token.CreatedAtUtc.ToString("yyyy-MM-dd")</td>
-                        <td>@token.ExpiresAtUtc.ToString("yyyy-MM-dd")</td>
-                        <td>@(token.LastUsedAtUtc?.ToString("yyyy-MM-dd") ?? "Never")</td>
+                        <td>@Html.DisplayDate(token.CreatedAtUtc)</td>
+                        <td>@Html.DisplayDate(token.ExpiresAtUtc)</td>
+                        <td>@if (token.LastUsedAtUtc.HasValue) { @Html.DisplayDate(token.LastUsedAtUtc.Value) } else { <text>Never</text> }</td>
                         <td>
                             @if (token.IsRevoked)
                             {

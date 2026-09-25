@@ -214,7 +214,7 @@ else
                                         }
                                     </td>
                                     <td>@version.Downloads.ToString("N0")</td>
-                                    <td>@version.LastUpdated.ToShortDateString()</td>
+                                    <td>@Html.DisplayDate(version.LastUpdated)</td>
                                 </tr>
                             }
                         </tbody>
@@ -239,7 +239,7 @@ else
                 <ul class="list-unstyled ms-Icon-ul">
                     <li>
                         <i class="ms-Icon ms-Icon--History" aria-hidden="true"></i>
-                        Last updated @Model.LastUpdated.Humanize()
+                        Last updated @Html.DisplayDate(Model.LastUpdated, Model.LastUpdated.Humanize())
                     </li>
 
                     @if (!string.IsNullOrEmpty(Model.Package.ProjectUrlString))
