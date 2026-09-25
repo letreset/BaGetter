@@ -461,6 +461,43 @@ Only enable it when BaGetter is always served over HTTPS, because browsers will 
 }
 ```
 
+## Request rate limiting
+
+BaGetter can limit how many requests each client makes, to slow down brute-force attempts and misbehaving or misconfigured clients.
+It is off by default. When enabled, every client gets `PermitLimit` requests per fixed window of `WindowSeconds` seconds:
+
+- Authenticated requests are counted per user name.
+- Anonymous requests (including ones with invalid credentials) are counted per client IP address.
+
+A request over the limit gets `429 Too Many Requests` with a `Retry-After` header (in seconds).
+`QueueLimit` lets that many extra requests wait for the next window instead of being rejected.
+The liveness probe (`/livez`) and the [health endpoint](#health-endpoint) are never limited.
+
+```json
+{
+    ...
+
+    "RequestRateLimit": {
+        "Enabled": true,
+        "PermitLimit": 600,
+        "WindowSeconds": 60,
+        "QueueLimit": 0
+    },
+
+    ...
+}
+```
+
+A single `dotnet restore` of a large solution can send hundreds of requests in a few seconds, so don't set `PermitLimit` too low.
+
+:::warning
+
+Behind a reverse proxy, BaGetter sees the proxy's address unless it reads the client IP from the `X-Forwarded-For` header.
+BaGetter currently trusts that header from any sender, so a client that can reach BaGetter directly (or through a proxy that passes the header through unchanged) can set it to any value and get a fresh budget for each fake address.
+Make sure BaGetter is only reachable through your proxy and that the proxy overwrites `X-Forwarded-For`, or treat the anonymous limit as best effort.
+
+:::
+
 ## Statistics
 
 On the application's statistics page the currently used services and overall package and version counts are listed.

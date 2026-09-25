@@ -95,4 +95,55 @@ public class ValidateBaGetterOptionsTests
             Assert.True(HasFailure(options, nameof(SecurityHeadersOptions.HstsMaxAgeDays)));
         }
     }
+
+    public class ValidateRequestRateLimit
+    {
+        private static bool HasFailure(RequestRateLimitOptions rateLimit, string key)
+        {
+            var result = new ValidateBaGetterOptions().Validate(null, new BaGetterOptions { RequestRateLimit = rateLimit });
+            return result.Failed && result.Failures.Any(f => f.Contains($"{nameof(BaGetterOptions.RequestRateLimit)}:{key}"));
+        }
+
+        [Fact]
+        public void AcceptsDefaultsWhenEnabled()
+        {
+            Assert.False(HasFailure(new RequestRateLimitOptions { Enabled = true }, string.Empty));
+        }
+
+        [Fact]
+        public void IgnoresInvalidValuesWhenDisabled()
+        {
+            var rateLimit = new RequestRateLimitOptions { PermitLimit = 0, WindowSeconds = 0, QueueLimit = -1 };
+
+            Assert.False(HasFailure(rateLimit, string.Empty));
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(-1)]
+        public void RejectsPermitLimitBelowOne(int permitLimit)
+        {
+            var rateLimit = new RequestRateLimitOptions { Enabled = true, PermitLimit = permitLimit };
+
+            Assert.True(HasFailure(rateLimit, nameof(RequestRateLimitOptions.PermitLimit)));
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(-1)]
+        public void RejectsWindowSecondsBelowOne(int windowSeconds)
+        {
+            var rateLimit = new RequestRateLimitOptions { Enabled = true, WindowSeconds = windowSeconds };
+
+            Assert.True(HasFailure(rateLimit, nameof(RequestRateLimitOptions.WindowSeconds)));
+        }
+
+        [Fact]
+        public void RejectsNegativeQueueLimit()
+        {
+            var rateLimit = new RequestRateLimitOptions { Enabled = true, QueueLimit = -1 };
+
+            Assert.True(HasFailure(rateLimit, nameof(RequestRateLimitOptions.QueueLimit)));
+        }
+    }
 }
