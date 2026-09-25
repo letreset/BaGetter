@@ -135,7 +135,7 @@ public class PackageDeletionService : IPackageDeletionService
     {
         // list all versions of the package
         var packages = await _packages.FindAsync(feedId, package.Id, includeUnlisted: true, cancellationToken);
-        if (packages is null || packages.Count <= maxMajor) return 0;
+        if (packages is null || packages.Count == 0) return 0;
 
         var goodVersions = new HashSet<NuGetVersion>();
 

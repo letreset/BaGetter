@@ -180,7 +180,10 @@ public class PackageIndexingService : IPackageIndexingService
         await _search.IndexAsync(package, cancellationToken);
 
         var retention = _feedSettings.GetRetentionOptions(feed);
-        if (retention.MaxMajorVersions.HasValue)
+        if (retention.MaxMajorVersions.HasValue ||
+            retention.MaxMinorVersions.HasValue ||
+            retention.MaxPatchVersions.HasValue ||
+            retention.MaxPrereleaseVersions.HasValue)
         {
             try
             {
