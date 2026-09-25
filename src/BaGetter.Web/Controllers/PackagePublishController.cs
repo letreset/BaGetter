@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,6 +12,8 @@ using BaGetter.Web.Extensions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using NuGet.Packaging;
+using NuGet.Packaging.Core;
 using NuGet.Versioning;
 
 namespace BaGetter.Web.Controllers;
@@ -57,12 +60,16 @@ public class PackagePublishController : Controller
     {
         if (_feedSettings.GetIsReadOnlyMode(_feedContext.CurrentFeed))
         {
+            LogAudit(LogLevel.Warning, "package_upload_read_only", null, null, GetActor());
             HttpContext.Response.StatusCode = 401;
             return;
         }
 
-        if (!await AuthorizePushAsync(cancellationToken))
+        // The package is only read after authorization, so denied uploads are logged without its id and version.
+        var (authorized, actor) = await AuthorizePushAsync(cancellationToken);
+        if (!authorized)
         {
+            LogAudit(LogLevel.Warning, "package_upload_unauthorized", null, null, actor);
             HttpContext.Response.StatusCode = 401;
             return;
         }
@@ -72,23 +79,31 @@ public class PackagePublishController : Controller
             using var uploadStream = await Request.GetUploadStreamOrNullAsync(cancellationToken);
             if (uploadStream == null)
             {
+                LogAudit(LogLevel.Warning, "package_upload_invalid_package", null, null, actor);
                 HttpContext.Response.StatusCode = 400;
                 return;
             }
+
+            var identity = TryReadPackageIdentity(uploadStream);
+            var packageId = identity?.Id;
+            var packageVersion = identity?.Version?.ToNormalizedString();
 
             var result = await _indexer.IndexAsync(_feedContext.CurrentFeed.Id, _feedContext.CurrentFeed.Slug, uploadStream, cacheFeedUrl: null, cancellationToken);
 
             switch (result)
             {
                 case PackageIndexingResult.InvalidPackage:
+                    LogAudit(LogLevel.Warning, "package_upload_invalid_package", packageId, packageVersion, actor);
                     HttpContext.Response.StatusCode = 400;
                     break;
 
                 case PackageIndexingResult.PackageAlreadyExists:
+                    LogAudit(LogLevel.Warning, "package_upload_already_exists", packageId, packageVersion, actor);
                     HttpContext.Response.StatusCode = 409;
                     break;
 
                 case PackageIndexingResult.Success:
+                    LogAudit(LogLevel.Information, "package_upload_succeeded", packageId, packageVersion, actor);
                     HttpContext.Response.StatusCode = 201;
                     break;
             }
@@ -106,25 +121,31 @@ public class PackagePublishController : Controller
     {
         if (_feedSettings.GetIsReadOnlyMode(_feedContext.CurrentFeed))
         {
+            LogAudit(LogLevel.Warning, "package_delete_read_only", id, version, GetActor());
             return Unauthorized();
         }
 
         if (!NuGetVersion.TryParse(version, out var nugetVersion))
         {
+            LogAudit(LogLevel.Warning, "package_delete_not_found", id, version, GetActor());
             return NotFound();
         }
 
-        if (!await AuthorizeDeleteAsync(cancellationToken))
+        var (authorized, actor) = await AuthorizeDeleteAsync(cancellationToken);
+        if (!authorized)
         {
+            LogAudit(LogLevel.Warning, "package_delete_unauthorized", id, version, actor);
             return Unauthorized();
         }
 
         if (await _deleteService.TryDeletePackageAsync(_feedContext.CurrentFeed.Id, _feedContext.CurrentFeed.Slug, id, nugetVersion, cancellationToken))
         {
+            LogAudit(LogLevel.Information, "package_delete_succeeded", id, version, actor);
             return NoContent();
         }
         else
         {
+            LogAudit(LogLevel.Warning, "package_delete_not_found", id, version, actor);
             return NotFound();
         }
     }
@@ -134,37 +155,43 @@ public class PackagePublishController : Controller
     {
         if (_feedSettings.GetIsReadOnlyMode(_feedContext.CurrentFeed))
         {
+            LogAudit(LogLevel.Warning, "package_relist_read_only", id, version, GetActor());
             return Unauthorized();
         }
 
         if (!NuGetVersion.TryParse(version, out var nugetVersion))
         {
+            LogAudit(LogLevel.Warning, "package_relist_not_found", id, version, GetActor());
             return NotFound();
         }
 
-        if (!await AuthorizePushAsync(cancellationToken))
+        var (authorized, actor) = await AuthorizePushAsync(cancellationToken);
+        if (!authorized)
         {
+            LogAudit(LogLevel.Warning, "package_relist_unauthorized", id, version, actor);
             return Unauthorized();
         }
 
         if (await _packages.RelistPackageAsync(_feedContext.CurrentFeed.Id, id, nugetVersion, cancellationToken))
         {
+            LogAudit(LogLevel.Information, "package_relist_succeeded", id, version, actor);
             return Ok();
         }
         else
         {
+            LogAudit(LogLevel.Warning, "package_relist_not_found", id, version, actor);
             return NotFound();
         }
     }
 
-    private async Task<bool> AuthorizePushAsync(CancellationToken cancellationToken)
+    private async Task<(bool Authorized, string Actor)> AuthorizePushAsync(CancellationToken cancellationToken)
     {
         var authMode = _options.Value.Authentication?.Mode ?? AuthenticationMode.Config;
 
         if (authMode == AuthenticationMode.Config)
         {
             // Static auth mode: use configured API key
-            return await _authentication.AuthenticateAsync(Request.GetApiKey(), cancellationToken);
+            return (await _authentication.AuthenticateAsync(Request.GetApiKey(), cancellationToken), GetActor());
         }
 
         var feedId = _feedContext.CurrentFeed.Id;
@@ -176,17 +203,17 @@ public class PackagePublishController : Controller
         {
             var authResult = await _feedAuthentication.AuthenticateByTokenAsync(apiKey, cancellationToken);
             if (authResult.IsAuthenticated && authResult.UserId.HasValue)
-                return await _permissionService.CanPushAsync(authResult.UserId.Value, feedId, cancellationToken);
+                return (await _permissionService.CanPushAsync(authResult.UserId.Value, feedId, cancellationToken), authResult.Username);
         }
 
         var userIdClaim = HttpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (!string.IsNullOrEmpty(userIdClaim) && Guid.TryParse(userIdClaim, out var userId))
-            return await _permissionService.CanPushAsync(userId, feedId, cancellationToken);
+            return (await _permissionService.CanPushAsync(userId, feedId, cancellationToken), GetActor());
 
-        return false;
+        return (false, GetActor());
     }
 
-    private async Task<bool> AuthorizeDeleteAsync(CancellationToken cancellationToken)
+    private async Task<(bool Authorized, string Actor)> AuthorizeDeleteAsync(CancellationToken cancellationToken)
     {
         var authMode = _options.Value.Authentication?.Mode ?? AuthenticationMode.Config;
 
@@ -194,7 +221,7 @@ public class PackagePublishController : Controller
         {
             // Static auth mode has no per-user delete permission; the configured API key
             // governs deletion exactly as it governs push.
-            return await _authentication.AuthenticateAsync(Request.GetApiKey(), cancellationToken);
+            return (await _authentication.AuthenticateAsync(Request.GetApiKey(), cancellationToken), GetActor());
         }
 
         var feedId = _feedContext.CurrentFeed.Id;
@@ -204,13 +231,57 @@ public class PackagePublishController : Controller
         {
             var authResult = await _feedAuthentication.AuthenticateByTokenAsync(apiKey, cancellationToken);
             if (authResult.IsAuthenticated && authResult.UserId.HasValue)
-                return await _permissionService.CanDeleteAsync(authResult.UserId.Value, feedId, cancellationToken);
+                return (await _permissionService.CanDeleteAsync(authResult.UserId.Value, feedId, cancellationToken), authResult.Username);
         }
 
         var userIdClaim = HttpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (!string.IsNullOrEmpty(userIdClaim) && Guid.TryParse(userIdClaim, out var userId))
-            return await _permissionService.CanDeleteAsync(userId, feedId, cancellationToken);
+            return (await _permissionService.CanDeleteAsync(userId, feedId, cancellationToken), GetActor());
 
-        return false;
+        return (false, GetActor());
+    }
+
+    private string GetActor()
+    {
+        var name = HttpContext.User.Identity?.Name;
+        if (!string.IsNullOrEmpty(name))
+            return name;
+
+        // Config mode API keys are shared and carry no user identity.
+        return string.IsNullOrEmpty(Request.GetApiKey()) ? "anonymous" : "api-key";
+    }
+
+    private void LogAudit(LogLevel level, string eventName, string packageId, string packageVersion, string actor)
+    {
+        if (!_logger.IsEnabled(level))
+            return;
+
+        _logger.Log(
+            level,
+            "AUDIT {Event} feed={Feed} package_id={PackageId} package_version={PackageVersion} actor={Actor} ip={Ip}",
+            eventName,
+            _feedContext.CurrentFeed.Slug,
+            packageId,
+            packageVersion,
+            actor,
+            HttpContext.Connection.RemoteIpAddress);
+    }
+
+    private static PackageIdentity TryReadPackageIdentity(Stream packageStream)
+    {
+        try
+        {
+            using var reader = new PackageArchiveReader(packageStream, leaveStreamOpen: true);
+            return reader.GetIdentity();
+        }
+        catch (Exception)
+        {
+            // The indexer rejects the package and logs why.
+            return null;
+        }
+        finally
+        {
+            packageStream.Position = 0;
+        }
     }
 }
