@@ -525,6 +525,41 @@ BaGetter sets caching headers on a few endpoints. There is nothing to configure.
 
 Responses are never marked `public` or `immutable`: feeds can require authentication, and a feed that allows package overwrites can change the content of an existing version. Make sure your reverse proxy doesn't cache these responses in a shared cache.
 
+## Audit log
+
+BaGetter writes one log line for every package upload, delete and relist, including denied attempts. There is no separate audit store: the lines go to the normal logs, so you can collect them with whatever already reads BaGetter's output.
+
+```
+AUDIT package_upload_succeeded feed=default package_id=Contoso.Utils package_version=1.2.0 actor=alice ip=10.0.0.12
+```
+
+| Field | Value |
+|---|---|
+| Event | `package_{upload,delete,relist}_{succeeded,unauthorized,read_only,not_found}`, plus `package_upload_already_exists` and `package_upload_invalid_package` |
+| `feed` | The feed slug |
+| `package_id`, `package_version` | Empty for uploads that are denied before the package is read |
+| `actor` | The user name (the token owner for personal access tokens), `api-key` for the shared API key in `Config` mode, or `anonymous` |
+| `ip` | The client IP address. Behind a reverse proxy it comes from `X-Forwarded-For`, with the same caveat as [rate limiting](#request-rate-limiting). |
+
+Successful operations are logged at `Information`, denials and failures at `Warning`. The lines use the `BaGetter.Web.Controllers.PackagePublishController` log category, which the default `appsettings.json` logs at `Information`. If you override the `Logging` section, keep that category at `Information` or the successful operations won't be logged:
+
+```json
+{
+    ...
+
+    "Logging": {
+        "Console": {
+            "LogLevel": {
+                "BaGetter.Web.Controllers.PackagePublishController": "Information",
+                "Default": "Warning"
+            }
+        }
+    },
+
+    ...
+}
+```
+
 ## Statistics
 
 On the application's statistics page the currently used services and overall package and version counts are listed.
