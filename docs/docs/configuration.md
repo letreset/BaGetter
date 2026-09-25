@@ -329,10 +329,11 @@ Database migrations are automatically applied on application startup.
 
 ### Environment Variables
 
-There are two environment variables related to database configuration. These are:
+These environment variables are related to database configuration:
 
 - **Database__Type**: The database engine to use, this should be one of the strings from the above list such as `PostgreSql` or `Sqlite`.
 - **Database__ConnectionString**: The connection string for your database engine.
+- **Database__ServerVersion**: MySQL only, optional. The version of your MySQL or MariaDB server, see [MySQL server version](#mysql-server-version).
 
 ### `appsettings.json`
 
@@ -351,10 +352,35 @@ The database settings are located under the `Database` key in the `appsettings.j
 }
 ```
 
-There are two settings related to the database configuration:
+These settings are related to the database configuration:
 
 - **Type**: The database engine to use, this should be one of the strings from the above list such as `PostgreSql` or `Sqlite`.
 - **ConnectionString**: The connection string for your database engine.
+- **ServerVersion**: MySQL only, optional. The version of your MySQL or MariaDB server, see [MySQL server version](#mysql-server-version).
+
+### MySQL server version
+
+The MySQL provider needs to know the server version to generate the right SQL. By default BaGetter detects it by connecting to the server. Detection happens once per connection string and the result is reused by every request; if detection fails (for example because the server is not reachable yet), the next request tries again.
+
+You can skip detection entirely by setting `ServerVersion` to your server's version, followed by `-mysql` or `-mariadb`:
+
+```json
+{
+    ...
+
+    "Database": {
+        "Type": "MySql",
+        "ConnectionString": "Server=mysql;Database=bagetter;User=bagetter;Password=...",
+        "ServerVersion": "8.0.36-mysql"
+    },
+
+    ...
+}
+```
+
+As an environment variable: `Database__ServerVersion=8.0.36-mysql` (for MariaDB, e.g. `11.4.2-mariadb`). BaGetter refuses to start if the value can't be parsed.
+
+Why it helps under load: detecting the version takes a connection from the server's connection limit, and requests that arrive while detection is running (for example a burst of CI builds restoring at once) wait for it. If the server is struggling, a failed detection is retried by the next request. With `ServerVersion` set, BaGetter never opens a connection just to find out the version, so none of this applies.
 
 ## IIS server options
 

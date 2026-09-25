@@ -225,4 +225,36 @@ public class ValidateBaGetterOptionsTests
             Assert.False(HasFailure(mode, "root", "short"));
         }
     }
+
+    public class ValidateDatabaseServerVersion
+    {
+        private static bool HasServerVersionFailure(string serverVersion)
+        {
+            var options = new BaGetterOptions
+            {
+                Database = new DatabaseOptions { Type = "MySql", ServerVersion = serverVersion },
+            };
+            var result = new ValidateBaGetterOptions().Validate(null, options);
+            return result.Failed
+                && result.Failures.Any(f => f.Contains($"{nameof(BaGetterOptions.Database)}:{nameof(DatabaseOptions.ServerVersion)}"));
+        }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData("8.0.36-mysql")]
+        [InlineData("11.4.2-mariadb")]
+        public void AcceptsMissingOrValidServerVersion(string serverVersion)
+        {
+            Assert.False(HasServerVersionFailure(serverVersion));
+        }
+
+        [Theory]
+        [InlineData("latest")]
+        [InlineData("mysql-8")]
+        public void RejectsUnparsableServerVersion(string serverVersion)
+        {
+            Assert.True(HasServerVersionFailure(serverVersion));
+        }
+    }
 }
