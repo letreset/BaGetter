@@ -88,11 +88,11 @@ dotnet ef migrations add Name --project src/BaGetter.Database.Sqlite --startup-p
 Storage, database, search and email use `IProvider<T>`. Every implementation is registered (via `TryAdd*`), and the configuration (`Database:Type`, `Storage:Type`, …) picks the active one at runtime through `DependencyInjectionExtensions.GetServiceFromProviders<T>`.
 
 ### Multi-feed
-- The `Feed` entity (`Core/Entities/Feed.cs`) holds per-feed overrides: overwrite and deletion behavior, read-only mode, max package size, retention, and **mirror settings, which live in the DB rather than in config**. `IFeedSettingsResolver` merges a feed's overrides with the global `BaGetterOptions`.
+- The `Feed` entity (`Core/Entities/Feed.cs`) holds per-feed overrides: overwrite and deletion behavior, read-only mode, max package size, and retention. Its **mirrors live in the DB rather than in config**: `Feed.Mirrors` is an ordered list of `FeedMirror` rows (source, legacy flag, timeout, upstream auth, enabled). `IFeedSettingsResolver` merges a feed's overrides with the global `BaGetterOptions`.
 - `FeedResolutionMiddleware` maps `/feeds/{slug}/…` to that feed by moving the slug into `PathBase`. Any other path resolves to the default feed (`Feed.DefaultSlug = "default"`). Controllers read `IFeedContext.CurrentFeed`, and services take `feedId`/`feedSlug`.
 - Because the slug is in `PathBase`, routes and `BaGetterUrlGenerator` stay feed-agnostic. Add a route once and it works for every feed.
 - Storage paths are `packages/{feedSlug}/{id}/{version}/…` and `symbols/{feedSlug}/…`.
-- Upstream clients come from `UpstreamClientFactory.CreateForFeed(feed)`.
+- Upstream clients come from `UpstreamClientFactory.CreateForFeed(feed)`: one enabled mirror gives a plain V2/V3 client, several give a `FallbackUpstreamClient` (merged version lists, download from the first mirror that has the package, failing mirrors skipped). `PackageService.MirrorAsync` serializes concurrent mirroring of the same `(feed, id, version)` through the singleton `PackageMirrorLock`.
 
 ### Authentication & authorization
 - `Authentication:Mode` is one of `Config` (legacy `ApiKey`/`Credentials`, backward compatible), `Local`, `Entra` or `Hybrid`.
@@ -101,7 +101,7 @@ Storage, database, search and email use `IProvider<T>`. Every implementation is 
 - `FeedPermissionHandler` enforces per-feed permissions (pull/push/delete) for the current feed. User permissions come from groups via `PermissionService`, and `EntraRoleSyncService` syncs Entra app roles into local groups.
 
 ### Data model
-All entities are defined in `Core/Entities/AbstractContext.cs`: Feed, Package, PackageDependency, PackageType, TargetFramework, User, Group, UserGroup, FeedPermission, PersonalAccessToken.
+All entities are defined in `Core/Entities/AbstractContext.cs`: Feed, FeedMirror, Package, PackageDependency, PackageType, TargetFramework, User, Group, UserGroup, FeedPermission, PersonalAccessToken.
 
 ### HTTP pipeline (`Startup.Configure`, in order)
 ForwardedHeaders → PathBase → HSTS (optional) → `SecurityHeadersMiddleware` → ResponseCompression → `/livez` → `FeedStaticFilePathMiddleware` → StaticFiles → Authentication → RateLimiter (only when `RequestRateLimit:Enabled`) → `FeedResolutionMiddleware` → Routing → Authorization → CORS → `OperationCancelledMiddleware` (maps `OperationCanceledException` to 409) → endpoints → health check (`HealthCheck:Path`).
