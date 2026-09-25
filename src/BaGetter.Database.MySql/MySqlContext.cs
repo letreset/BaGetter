@@ -15,6 +15,13 @@ public class MySqlContext : AbstractContext<MySqlContext>
     /// </summary>
     private const int UniqueConstraintViolationErrorCode = 1062;
 
+    public const string CharSet = "utf8mb4";
+
+    /// <summary>
+    /// Case- and accent-insensitive, and available on MySQL 5.7, MySQL 8 and MariaDB.
+    /// </summary>
+    public const string Collation = "utf8mb4_unicode_ci";
+
     public MySqlContext(DbContextOptions<MySqlContext> efOptions, IOptionsSnapshot<BaGetterOptions> bagetterOptions) : base(efOptions)
     {
         _bagetterOptions = bagetterOptions.Value.Database;
@@ -34,10 +41,27 @@ public class MySqlContext : AbstractContext<MySqlContext>
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // Use the latin1 charset as default instead of the utf8mb4 to prevent the "Row size too large" error.
-        modelBuilder.HasCharSet("latin1");
+        // Apply the collation explicitly to every table and column (it implies the charset). A column-level
+        // "CHARACTER SET utf8mb4" without a collation would get the server's default collation instead.
+        modelBuilder.HasCharSet(CharSet, DelegationModes.ApplyToDatabases);
+        modelBuilder.UseCollation(Collation, DelegationModes.ApplyToAll);
 
         base.OnModelCreating(modelBuilder);
+
+        // With utf8mb4 (4 bytes per character) nine varchar(4000) columns exceed MySQL's 65535-byte row size
+        // limit ("Row size too large"). TEXT only counts a few bytes towards that limit and still holds 4000 characters.
+        modelBuilder.Entity<Package>(package =>
+        {
+            package.Property(p => p.Authors).HasColumnType("text");
+            package.Property(p => p.CachedFrom).HasColumnType("text");
+            package.Property(p => p.Description).HasColumnType("text");
+            package.Property(p => p.IconUrl).HasColumnType("text");
+            package.Property(p => p.LicenseUrl).HasColumnType("text");
+            package.Property(p => p.ProjectUrl).HasColumnType("text");
+            package.Property(p => p.RepositoryUrl).HasColumnType("text");
+            package.Property(p => p.Summary).HasColumnType("text");
+            package.Property(p => p.Tags).HasColumnType("text");
+        });
     }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
