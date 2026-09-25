@@ -44,10 +44,11 @@ public class BaGetClientIntegrationTests : IDisposable
         var index = await client.GetAsync();
 
         Assert.Equal("3.0.0", index.Version);
-        Assert.Equal(17, index.Resources.Count);
+        Assert.Equal(18, index.Resources.Count);
 
         Assert.NotEmpty(index.GetResourceUrl(new[] { "PackageBaseAddress/3.0.0" }));
         Assert.NotEmpty(index.GetResourceUrl(new[] { "PackagePublish/2.0.0" }));
+        Assert.NotEmpty(index.GetResourceUrl(new[] { "ReadmeUriTemplate/6.13.0" }));
         Assert.NotEmpty(index.GetResourceUrl(new[] { "RegistrationsBaseUrl" }));
         Assert.NotEmpty(index.GetResourceUrl(new[] { "SearchAutocompleteService" }));
         Assert.NotEmpty(index.GetResourceUrl(new[] { "SearchQueryService" }));

@@ -50,6 +50,13 @@ public interface IUrlGenerator
     string GetAutocompleteResourceUrl();
 
     /// <summary>
+    /// Get the URL template to download a package's readme, with the
+    /// <c>{lower_id}</c> and <c>{lower_version}</c> placeholders.
+    /// See: https://learn.microsoft.com/nuget/api/readme-template-resource
+    /// </summary>
+    string GetReadmeUriTemplate();
+
+    /// <summary>
     /// Get the URL for the entry point of a package's metadata.
     /// See: https://docs.microsoft.com/en-us/nuget/api/registration-base-url-resource#registration-index
     /// </summary>
