@@ -4,17 +4,12 @@ import type * as Preset from '@docusaurus/preset-classic';
 
 const config: Config = {
   title: 'BaGetter',
-  tagline: 'Effortless .NET Core NuGet hosting',
+  tagline: 'A lightweight, self-hosted NuGet and symbol server',
   favicon: 'img/favicon.ico',
 
-  // Set the production url of your site here
   url: 'https://letreset.github.io',
-  // Set the /<baseUrl>/ pathname under which your site is served
-  // For GitHub pages deployment, it is often '/<projectName>/'
   baseUrl: '/BaGetter/',
 
-  // GitHub pages deployment config.
-  // If you aren't using GitHub pages, you don't need these.
   organizationName: 'letreset',
   projectName: 'BaGetter',
 
@@ -22,16 +17,29 @@ const config: Config = {
   trailingSlash: false,
 
   onBrokenLinks: 'throw',
-  onBrokenMarkdownLinks: 'throw',
+  markdown: {
+    hooks: {
+      onBrokenMarkdownLinks: 'throw',
+    },
+  },
   onBrokenAnchors: 'throw',
 
-  // Even if you don't use internationalization, you can use this field to set
-  // useful metadata like html lang. For example, if your site is Chinese, you
-  // may want to replace "en" with "zh-Hans".
   i18n: {
     defaultLocale: 'en',
     locales: ['en'],
   },
+
+  themes: [
+    [
+      require.resolve('@easyops-cn/docusaurus-search-local'),
+      {
+        hashed: true,
+        indexBlog: false,
+        docsRouteBasePath: '/docs',
+        highlightSearchTermsOnTargetPage: true,
+      },
+    ],
+  ],
 
   presets: [
     [
@@ -39,11 +47,9 @@ const config: Config = {
       {
         docs: {
           sidebarPath: './sidebars.ts',
-          // Please change this to your repo.
-          // Remove this to remove the "edit this page" links.
-          editUrl:
-            'https://github.com/letreset/BaGetter/tree/main/docs/',
+          editUrl: 'https://github.com/letreset/BaGetter/tree/main/docs/',
         },
+        blog: false,
         theme: {
           customCss: './src/css/custom.css',
         },
@@ -52,17 +58,28 @@ const config: Config = {
   ],
 
   themeConfig: {
+    colorMode: {
+      defaultMode: 'dark',
+      disableSwitch: false,
+      respectPrefersColorScheme: false,
+    },
+    announcementBar: {
+      id: 'release-2-0-0',
+      content: '📦 <b><a target="_blank" rel="noopener" href="https://github.com/letreset/BaGetter/releases/tag/v2.0.0">BaGetter 2.0.0</a> is out</b>, with multiple feeds, user accounts and Entra ID sign-in. <a href="/BaGetter/docs/upgrading">Upgrading from 1.x?</a>',
+      backgroundColor: '#243840',
+      textColor: '#ffffff',
+      isCloseable: true,
+    },
     docs: {
       sidebar: {
         hideable: true,
-      }
+        autoCollapseCategories: true,
+      },
     },
-    // Replace with your project's social card
-    image: 'img/docusaurus-social-card.jpg',
     navbar: {
       title: 'BaGetter',
       logo: {
-        alt: 'My Site Logo',
+        alt: 'BaGetter logo',
         src: 'img/logo.svg',
       },
       items: [
@@ -70,11 +87,23 @@ const config: Config = {
           type: 'docSidebar',
           sidebarId: 'tutorialSidebar',
           position: 'left',
-          label: 'Docs',
+          label: 'Documentation',
+        },
+        {
+          href: 'https://github.com/letreset/BaGetter/releases',
+          label: 'Releases',
+          position: 'left',
+        },
+        {
+          href: 'https://hub.docker.com/r/letreset/bagetter',
+          'aria-label': 'Docker Hub',
+          className: 'header-docker-link',
+          position: 'right',
         },
         {
           href: 'https://github.com/letreset/BaGetter',
-          label: 'GitHub',
+          'aria-label': 'GitHub repository',
+          className: 'header-github-link',
           position: 'right',
         },
       ],
@@ -83,49 +112,36 @@ const config: Config = {
       style: 'dark',
       links: [
         {
-          title: 'Docs',
+          title: 'Documentation',
           items: [
-            {
-              label: 'BaGetter',
-              to: '/docs',
-            },
+            {label: 'Get started', to: '/docs'},
+            {label: 'Docker', to: '/docs/Installation/docker'},
+            {label: 'Kubernetes', to: '/docs/Installation/kubernetes'},
+            {label: 'Configuration', to: '/docs/configuration'},
           ],
         },
         {
           title: 'Community',
           items: [
-            {
-              label: 'Issues',
-              href: 'https://github.com/letreset/BaGetter/issues',
-            },
+            {label: 'Issues', href: 'https://github.com/letreset/BaGetter/issues'},
+            {label: 'Contributing', href: 'https://github.com/letreset/BaGetter/blob/main/CONTRIBUTING.md'},
           ],
         },
         {
           title: 'More',
           items: [
-            {
-              label: 'GitHub',
-              href: 'https://github.com/letreset/BaGetter',
-            },
-            {
-              label: 'Releases',
-              href: 'https://github.com/letreset/BaGetter/releases',
-            },
-            {
-              label: 'Docker Hub',
-              href: 'https://hub.docker.com/r/letreset/bagetter',
-            },
+            {label: 'GitHub', href: 'https://github.com/letreset/BaGetter'},
+            {label: 'Releases', href: 'https://github.com/letreset/BaGetter/releases'},
+            {label: 'Docker Hub', href: 'https://hub.docker.com/r/letreset/bagetter'},
           ],
         },
       ],
-      copyright: `Copyright © ${new Date().getFullYear()} BaGetter. Built with <a href="https://www.docusaurus.io">Docusaurus</a>.`,
+      copyright: `Copyright © ${new Date().getFullYear()} BaGetter contributors. Built with <a href="https://docusaurus.io">Docusaurus</a>.`,
     },
     prism: {
       theme: prismThemes.github,
       darkTheme: prismThemes.dracula,
-      //builtInLanguages: https://github.com/FormidableLabs/prism-react-renderer/blob/master/packages/generate-prism-languages/index.ts#L9
-      //supportedLanguages: https://prismjs.com/#supported-languages
-      additionalLanguages: ['csharp', 'json', 'powershell', 'javascript', 'bash'],
+      additionalLanguages: ['csharp', 'json', 'powershell', 'bash', 'yaml', 'docker', 'diff', 'ini'],
     },
   } satisfies Preset.ThemeConfig,
 };

@@ -1,34 +1,43 @@
 ---
-sidebar_position: 2
+sidebar_label: Introduction
 ---
-
-export const CenterImg = ({children, color}) => (
-  <p align="center">
-    {children}
-  </p>
-);
 
 # BaGetter
 
-BaGetter (pronounced "ba getter") is a lightweight NuGet and symbol server. It is [open source](https://github.com/letreset/BaGetter), cross-platform, and cloud ready!
+BaGetter (pronounced "ba getter") is a lightweight, self-hosted **NuGet and symbol server** for .NET teams. It implements the NuGet v3 protocol, so `dotnet`, NuGet, Visual Studio and Rider work with it out of the box. It is [open source](https://github.com/letreset/BaGetter), cross-platform and cloud ready.
 
-<CenterImg>
-  <img width="100%" src="https://user-images.githubusercontent.com/737941/50140219-d8409700-0258-11e9-94c9-dad24d2b48bb.png"/>
-</CenterImg>
+<p align="center">
+  <img width="100%" src="https://user-images.githubusercontent.com/737941/50140219-d8409700-0258-11e9-94c9-dad24d2b48bb.png" alt="The BaGetter package list"/>
+</p>
 
-BaGetter supports Filesystem, GCP and AWS S3 buckets, and Azure Blob Storage for package storage, and MySQL, Sqlite, SqlServer and PostgreSQL as database. The current per-package size limit is ~8GB. It can be hosted on IIS, and is also available in a linux [docker image](https://hub.docker.com/r/letreset/bagetter).
+## About this fork
+
+This is [letreset/BaGetter](https://github.com/letreset/BaGetter), an independently maintained fork of [bagetter/BaGetter](https://github.com/bagetter/BaGetter). It has its own releases (starting at 2.0.0) and adds:
+
+- **[Multiple feeds](feeds.md)**: each feed has its own packages, settings, retention and read-through mirror of nuget.org or any other NuGet v3 feed.
+- **[Users and permissions](authentication.md)**: local accounts, Microsoft Entra ID sign-in, groups, per-feed pull/push/delete permissions, and personal access tokens with expiry email reminders.
+- **An admin UI** for feeds, accounts and groups.
+- **Data Protection keys in storage**, so sign-in cookies survive restarts and work across replicas.
+- **HTTP hardening**: security headers, optional HSTS, configurable CORS and response compression.
+
+Coming from upstream BaGetter 1.x? Read [Upgrading from 1.x](upgrading.md).
+
+## Backends
+
+| | Supported |
+|---|---|
+| Database | SQLite, SQL Server, PostgreSQL, MySQL |
+| Package storage | File system, Azure Blob Storage, AWS S3, Google Cloud Storage, Alibaba Cloud (Aliyun) OSS, Tencent Cloud COS |
+| Hosting | Docker (`linux/amd64`, `linux/arm64`), Kubernetes (Helm), Windows/IIS, any machine with the ASP.NET Core 10 runtime |
 
 ## Run BaGetter
 
-You can run BaGetter on your preferred platform:
-
-- [On your computer](Installation/local.md)
 - [Docker](Installation/docker.md)
-- [Azure](Installation/azure.md)
-- [AWS](Installation/aws.md)
-- [Google Cloud](Installation/gcp.md)
-- [Alibaba Cloud (Aliyun)](Installation/aliyun.md)
+- [Kubernetes (Helm)](Installation/kubernetes.md)
+- [On your computer](Installation/local.md)
+- [Azure](Installation/azure.md), [AWS](Installation/aws.md), [Google Cloud](Installation/gcp.md), [Alibaba Cloud](Installation/aliyun.md), [Tencent Cloud](Installation/tencent.md)
+- [Behind Windows IIS](Installation/iis-proxy.md)
 
 ## BaGetter SDK
 
-You can also use the [`BaGetter.Protocol`](https://www.nuget.org/packages/BaGetter.Protocol) package to interact with a NuGet server. For more information, please refer to the [BaGetter SDK](Advanced/sdk.md) guide.
+You can also use the [`BaGetter.Protocol`](https://www.nuget.org/packages/BaGetter.Protocol) package to interact with a NuGet server. See the [BaGetter SDK](Advanced/sdk.md) guide.

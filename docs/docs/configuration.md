@@ -64,7 +64,15 @@ caching to:
 1. Speed up your builds if restores from [nuget.org](https://nuget.org) are slow
 2. Enable package restores in offline scenarios
 
-The following `Mirror` setting configures BaGetter to index packages from [nuget.org](https://nuget.org):
+:::warning Mirrors are configured per feed
+
+Each [feed](feeds.md) has its own mirror, set on **Admin > Feeds > Settings**. See [Mirror (read-through cache)](feeds.md#mirror-read-through-cache).
+
+The global `Mirror` section below is **obsolete** and only seeds the default feed: on startup, if it is enabled and the default feed has no mirror source yet, BaGetter copies it to the default feed once. After that, changes to `Mirror` in configuration are ignored. Use it for a first run or an automated setup, not for day-to-day changes.
+
+:::
+
+The following `Mirror` setting seeds the default feed with a mirror of [nuget.org](https://nuget.org):
 
 <Tabs>
   <TabItem value="None" label="No Authentication" default>
@@ -525,7 +533,7 @@ BaGetter refuses to send SMTP credentials over an unencrypted connection. When `
 
 ### Microsoft Graph
 
-Requires the Azure provider (`app.AddGraphEmail()`, wired up by default in the BaGetter host). The message is sent from the `SenderUserId` mailbox — `FromAddress`/`FromName` apply to SMTP only.
+Requires the Azure provider (`app.AddGraphEmail()`, wired up by default in the BaGetter host). The message is sent from the `SenderUserId` mailbox; `FromAddress`/`FromName` apply to SMTP only.
 
 ```json
 {

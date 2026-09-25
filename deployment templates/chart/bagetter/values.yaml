@@ -86,7 +86,7 @@ ingress:
       #   paths:
       #     - path: /
       #       service:
-      #         identifier: bagetter
+      #         identifier: bagetter-srv
       #         port: 8080
 
 # -- Configure persistence settings for the chart under this key.
