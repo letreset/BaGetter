@@ -142,6 +142,7 @@ public static partial class DependencyInjectionExtensions
         services.TryAddTransient<V3UpstreamClient>();
         services.TryAddTransient<DisabledUpstreamClient>();
         services.TryAddSingleton<NullStorageService>();
+        services.TryAddSingleton<PackageMirrorLock>();
         services.TryAddTransient<PackageDatabase>();
 
         services.TryAddSingleton<NullEmailSender>();

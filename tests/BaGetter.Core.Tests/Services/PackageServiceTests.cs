@@ -248,6 +248,29 @@ public class PackageServiceTests
 
             Assert.Null(result);
         }
+
+        [Fact]
+        public async Task ReturnsPackageWhenAlreadyIndexedConcurrently()
+        {
+            var expected = new Package();
+
+            DB
+                .Setup(p => p.ExistsAsync(It.IsAny<Guid>(), ID, Version, CancellationToken))
+                .ReturnsAsync(false);
+            Upstream
+                .Setup(u => u.DownloadPackageOrNullAsync(ID, Version, CancellationToken))
+                .ReturnsAsync(new MemoryStream());
+            Indexer
+                .Setup(i => i.IndexAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>(), CancellationToken))
+                .ReturnsAsync(PackageIndexingResult.PackageAlreadyExists);
+            DB
+                .Setup(p => p.FindOrNullAsync(It.IsAny<Guid>(), ID, Version, /*includeUnlisted:*/ true, CancellationToken))
+                .ReturnsAsync(expected);
+
+            var result = await Target.FindPackageOrNullAsync(_feedId, FeedSlug, ID, Version, CancellationToken);
+
+            Assert.Same(expected, result);
+        }
     }
 
     public class ExistsAsync : MirrorAsync
@@ -276,6 +299,65 @@ public class PackageServiceTests
             var result = await Target.ExistsAsync(_feedId, FeedSlug, ID, Version, CancellationToken);
 
             Assert.False(result);
+        }
+
+        [Fact]
+        public async Task ReturnsTrueWhenAlreadyIndexedConcurrently()
+        {
+            DB
+                .Setup(p => p.ExistsAsync(It.IsAny<Guid>(), ID, Version, CancellationToken))
+                .ReturnsAsync(false);
+            Upstream
+                .Setup(u => u.DownloadPackageOrNullAsync(ID, Version, CancellationToken))
+                .ReturnsAsync(new MemoryStream());
+            Indexer
+                .Setup(i => i.IndexAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>(), CancellationToken))
+                .ReturnsAsync(PackageIndexingResult.PackageAlreadyExists);
+
+            var result = await Target.ExistsAsync(_feedId, FeedSlug, ID, Version, CancellationToken);
+
+            Assert.True(result);
+        }
+
+        [Fact]
+        public async Task ConcurrentRequestsForColdPackageAllSucceedAndIndexOnce()
+        {
+            var id = "ConcurrentPackage";
+            var indexed = 0;
+
+            DB
+                .Setup(p => p.ExistsAsync(It.IsAny<Guid>(), id, Version, CancellationToken))
+                .ReturnsAsync(() => Volatile.Read(ref indexed) == 1);
+            Upstream
+                .Setup(u => u.DownloadPackageOrNullAsync(id, Version, CancellationToken))
+                .Returns(async () =>
+                {
+                    // Widen the race window so every request reaches the download step at once.
+                    await Task.Delay(50);
+                    return (Stream)new MemoryStream();
+                });
+            Indexer
+                .Setup(i => i.IndexAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>(), CancellationToken))
+                .Returns(async () =>
+                {
+                    await Task.Delay(10);
+                    if (Interlocked.Exchange(ref indexed, 1) == 1)
+                    {
+                        return PackageIndexingResult.PackageAlreadyExists;
+                    }
+
+                    return PackageIndexingResult.Success;
+                });
+
+            var results = await Task.WhenAll(
+                Enumerable
+                    .Range(0, 32)
+                    .Select(_ => Task.Run(() => Target.ExistsAsync(_feedId, FeedSlug, id, Version, CancellationToken))));
+
+            Assert.All(results, Assert.True);
+            Indexer.Verify(
+                i => i.IndexAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>(), CancellationToken),
+                Times.Once);
         }
     }
 
@@ -401,6 +483,7 @@ public class PackageServiceTests
                 upstreamFactory.Object,
                 feedService.Object,
                 Indexer.Object,
+                new PackageMirrorLock(),
                 Mock.Of<ILogger<PackageService>>());
         }
     }

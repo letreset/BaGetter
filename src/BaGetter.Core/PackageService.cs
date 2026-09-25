@@ -18,6 +18,7 @@ public class PackageService : IPackageService
     private readonly IUpstreamClientFactory _upstreamFactory;
     private readonly IFeedService _feedService;
     private readonly IPackageIndexingService _indexer;
+    private readonly PackageMirrorLock _mirrorLock;
     private readonly ILogger<PackageService> _logger;
 
     public PackageService(
@@ -25,12 +26,14 @@ public class PackageService : IPackageService
         IUpstreamClientFactory upstreamFactory,
         IFeedService feedService,
         IPackageIndexingService indexer,
+        PackageMirrorLock mirrorLock,
         ILogger<PackageService> logger)
     {
         _db = db ?? throw new ArgumentNullException(nameof(db));
         _upstreamFactory = upstreamFactory ?? throw new ArgumentNullException(nameof(upstreamFactory));
         _feedService = feedService ?? throw new ArgumentNullException(nameof(feedService));
         _indexer = indexer ?? throw new ArgumentNullException(nameof(indexer));
+        _mirrorLock = mirrorLock ?? throw new ArgumentNullException(nameof(mirrorLock));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -116,6 +119,14 @@ public class PackageService : IPackageService
             return true;
         }
 
+        using var mirrorLock = await _mirrorLock.AcquireAsync(feedId, id, version, cancellationToken);
+
+        // A concurrent request may have mirrored the package while we waited for the lock.
+        if (await _db.ExistsAsync(feedId, id, version, cancellationToken))
+        {
+            return true;
+        }
+
         var feed = await _feedService.GetFeedByIdAsync(feedId, cancellationToken);
         var upstream = _upstreamFactory.CreateForFeed(feed);
 
@@ -154,7 +165,10 @@ public class PackageService : IPackageService
                 version,
                 result);
 
-            return result == PackageIndexingResult.Success;
+            // PackageAlreadyExists means the package is present locally (indexed by another
+            // instance or pushed meanwhile), so it is available rather than a failure.
+            return result == PackageIndexingResult.Success
+                || result == PackageIndexingResult.PackageAlreadyExists;
         }
         catch (Exception e)
         {
