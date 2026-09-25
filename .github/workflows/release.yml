@@ -1,219 +1,237 @@
 name: Release
 
+# Push a tag like v2.0.0 (or v2.1.0-rc.1 for a prerelease) on main to publish:
+#   - a GitHub release with changelog, zip and checksums
+#   - the Docker image letreset/bagetter on Docker Hub (linux/amd64 + linux/arm64)
+#   - the Helm chart at oci://ghcr.io/letreset/charts/bagetter
+#
+# Required secrets: DOCKERHUB_USERNAME, DOCKERHUB_TOKEN (Docker Hub access token, Read & Write;
+# "Read, Write, Delete" is needed to also update the Docker Hub description).
+
 on:
   push:
-    tags:
-      - 'v*.*.*'
+    tags: [ 'v[0-9]+.[0-9]+.[0-9]+*' ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  DOCKER_IMAGE: letreset/bagetter
+  CHART_REGISTRY: ghcr.io/letreset/charts
+  CHART_DIR: deployment templates/chart/bagetter
+  # Upstream bagetter/BaGetter v1.6.5; the first changelog starts here so it only lists this fork's changes.
+  CHANGELOG_BASELINE: df8bf4116d4d264ff7fa1fe1809992ca2a208f60
 
 jobs:
   version:
+    name: Resolve version
     runs-on: ubuntu-latest
-    steps:
-      - id: get-version-tag
-        run: |
-          export GITHUB_REF_NAME="${{ github.ref_name }}"
-          export RELEASE_VERSION="${GITHUB_REF_NAME#v}"
-          export RELEASE_MAJOR_VERSION="${RELEASE_VERSION%%.*}"
-          export remaining_version="${RELEASE_VERSION#*.}"
-          export RELEASE_MINOR_VERSION="${RELEASE_MAJOR_VERSION}.${remaining_version%%.*}"
-
-          echo "RELEASE_VERSION=$RELEASE_VERSION" >> $GITHUB_OUTPUT
-          echo "RELEASE_MINOR_VERSION=$RELEASE_MINOR_VERSION" >> $GITHUB_OUTPUT
-          echo "RELEASE_MAJOR_VERSION=$RELEASE_MAJOR_VERSION" >> $GITHUB_OUTPUT
     outputs:
-      RELEASE_VERSION: ${{ steps.get-version-tag.outputs.RELEASE_VERSION }}
-      RELEASE_MINOR_VERSION: ${{ steps.get-version-tag.outputs.RELEASE_MINOR_VERSION }}
-      RELEASE_MAJOR_VERSION: ${{ steps.get-version-tag.outputs.RELEASE_MAJOR_VERSION }}
-
-  verify:
-    name: Run tests
-    runs-on: ubuntu-latest
-    needs: version
+      version: ${{ steps.version.outputs.version }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+      previous: ${{ steps.version.outputs.previous }}
     steps:
-      - uses: actions/checkout@v4.1.1
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4.0.0
-        with:
-          global-json-file: global.json
-      - name: Test
-        run: dotnet test --verbosity normal
-
-  release_zip:
-    if: ${{ github.ref_type == 'tag' }}
-    needs: [version, verify]
-    name: Release BaGetter.zip to GitHub
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4.1.1
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4.0.0
-        with:
-          global-json-file: global.json
-      - name: Publish
-        run: |
-          dotnet publish src/BaGetter --configuration Release --output artifacts --property:Version=${{ needs.version.outputs.RELEASE_VERSION }}
-          echo ${{ github.sha }} > artifacts/ReleaseSha.txt
-          7z a -tzip bagetter-${{ needs.version.outputs.RELEASE_VERSION }}.zip ./artifacts/*
-      - name: Generate changelog with git-cliff
-        uses: tj-actions/git-cliff@v2.2.0
-        with:
-          args: --latest --strip all
-          output: "CHANGELOG.md"
-      - name: Create release with ncipollo/release-action
-        uses: ncipollo/release-action@v1.14.0
-        with:
-          bodyFile: "CHANGELOG.md"
-          artifacts: "bagetter-${{ needs.version.outputs.RELEASE_VERSION }}.zip"
-          name: ${{ needs.version.outputs.RELEASE_VERSION }}
-          prerelease: ${{ contains(github.ref_name, '-') }}
 
-  release_packages:
-    if: ${{ github.ref_type == 'tag' }}
-    needs: [version, verify]
-    name: Release packages to nuget.org
+      - name: Ensure the tag is on main
+        run: |
+          git fetch origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::Tag $GITHUB_REF_NAME does not point to a commit on main."
+            exit 1
+          fi
+
+      - id: version
+        name: Parse tag
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if [[ "$version" == *-* ]]; then prerelease=true; else prerelease=false; fi
+          previous=$(git describe --tags --abbrev=0 --match 'v[0-9]*' "${GITHUB_REF_NAME}^" 2>/dev/null || echo "$CHANGELOG_BASELINE")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+          echo "previous=$previous" >> "$GITHUB_OUTPUT"
+          echo "Releasing $version (prerelease: $prerelease, changes since $previous)"
+
+  test:
+    name: Test
+    needs: version
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4.1.1
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4.0.0
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
-      - name: Pack
-        run: |
-          export PackageVersion=${{ needs.version.outputs.RELEASE_VERSION }}
-          export PackageSource=${PackageSource:="https://api.nuget.org/v3/index.json"}
-          echo "PackageSource=${PackageSource}" >> $GITHUB_ENV
-          dotnet pack --configuration Release --output artifacts --property:Version=${{ needs.version.outputs.RELEASE_VERSION }}
-      - name: Push
-        run: dotnet nuget push "*" -s ${PackageSource} -k ${{secrets.NUGET_API_KEY}}
-        working-directory: artifacts
+      - run: dotnet restore
+      - run: dotnet build --no-restore --configuration Release
+      - run: dotnet test --no-build --configuration Release
 
-  release_docker_image:
-    if: ${{ github.ref_type == 'tag' }}
-    needs: [version, verify]
-    name: Release Docker image to Docker Hub
+  docker:
+    name: Docker image
+    needs: [ version, test ]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4.1.1
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
       - name: Login to Docker Hub
-        uses: docker/login-action@v3.0.0
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Set release version
-        run: echo "PackageVersion=${{ needs.version.outputs.RELEASE_VERSION }}" >> $GITHUB_ENV
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5.1.0
+
+      # latest, X.Y and X only move for stable releases; prereleases get just their full version tag.
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_IMAGE }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+          flavor: |
+            latest=${{ needs.version.outputs.prerelease == 'false' }}
+          labels: |
+            org.opencontainers.image.title=BaGetter
+            org.opencontainers.image.description=Lightweight NuGet and symbol server with multi-feed, per-feed permissions and Entra ID sign-in
+            org.opencontainers.image.licenses=MIT
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
         with:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: |
-            bagetter/bagetter:latest
-            bagetter/bagetter:${{ needs.version.outputs.RELEASE_VERSION }}
-            bagetter/bagetter:${{ needs.version.outputs.RELEASE_MINOR_VERSION }}
-            bagetter/bagetter:${{ needs.version.outputs.RELEASE_MAJOR_VERSION }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            Version=${{ needs.version.outputs.RELEASE_VERSION }}
+            Version=${{ needs.version.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-  release_helm_chart:
-    if: ${{ github.ref_type == 'tag' }}
-    needs: [version, verify]
-    name: Release Helm chart to GitHub
-    runs-on: ubuntu-latest
-    env:
-      CHART_DIR: deployment templates/chart
-      CHART_REPO: bagetter/helm-chart-repo
-      CHART_REPO_BRANCH: gh-pages
-      CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
-    steps:
-      - uses: actions/checkout@v4.1.1
-      - name: Update version in helm chart
-        run: |
-          sed -i "s/version: \".*\"/version: \"${{ needs.version.outputs.RELEASE_VERSION }}\"/" "deployment templates/chart/bagetter/Chart.yaml"
-          sed -i "s/appVersion: \".*\"/appVersion: \"${{ needs.version.outputs.RELEASE_VERSION }}\"/" "deployment templates/chart/bagetter/Chart.yaml"
-      - name: Generate helm docs
-        uses: losisin/helm-docs-github-action@v1
+      - name: Update Docker Hub description
+        if: needs.version.outputs.prerelease == 'false'
+        continue-on-error: true
+        uses: peter-evans/dockerhub-description@v4
         with:
-          chart-search-root: "deployment templates"
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ env.DOCKER_IMAGE }}
+          short-description: Lightweight NuGet & symbol server — multi-feed, per-feed permissions, Entra ID sign-in.
+          readme-filepath: ./DOCKERHUB.md
 
-      - name: Install yq - portable yaml processor
-        uses: mikefarah/yq@v4.44.3
+  helm:
+    name: Helm chart
+    needs: [ version, test ]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
 
-      - name: Collect charts
-        id: charts
+      - uses: azure/setup-helm@v4
+
+      - name: Package chart
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
         run: |
-          set -e
-          find -L '${{ env.CHART_DIR }}' -mindepth 2 -maxdepth 2 -type f \( -name 'Chart.yaml' -o -name 'Chart.yml' \) -exec dirname "{}" \; \
-          | sort -u \
-          | sed -E 's/^/- /' \
-          | yq --no-colors --indent 0 --output-format json '.' \
-          | sed -E 's/^/charts=/' >> $GITHUB_OUTPUT
+          # Pin the chart's default image to this release instead of "latest".
+          yq -i ".controllers.bagetter.containers.bagetter.image.tag = \"$VERSION\"" "$CHART_DIR/values.yaml"
+          helm dependency update "$CHART_DIR"
+          helm lint "$CHART_DIR"
+          helm package "$CHART_DIR" --version "$VERSION" --app-version "$VERSION" --destination dist
 
-      - name: Install chart releaser
+      - name: Push chart to GHCR
         run: |
-          set -e
-          arch="$(dpkg --print-architecture)"
-          curl -s https://api.github.com/repos/helm/chart-releaser/releases/latest \
-          | yq --indent 0 --no-colors --input-format json --unwrapScalar \
-            ".assets[] | select(.name | test("\""^chart-releaser_.+_linux_${arch}\.tar\.gz$"\"")) | .browser_download_url" \
-          | xargs curl -SsL \
-          | tar zxf - -C /usr/local/bin
+          echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io --username "${{ github.actor }}" --password-stdin
+          helm push dist/*.tgz "oci://$CHART_REGISTRY"
 
-      - name: Install Helm
-        uses: azure/setup-helm@v4.2.0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: helm-chart
+          path: dist/*.tgz
 
-      - name: Helm Deps
+  github-release:
+    name: GitHub release
+    needs: [ version, docker, helm ]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      PREVIOUS: ${{ needs.version.outputs.previous }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Publish zip
         run: |
-          set -ex
-          echo '${{ steps.charts.outputs.charts }}' \
-          | yq --indent 0 --no-colors --input-format json --unwrapScalar '.[]' \
-          | while read -r dir; do
-              helm dependency update "$dir";
-              if [ -f "$dir/Chart.lock" ]; then
-                yq --indent 0 \
-                  '.dependencies | map(["helm", "repo", "add", .name, .repository] | join(" ")) | .[]' \
-                  "$dir/Chart.lock" \
-                | sh --;
-              fi
-            done
+          dotnet publish src/BaGetter --configuration Release --output publish -p:Version="$VERSION" -p:DebugType=none
+          (cd publish && zip -qr "../bagetter-$VERSION.zip" .)
 
-      - name: Package charts
-        id: package
-        run: |
-          set -ex
-          PACKAGES=.cr-release-packages
-          echo '${{ steps.charts.outputs.charts }}' \
-          | yq --indent 0 --no-colors --input-format json --unwrapScalar '.[]' \
-          | xargs -d$'\n' cr package --package-path "$PACKAGES"
-          echo "dir=${PACKAGES}" >> $GITHUB_OUTPUT
+      - uses: actions/download-artifact@v4
+        with:
+          name: helm-chart
+          path: .
 
-      - name: Upload packages
-        run: |
-          set -ex
-          git config --list
-          owner=$(cut -d '/' -f 1 <<< '${{ env.CHART_REPO }}')
-          repo=$(cut -d '/' -f 2 <<< '${{ env.CHART_REPO }}')
-          cr upload --commit '${{ github.sha }}' --git-repo "$repo" --owner "$owner" --token '${{ github.token }}' \
-            --package-path '${{ steps.package.outputs.dir }}' --skip-existing
+      - name: Checksums
+        run: sha256sum bagetter-*.zip bagetter-*.tgz > SHA256SUMS.txt
 
-      - name: Update charts index
-        working-directory: .helm-chart-repo
+      - name: Generate changelog
+        uses: orhun/git-cliff-action@v4
+        with:
+          config: cliff.toml
+          args: ${{ env.PREVIOUS }}..${{ github.ref_name }} --tag ${{ github.ref_name }} --strip header
+        env:
+          OUTPUT: CHANGELOG.md
+          CLIFF_BASELINE: ${{ env.CHANGELOG_BASELINE }}
+
+      - name: Write release notes
         run: |
-          set -ex
-          git config --local user.name "$GITHUB_ACTOR"
-          git config --local user.email "$GITHUB_ACTOR@users.noreply.github.com"
-          mkdir -p .cr-index
-          owner=$(cut -d '/' -f 1 <<< '${{ env.CHART_REPO }}')
-          repo=$(cut -d '/' -f 2 <<< '${{ env.CHART_REPO }}')
-          cr index --git-repo "$repo" --owner "$owner" --pages-branch '${{ env.CHART_REPO_BRANCH }}' \
-            --package-path '../${{ steps.package.outputs.dir }}' \
-            --index-path .cr-index --push
+          {
+            cat CHANGELOG.md
+            cat <<EOF
+
+          ### 📦 Install
+
+          **Docker**
+          \`\`\`bash
+          docker run -d -p 8080:8080 -v bagetter-data:/data $DOCKER_IMAGE:$VERSION
+          \`\`\`
+
+          **Helm**
+          \`\`\`bash
+          helm install bagetter oci://$CHART_REGISTRY/bagetter --version $VERSION
+          \`\`\`
+
+          **Zip** (needs the [ASP.NET Core 10 runtime](https://dotnet.microsoft.com/download/dotnet/10.0)): download \`bagetter-$VERSION.zip\` below, extract it and run \`dotnet BaGetter.dll\`.
+
+          Verify downloads with \`SHA256SUMS.txt\`.
+          EOF
+          } > release-notes.md
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          flags=()
+          if [[ "${{ needs.version.outputs.prerelease }}" == "true" ]]; then flags+=(--prerelease --latest=false); fi
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$VERSION" \
+            --notes-file release-notes.md \
+            --verify-tag \
+            "${flags[@]}" \
+            "bagetter-$VERSION.zip" bagetter-*.tgz SHA256SUMS.txt
