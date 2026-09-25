@@ -42,7 +42,8 @@ public class CachingUpstreamClient : IUpstreamClient
         return _cache.GetOrListAsync(
             Key("versions", id),
             _duration,
-            () => _inner.ListPackageVersionsAsync(id, cancellationToken));
+            ct => _inner.ListPackageVersionsAsync(id, ct),
+            cancellationToken);
     }
 
     public Task<IReadOnlyList<Package>> ListPackagesAsync(string id, CancellationToken cancellationToken)
@@ -50,7 +51,8 @@ public class CachingUpstreamClient : IUpstreamClient
         return _cache.GetOrListAsync(
             Key("packages", id),
             _duration,
-            () => _inner.ListPackagesAsync(id, cancellationToken));
+            ct => _inner.ListPackagesAsync(id, ct),
+            cancellationToken);
     }
 
     public Task<Stream> DownloadPackageOrNullAsync(string id, NuGetVersion version, CancellationToken cancellationToken)

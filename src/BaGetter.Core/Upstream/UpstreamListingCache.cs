@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Internal;
@@ -19,6 +21,10 @@ public sealed class UpstreamListingCache : IDisposable
 
     private readonly MemoryCache _cache;
 
+    // The upstream call currently running for each key, shared by every caller that misses the
+    // cache meanwhile, so a burst of requests for one package queries the upstream once.
+    private readonly ConcurrentDictionary<object, Lazy<Task>> _inFlight = new();
+
     public UpstreamListingCache()
         : this(clock: null)
     {
@@ -35,26 +41,62 @@ public sealed class UpstreamListingCache : IDisposable
 
     /// <summary>
     /// Returns the cached listing for <paramref name="key"/>, or runs <paramref name="list"/> and
-    /// caches its result for <paramref name="duration"/>. Empty listings are not cached: upstream
-    /// clients return an empty list both for unknown packages and for failed requests.
+    /// caches its result for <paramref name="duration"/>. Concurrent callers for the same key share
+    /// one run of <paramref name="list"/>. Empty listings are not cached: upstream clients return an
+    /// empty list both for unknown packages and for failed requests.
     /// </summary>
-    public async Task<IReadOnlyList<T>> GetOrListAsync<T>(object key, TimeSpan duration, Func<Task<IReadOnlyList<T>>> list)
+    /// <param name="key">The cache key.</param>
+    /// <param name="duration">How long a non-empty listing is cached.</param>
+    /// <param name="list">
+    /// Queries the upstream. It gets <see cref="CancellationToken.None"/>, because it is shared by
+    /// several callers and one of them leaving must not cancel it for the others.
+    /// </param>
+    /// <param name="cancellationToken">Stops this caller from waiting, without cancelling the shared call.</param>
+    public async Task<IReadOnlyList<T>> GetOrListAsync<T>(
+        object key,
+        TimeSpan duration,
+        Func<CancellationToken, Task<IReadOnlyList<T>>> list,
+        CancellationToken cancellationToken)
     {
         if (_cache.TryGetValue(key, out IReadOnlyList<T> cached))
             return cached;
 
-        var result = await list();
+        var call = _inFlight.GetOrAdd(key, k => new Lazy<Task>(() => ListAndCacheAsync(k, duration, list)));
 
-        if (result.Count > 0)
+        return await ((Task<IReadOnlyList<T>>)call.Value).WaitAsync(cancellationToken);
+    }
+
+    private async Task<IReadOnlyList<T>> ListAndCacheAsync<T>(
+        object key,
+        TimeSpan duration,
+        Func<CancellationToken, Task<IReadOnlyList<T>>> list)
+    {
+        try
         {
-            _cache.Set(key, result, new MemoryCacheEntryOptions
-            {
-                AbsoluteExpirationRelativeToNow = duration,
-                Size = result.Count,
-            });
-        }
+            // A call for this key may have completed and been cached between this caller's cache
+            // miss and its registration as the in-flight call.
+            if (_cache.TryGetValue(key, out IReadOnlyList<T> cached))
+                return cached;
 
-        return result;
+            var result = await list(CancellationToken.None);
+
+            if (result.Count > 0)
+            {
+                _cache.Set(key, result, new MemoryCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = duration,
+                    Size = result.Count,
+                });
+            }
+
+            return result;
+        }
+        finally
+        {
+            // Removed only after the result is cached, so a later caller either finds it in the
+            // cache or starts a new call. Failures are not cached, so the next caller retries.
+            _inFlight.TryRemove(key, out _);
+        }
     }
 
     public void Dispose()

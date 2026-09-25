@@ -105,6 +105,7 @@ BaGetter therefore keeps each upstream listing in memory for a short time, per f
 - The default is `300` (5 minutes). `0` turns the cache off, so every request asks the upstreams again.
 - With several mirrors, the merged listing of all mirrors is cached.
 - Only listings that found the package are cached. When no upstream has the package, or an upstream fails, the next request asks again.
+- Concurrent requests for a package that is not cached share one upstream call, so a burst of restores (for example many build agents starting at once, or the moment an entry expires) queries each upstream once per package instead of once per request. A client that disconnects stops waiting, but the shared call continues for the others until the upstream answers or times out.
 - Package downloads are not cached here: a downloaded package is stored in the feed and served locally from then on.
 - Saving the feed's settings (for example adding, removing or reordering a mirror) invalidates the feed's cached listings.
 - The cache lives in the memory of each BaGetter instance and is empty after a restart.
