@@ -340,4 +340,115 @@ public class PackageIndexingServiceInMemoryTests
         return builder;
     }
 
+    public class IndexAsync : FactsBase
+    {
+        [Fact]
+        public async Task WithOnlyMaxPrereleaseVersions_DeletesOldPrereleases()
+        {
+            RetentionOptions.MaxPrereleaseVersions = 2;
+
+            for (var i = 1; i <= 4; i++)
+            {
+                await IndexVersionAsync($"1.0.0-beta.{i}");
+            }
+
+            Assert.Equal(["1.0.0-beta.3", "1.0.0-beta.4"], await GetStoredVersionsAsync());
+        }
+
+        [Fact]
+        public async Task WithOnlyMaxPatchVersions_DeletesOldPatches()
+        {
+            RetentionOptions.MaxPatchVersions = 2;
+
+            for (var patch = 0; patch <= 3; patch++)
+            {
+                await IndexVersionAsync($"1.0.{patch}");
+            }
+
+            Assert.Equal(["1.0.2", "1.0.3"], await GetStoredVersionsAsync());
+        }
+    }
+
+    public class FactsBase
+    {
+        private const string PackageId = "bagetter-test";
+
+        protected readonly RetentionOptions RetentionOptions = new();
+        private readonly IPackageDatabase _packages;
+        private readonly PackageIndexingService _target;
+
+        protected FactsBase()
+        {
+            _packages = new InMemoryPackageDatabase();
+            var storage = new PackageStorageService(new NullStorageService(), Mock.Of<ILogger<PackageStorageService>>());
+            var options = new BaGetterOptions();
+
+            var defaultFeed = new Feed { Id = Guid.Empty, Slug = Feed.DefaultSlug, Name = "Default" };
+            var feedService = new Mock<IFeedService>();
+            feedService.Setup(s => s.GetFeedByIdAsync(It.IsAny<Guid>(), It.IsAny<System.Threading.CancellationToken>()))
+                .ReturnsAsync(defaultFeed);
+
+            var feedSettings = new Mock<IFeedSettingsResolver>();
+            feedSettings.Setup(r => r.GetPackageDeletionBehavior(It.IsAny<Feed>()))
+                .Returns(() => options.PackageDeletionBehavior);
+            feedSettings.Setup(r => r.GetAllowPackageOverwrites(It.IsAny<Feed>()))
+                .Returns(() => options.AllowPackageOverwrites);
+            feedSettings.Setup(r => r.GetMaxPackageSizeGiB(It.IsAny<Feed>()))
+                .Returns(() => options.MaxPackageSizeGiB);
+            feedSettings.Setup(r => r.GetRetentionOptions(It.IsAny<Feed>()))
+                .Returns(() => RetentionOptions);
+
+            var deleter = new PackageDeletionService(
+                _packages,
+                storage,
+                feedSettings.Object,
+                feedService.Object,
+                Mock.Of<ILogger<PackageDeletionService>>());
+
+            var optionsSnapshot = new Mock<IOptionsSnapshot<BaGetterOptions>>();
+            optionsSnapshot.Setup(o => o.Value).Returns(options);
+
+            _target = new PackageIndexingService(
+                _packages,
+                storage,
+                deleter,
+                Mock.Of<ISearchIndexer>(),
+                Mock.Of<SystemTime>(),
+                optionsSnapshot.Object,
+                feedSettings.Object,
+                feedService.Object,
+                Mock.Of<ILogger<PackageIndexingService>>());
+        }
+
+        protected async Task IndexVersionAsync(string version)
+        {
+            var builder = new PackageBuilder
+            {
+                Id = PackageId,
+                Version = NuGetVersion.Parse(version),
+                Description = "Test Description",
+            };
+            builder.Authors.Add("Test Author");
+            builder.Files.Add(new PhysicalPackageFile
+            {
+                SourcePath = GetType().Assembly.Location,
+                TargetPath = "lib/Test.dll"
+            });
+            var stream = new MemoryStream();
+            builder.Save(stream);
+
+            var result = await _target.IndexAsync(Guid.Empty, Feed.DefaultSlug, stream, cacheFeedUrl: null, default);
+
+            Assert.Equal(PackageIndexingResult.Success, result);
+        }
+
+        protected async Task<string[]> GetStoredVersionsAsync()
+        {
+            var packages = await _packages.FindAsync(Guid.Empty, PackageId, includeUnlisted: true, default);
+            return packages
+                .OrderBy(p => p.Version)
+                .Select(p => p.Version.ToNormalizedString())
+                .ToArray();
+        }
+    }
 }
