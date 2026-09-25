@@ -32,9 +32,7 @@ RUN dotnet publish BaGetter \
     -a $TARGETARCH
 
 # create default folders
-RUN mkdir -p "/data/packages" \
-    mkdir -p "/data/symbols" \
-    mkdir -p "/data/db"
+RUN mkdir -p "/data/packages" "/data/symbols" "/data/db"
 
 ## Create final image
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS base
@@ -47,7 +45,7 @@ ENV Storage__Path "/data"
 ENV Search__Type "Database"
 ENV Database__Type "Sqlite"
 ENV Database__ConnectionString "Data Source=/data/db/bagetter.db"
-LABEL org.opencontainers.image.source="https://github.com/bagetter/BaGetter"
+LABEL org.opencontainers.image.source="https://github.com/letreset/BaGetter"
 # copy default folders
 COPY --from=publish /data /data
 # copy the published app

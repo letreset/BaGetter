@@ -8,7 +8,7 @@
 # https://github.com/bjw-s/helm-charts/tree/main/charts/library/common/values.yaml
 #
 
-# -- environment variables. See more environment variables in the [BaGetter documentation](https://www.bagetter.com/docs/Installation/docker).
+# -- environment variables. See more environment variables in the [BaGetter documentation](https://letreset.github.io/BaGetter/docs/Installation/docker).
 # @default -- See below
 configMaps:
   bagetter-env:
@@ -20,7 +20,7 @@ configMaps:
       Storage__Path: "/data"
       Database__Type: "Sqlite"
       Database__ConnectionString: "Data Source=/data/bagetter.db"
-      # -- Additional settings. See [BaGetter configuration](https://www.bagetter.com/docs/configuration)
+      # -- Additional settings. See [BaGetter configuration](https://letreset.github.io/BaGetter/docs/configuration)
       #Mirror__Enabled: "true"
       #Mirror__PackageSource: "https://api.nuget.org/v3/index.json"
       #PackageDeletionBehavior: "HardDelete"
@@ -33,7 +33,7 @@ controllers:
       bagetter:
         image:
           # -- image repository
-          repository: bagetter/bagetter
+          repository: letreset/bagetter
           # -- image tag
           tag: latest
           # -- image pull policy
@@ -55,13 +55,16 @@ controllers:
             - ALL
           privileged: false
           readOnlyRootFilesystem: false
-        # probes: # comming with v1.0.5
-        #   liveness:
-        #     enabled: true
-        #     type: HTTP
-        #     path: /health
-        #   readiness:
-        #     enabled: true
+        # /livez never touches dependencies; /health (HealthCheck:Path) checks the database and storage.
+        probes:
+          liveness:
+            enabled: true
+            type: HTTP
+            path: /livez
+          readiness:
+            enabled: true
+            type: HTTP
+            path: /health
 
 # -- Configures service settings for the chart.
 # @default -- See values.yaml
