@@ -83,14 +83,26 @@ public class PackageIndexingService : IPackageIndexingService
                 readmeStream = null;
             }
 
+            iconStream = null;
             if (package.HasEmbeddedIcon)
             {
-                iconStream = await packageReader.GetIconAsync(cancellationToken);
-                iconStream = await iconStream.AsTemporaryFileStreamAsync(cancellationToken);
-            }
-            else
-            {
-                iconStream = null;
+                try
+                {
+                    iconStream = await packageReader.GetIconAsync(cancellationToken);
+                    iconStream = await iconStream.AsTemporaryFileStreamAsync(cancellationToken);
+                }
+                catch (FileNotFoundException e)
+                {
+                    // The nuspec declares an icon that isn't in the archive. The icon is cosmetic,
+                    // so index the package as one without an embedded icon.
+                    _logger.LogWarning(
+                        e,
+                        "Package {PackageId} {PackageVersion} declares an embedded icon that is missing, ignoring the icon",
+                        package.Id,
+                        package.NormalizedVersionString);
+
+                    package.HasEmbeddedIcon = false;
+                }
             }
         }
         catch (Exception e)

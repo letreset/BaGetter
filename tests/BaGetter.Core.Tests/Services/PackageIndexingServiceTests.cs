@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.IO.Compression;
+using System.Threading;
 using System.Threading.Tasks;
 using BaGetter.Core.Configuration;
 using BaGetter.Core.Entities;
@@ -250,5 +252,97 @@ public class PackageIndexingServiceTests
     public async Task ThrowsWhenStorageSaveThrows()
     {
         await Task.Yield();
+    }
+
+    public class IndexAsync
+    {
+        private readonly Mock<IPackageDatabase> _packages = new();
+        private readonly Mock<IPackageStorageService> _storage = new();
+        private readonly Mock<ISearchIndexer> _search = new();
+        private readonly PackageIndexingService _target;
+
+        public IndexAsync()
+        {
+            var options = new Mock<IOptionsSnapshot<BaGetterOptions>>();
+            options.Setup(o => o.Value).Returns(new BaGetterOptions());
+
+            var feedSettings = new Mock<IFeedSettingsResolver>();
+            feedSettings.Setup(r => r.GetRetentionOptions(It.IsAny<Feed>())).Returns(new RetentionOptions());
+
+            var feedService = new Mock<IFeedService>();
+            feedService.Setup(s => s.GetFeedByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new Feed { Id = Guid.Empty, Slug = Feed.DefaultSlug, Name = "Default" });
+
+            _packages.Setup(p => p.AddAsync(It.IsAny<Package>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(PackageAddResult.Success);
+
+            _target = new PackageIndexingService(
+                _packages.Object,
+                _storage.Object,
+                Mock.Of<IPackageDeletionService>(),
+                _search.Object,
+                new Mock<SystemTime>().Object,
+                options.Object,
+                feedSettings.Object,
+                feedService.Object,
+                Mock.Of<ILogger<PackageIndexingService>>());
+        }
+
+        [Fact]
+        public async Task WhenEmbeddedIconFileIsMissing_IndexesPackageWithoutIcon()
+        {
+            // Arrange
+            var stream = CreatePackageWithMissingIcon();
+
+            // Act
+            var result = await _target.IndexAsync(Guid.Empty, Feed.DefaultSlug, stream, cacheFeedUrl: null, default);
+
+            // Assert
+            Assert.Equal(PackageIndexingResult.Success, result);
+            _storage.Verify(s => s.SavePackageContentAsync(
+                Feed.DefaultSlug,
+                It.Is<Package>(p => p.Id == "bagetter-test" && !p.HasEmbeddedIcon),
+                stream,
+                It.IsAny<Stream>(),
+                null,
+                null,
+                It.IsAny<CancellationToken>()), Times.Once);
+            _packages.Verify(p => p.AddAsync(It.Is<Package>(p1 => !p1.HasEmbeddedIcon), It.IsAny<CancellationToken>()), Times.Once);
+            _search.Verify(s => s.IndexAsync(It.Is<Package>(p => !p.HasEmbeddedIcon), It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        private MemoryStream CreatePackageWithMissingIcon()
+        {
+            var builder = new PackageBuilder
+            {
+                Id = "bagetter-test",
+                Version = NuGetVersion.Parse("1.0.0"),
+                Description = "Test Description",
+                Icon = "icon.png",
+            };
+            builder.Authors.Add("Test Author");
+            builder.Files.Add(new PhysicalPackageFile
+            {
+                SourcePath = GetType().Assembly.Location,
+                TargetPath = "lib/Test.dll"
+            });
+            builder.Files.Add(new PhysicalPackageFile
+            {
+                SourcePath = GetType().Assembly.Location,
+                TargetPath = "icon.png"
+            });
+
+            var stream = new MemoryStream();
+            builder.Save(stream);
+
+            // The nuspec still declares the icon, but the file is removed from the archive.
+            using (var archive = new ZipArchive(stream, ZipArchiveMode.Update, leaveOpen: true))
+            {
+                archive.GetEntry("icon.png").Delete();
+            }
+
+            stream.Position = 0;
+            return stream;
+        }
     }
 }
