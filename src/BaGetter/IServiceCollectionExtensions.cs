@@ -70,19 +70,23 @@ internal static class ServiceCollectionExtensions
         if (!Enum.TryParse<AuthenticationMode>(modeString, ignoreCase: true, out var mode))
             mode = AuthenticationMode.Config;
 
-        if (mode is not (AuthenticationMode.Entra or AuthenticationMode.Hybrid))
+		if (mode == AuthenticationMode.Config)
             return app;
 
         var entraSection = authSection.GetSection("Entra");
         var entraOptions = entraSection.Get<EntraOptions>() ?? new EntraOptions();
 
-        app.Services.AddAuthentication(options =>
+        var authBuilder = app.Services.AddAuthentication(options =>
             {
                 // Keep NugetBasicAuth as the default for NuGet feed API requests.
                 // OIDC + Cookie are used for interactive browser sessions only.
                 options.DefaultScheme = AuthenticationConstants.NugetBasicAuthenticationScheme;
-            })
-            .AddMicrosoftIdentityWebApp(entraSection, AuthenticationConstants.EntraOidcScheme, AuthenticationConstants.CookieScheme);
+            });
+
+        if (mode is AuthenticationMode.Entra or AuthenticationMode.Hybrid)
+            authBuilder.AddMicrosoftIdentityWebApp(entraSection, AuthenticationConstants.EntraOidcScheme, AuthenticationConstants.CookieScheme);
+        else
+            authBuilder.AddCookie(AuthenticationConstants.CookieScheme);
 
         // When a request has the session cookie but no Authorization header (i.e. a browser
         // session after OIDC sign-in), forward authentication to the cookie scheme so the
