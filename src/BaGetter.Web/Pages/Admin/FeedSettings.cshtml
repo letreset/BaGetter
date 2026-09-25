@@ -1,6 +1,87 @@
 @page "/Admin/Feeds/{slug}/Settings"
 @model BaGetter.Web.Pages.Admin.FeedSettingsModel
 @using BaGetter.Core.Configuration
+@using BaGetter.Web.Pages.Admin
+
+@{
+    // Renders one mirror of the list. The index is a number for stored mirrors and "__index__" in
+    // the template for new ones; the script renumbers rows so posted indexes follow display order.
+    void MirrorRow(string index, FeedSettingsModel.MirrorInput mirror)
+    {
+        var prefix = $"Mirrors[{index}]";
+        var idPrefix = $"Mirrors_{index}__";
+        <div class="panel panel-default mirror-row">
+            <div class="panel-heading clearfix">
+                <strong class="mirror-title">Mirror</strong>
+                <span class="pull-right">
+                    <button type="button" class="btn btn-default btn-xs mirror-up" title="Move up" aria-label="Move up">&uarr;</button>
+                    <button type="button" class="btn btn-default btn-xs mirror-down" title="Move down" aria-label="Move down">&darr;</button>
+                    <button type="button" class="btn btn-danger btn-xs mirror-remove">Remove</button>
+                </span>
+            </div>
+            <div class="panel-body">
+                <input type="hidden" name="@(prefix).Id" value="@mirror.Id" />
+                <div class="form-group">
+                    <div class="checkbox">
+                        <label>
+                            <input type="checkbox" name="@(prefix).Enabled" value="true" checked="@mirror.Enabled" />
+                            Enabled
+                        </label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="@(idPrefix)PackageSource">Package source URL</label>
+                    <input id="@(idPrefix)PackageSource" name="@(prefix).PackageSource" value="@mirror.PackageSource" type="url" class="form-control" placeholder="https://api.nuget.org/v3/index.json" required />
+                </div>
+                <div class="form-group">
+                    <div class="checkbox">
+                        <label>
+                            <input type="checkbox" name="@(prefix).Legacy" value="true" checked="@mirror.Legacy" />
+                            Use NuGet V2 (legacy) protocol
+                        </label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="@(idPrefix)DownloadTimeoutSeconds">Download timeout (seconds)</label>
+                    <input id="@(idPrefix)DownloadTimeoutSeconds" name="@(prefix).DownloadTimeoutSeconds" value="@mirror.DownloadTimeoutSeconds" type="number" min="1" class="form-control" style="max-width:160px" />
+                </div>
+                <div class="form-group">
+                    <label for="@(idPrefix)AuthType">Authentication type</label>
+                    <select id="@(idPrefix)AuthType" name="@(prefix).AuthType" class="form-control" style="max-width:240px">
+                        <!option value="">None</!option>
+                        <!option value="@MirrorAuthenticationType.Basic" selected="@(mirror.AuthType == MirrorAuthenticationType.Basic)">Basic</!option>
+                        <!option value="@MirrorAuthenticationType.Bearer" selected="@(mirror.AuthType == MirrorAuthenticationType.Bearer)">Bearer token</!option>
+                        <!option value="@MirrorAuthenticationType.Custom" selected="@(mirror.AuthType == MirrorAuthenticationType.Custom)">Custom headers</!option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="@(idPrefix)AuthUsername">Username (Basic auth)</label>
+                    <input id="@(idPrefix)AuthUsername" name="@(prefix).AuthUsername" value="@mirror.AuthUsername" class="form-control" autocomplete="off" />
+                </div>
+                <div class="form-group">
+                    <label for="@(idPrefix)AuthPasswordNew">Password (leave blank to keep existing)</label>
+                    <input id="@(idPrefix)AuthPasswordNew" name="@(prefix).AuthPasswordNew" type="password" class="form-control" autocomplete="new-password" />
+                    @if (mirror.HasAuthPassword)
+                    {
+                        <small class="text-muted">A password is currently set.</small>
+                    }
+                </div>
+                <div class="form-group">
+                    <label for="@(idPrefix)AuthTokenNew">Bearer token (leave blank to keep existing)</label>
+                    <input id="@(idPrefix)AuthTokenNew" name="@(prefix).AuthTokenNew" type="password" class="form-control" autocomplete="new-password" />
+                    @if (mirror.HasAuthToken)
+                    {
+                        <small class="text-muted">A token is currently set.</small>
+                    }
+                </div>
+                <div class="form-group">
+                    <label for="@(idPrefix)AuthCustomHeaders">Custom headers (JSON, e.g. {"X-Header":"value"})</label>
+                    <textarea id="@(idPrefix)AuthCustomHeaders" name="@(prefix).AuthCustomHeaders" class="form-control" rows="3" style="font-family:monospace">@mirror.AuthCustomHeaders</textarea>
+                </div>
+            </div>
+        </div>
+    }
+}
 
 @{
     ViewData["Title"] = "Feed Settings \u2014 " + Model.Feed?.Slug;
@@ -130,64 +211,24 @@
                 <small class="text-muted">Global default: @(Model.GlobalOptions.Retention?.MaxPrereleaseVersions?.ToString() ?? "Unlimited")</small>
             </div>
 
-            <h3>Mirror</h3>
-            <div class="form-group">
-                <div class="checkbox">
-                    <label>
-                        <input asp-for="MirrorEnabled" />
-                        Enable upstream mirroring
-                    </label>
-                </div>
-            </div>
-            <div class="form-group">
-                <label asp-for="MirrorPackageSource">Package source URL</label>
-                <input asp-for="MirrorPackageSource" type="url" class="form-control" placeholder="https://api.nuget.org/v3/index.json" />
-            </div>
-            <div class="form-group">
-                <div class="checkbox">
-                    <label>
-                        <input asp-for="MirrorLegacy" />
-                        Use NuGet V2 (legacy) protocol
-                    </label>
-                </div>
-            </div>
-            <div class="form-group">
-                <label asp-for="MirrorDownloadTimeoutSeconds">Download timeout (seconds)</label>
-                <input asp-for="MirrorDownloadTimeoutSeconds" type="number" min="1" class="form-control" style="max-width:160px" />
-            </div>
-            <div class="form-group">
-                <label asp-for="MirrorAuthType">Authentication type</label>
-                <select asp-for="MirrorAuthType" class="form-control" style="max-width:240px">
-                    <option value="">None</option>
-                    <option value="@MirrorAuthenticationType.Basic">Basic</option>
-                    <option value="@MirrorAuthenticationType.Bearer">Bearer token</option>
-                    <option value="@MirrorAuthenticationType.Custom">Custom headers</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label asp-for="MirrorAuthUsername">Username (Basic auth)</label>
-                <input asp-for="MirrorAuthUsername" class="form-control" autocomplete="off" />
-            </div>
-            <div class="form-group">
-                <label asp-for="MirrorAuthPasswordNew">Password (leave blank to keep existing)</label>
-                <input asp-for="MirrorAuthPasswordNew" type="password" class="form-control" autocomplete="new-password" />
-                @if (Model.Feed?.MirrorAuthPassword != null)
+            <h3>Mirrors</h3>
+            <p class="text-muted">
+                Upstream package sources, queried in order. Version lists from every mirror are merged
+                (an earlier mirror wins for the same version), and a package is downloaded from the first
+                mirror that has it.
+            </p>
+            <div id="mirror-list">
+                @for (var i = 0; i < Model.Mirrors.Count; i++)
                 {
-                    <small class="text-muted">A password is currently set.</small>
+                    MirrorRow(i.ToString(), Model.Mirrors[i]);
                 }
             </div>
-            <div class="form-group">
-                <label asp-for="MirrorAuthTokenNew">Bearer token (leave blank to keep existing)</label>
-                <input asp-for="MirrorAuthTokenNew" type="password" class="form-control" autocomplete="new-password" />
-                @if (Model.Feed?.MirrorAuthToken != null)
-                {
-                    <small class="text-muted">A token is currently set.</small>
-                }
-            </div>
-            <div class="form-group">
-                <label asp-for="MirrorAuthCustomHeaders">Custom headers (JSON, e.g. {"X-Header":"value"})</label>
-                <textarea asp-for="MirrorAuthCustomHeaders" class="form-control" rows="3" style="font-family:monospace"></textarea>
-            </div>
+            <p id="mirror-empty" class="text-muted" hidden="@(Model.Mirrors.Count > 0)">No mirrors: this feed only serves packages pushed to it.</p>
+            <button type="button" class="btn btn-default" id="mirror-add">Add mirror</button>
+
+            <template id="mirror-template">
+                @{ MirrorRow("__index__", new FeedSettingsModel.MirrorInput { Enabled = true }); }
+            </template>
 
             <div style="margin-top: 24px">
                 <button type="submit" class="btn btn-primary">Save Settings</button>
@@ -217,5 +258,55 @@
         applyGlobalDefault(cb);
         cb.addEventListener('change', function () { applyGlobalDefault(cb); });
     });
+})();
+
+(function () {
+    var list = document.getElementById('mirror-list');
+    var template = document.getElementById('mirror-template');
+    var empty = document.getElementById('mirror-empty');
+
+    // Rewrites Mirrors[n] and Mirrors_n__ in names, ids and labels so the posted indexes are
+    // always 0..count-1 in display order. The saved mirror priority follows that order.
+    function renumber() {
+        var rows = list.querySelectorAll('.mirror-row');
+        rows.forEach(function (row, index) {
+            row.querySelector('.mirror-title').textContent = 'Mirror ' + (index + 1);
+            row.querySelectorAll('[name], [id], label[for]').forEach(function (el) {
+                ['name', 'id', 'for'].forEach(function (attr) {
+                    var value = el.getAttribute(attr);
+                    if (!value) return;
+                    el.setAttribute(attr, value
+                        .replace(/^Mirrors\[[^\]]+\]/, 'Mirrors[' + index + ']')
+                        .replace(/^Mirrors_(\d+|__index__)__/, 'Mirrors_' + index + '__'));
+                });
+            });
+            row.querySelector('.mirror-up').disabled = index === 0;
+            row.querySelector('.mirror-down').disabled = index === rows.length - 1;
+        });
+        empty.hidden = rows.length > 0;
+    }
+
+    document.getElementById('mirror-add').addEventListener('click', function () {
+        list.appendChild(template.content.cloneNode(true));
+        renumber();
+    });
+
+    list.addEventListener('click', function (e) {
+        var row = e.target.closest('.mirror-row');
+        if (!row) return;
+
+        if (e.target.closest('.mirror-remove')) {
+            row.remove();
+        } else if (e.target.closest('.mirror-up') && row.previousElementSibling) {
+            list.insertBefore(row, row.previousElementSibling);
+        } else if (e.target.closest('.mirror-down') && row.nextElementSibling) {
+            list.insertBefore(row.nextElementSibling, row);
+        } else {
+            return;
+        }
+        renumber();
+    });
+
+    renumber();
 })();
 </script>

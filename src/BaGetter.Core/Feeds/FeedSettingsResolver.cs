@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json;
 using BaGetter.Core.Configuration;
 using BaGetter.Core.Entities;
@@ -60,30 +61,37 @@ public class FeedSettingsResolver : IFeedSettingsResolver
         };
     }
 
-    public MirrorOptions GetMirrorOptions(Feed feed)
+    public IReadOnlyList<MirrorOptions> GetMirrorOptions(Feed feed)
     {
-        if (feed == null || !feed.MirrorEnabled)
-            return new MirrorOptions { Enabled = false };
+        if (feed?.Mirrors == null)
+            return [];
 
+        return feed.Mirrors
+            .Where(m => m.Enabled && !string.IsNullOrEmpty(m.PackageSource))
+            .OrderBy(m => m.SortOrder)
+            .Select(ToMirrorOptions)
+            .ToList();
+    }
+
+    private static MirrorOptions ToMirrorOptions(FeedMirror mirror)
+    {
         var options = new MirrorOptions
         {
             Enabled = true,
-            PackageSource = string.IsNullOrEmpty(feed.MirrorPackageSource)
-                ? null
-                : new Uri(feed.MirrorPackageSource),
-            Legacy = feed.MirrorLegacy,
-            PackageDownloadTimeoutSeconds = feed.MirrorDownloadTimeoutSeconds ?? 600,
+            PackageSource = new Uri(mirror.PackageSource),
+            Legacy = mirror.Legacy,
+            PackageDownloadTimeoutSeconds = mirror.DownloadTimeoutSeconds ?? 600,
         };
 
-        if (feed.MirrorAuthType.HasValue && feed.MirrorAuthType.Value != MirrorAuthenticationType.None)
+        if (mirror.AuthType.HasValue && mirror.AuthType.Value != MirrorAuthenticationType.None)
         {
             options.Authentication = new MirrorAuthenticationOptions
             {
-                Type = feed.MirrorAuthType.Value,
-                Username = feed.MirrorAuthUsername,
-                Password = feed.MirrorAuthPassword,
-                Token = feed.MirrorAuthToken,
-                CustomHeaders = DeserializeCustomHeaders(feed.MirrorAuthCustomHeaders),
+                Type = mirror.AuthType.Value,
+                Username = mirror.AuthUsername,
+                Password = mirror.AuthPassword,
+                Token = mirror.AuthToken,
+                CustomHeaders = DeserializeCustomHeaders(mirror.AuthCustomHeaders),
             };
         }
 

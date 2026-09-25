@@ -45,33 +45,6 @@ namespace BaGetter.Database.MySql.Migrations
                     b.Property<uint?>("MaxPackageSizeGiB")
                         .HasColumnType("int unsigned");
 
-                    b.Property<string>("MirrorAuthCustomHeaders")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("MirrorAuthPassword")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("MirrorAuthToken")
-                        .HasColumnType("longtext");
-
-                    b.Property<int?>("MirrorAuthType")
-                        .HasColumnType("int");
-
-                    b.Property<string>("MirrorAuthUsername")
-                        .HasColumnType("longtext");
-
-                    b.Property<int?>("MirrorDownloadTimeoutSeconds")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("MirrorEnabled")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("MirrorLegacy")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<string>("MirrorPackageSource")
-                        .HasColumnType("longtext");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(256)
@@ -111,6 +84,55 @@ namespace BaGetter.Database.MySql.Migrations
                         .IsUnique();
 
                     b.ToTable("Feeds");
+                });
+
+            modelBuilder.Entity("BaGetter.Core.Entities.FeedMirror", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AuthCustomHeaders")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("AuthPassword")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("AuthToken")
+                        .HasColumnType("longtext");
+
+                    b.Property<int?>("AuthType")
+                        .HasColumnType("int");
+
+                    b.Property<string>("AuthUsername")
+                        .HasColumnType("longtext");
+
+                    b.Property<int?>("DownloadTimeoutSeconds")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<Guid>("FeedId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<bool>("Legacy")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("PackageSource")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FeedId", "SortOrder");
+
+                    b.ToTable("FeedMirrors");
                 });
 
             modelBuilder.Entity("BaGetter.Core.Entities.FeedPermission", b =>
@@ -539,6 +561,17 @@ namespace BaGetter.Database.MySql.Migrations
                     b.ToTable("UserGroups");
                 });
 
+            modelBuilder.Entity("BaGetter.Core.Entities.FeedMirror", b =>
+                {
+                    b.HasOne("BaGetter.Core.Entities.Feed", "Feed")
+                        .WithMany("Mirrors")
+                        .HasForeignKey("FeedId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Feed");
+                });
+
             modelBuilder.Entity("BaGetter.Core.Entities.FeedPermission", b =>
                 {
                     b.HasOne("BaGetter.Core.Entities.Feed", "Feed")
@@ -633,6 +666,8 @@ namespace BaGetter.Database.MySql.Migrations
 
             modelBuilder.Entity("BaGetter.Core.Entities.Feed", b =>
                 {
+                    b.Navigation("Mirrors");
+
                     b.Navigation("Packages");
 
                     b.Navigation("Permissions");

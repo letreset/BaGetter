@@ -27,7 +27,13 @@ Every package now belongs to a [feed](feeds.md). On the first start BaGetter cre
 
 ### Mirror settings move to the feed
 
-The global `Mirror` section is **obsolete**. On first start, if it is enabled, BaGetter copies it (source, legacy flag, timeout and upstream authentication) to the default feed. From then on each feed's own mirror settings, edited in **Admin > Feeds**, are what apply. Changing `Mirror` in `appsettings.json` afterwards has no effect, so you can remove it once the copy has happened.
+The global `Mirror` section is **obsolete**. On first start, if it is enabled, BaGetter copies it (source, legacy flag, timeout and upstream authentication) to the default feed as its first mirror. From then on each feed's own mirror settings, edited in **Admin > Feeds**, are what apply. Changing `Mirror` in `appsettings.json` afterwards has no effect, so you can remove it once the copy has happened.
+
+:::info Upgrading from an earlier 2.x release
+
+A feed can now have [several mirrors](feeds.md#multiple-mirrors). The database migration moves each feed's existing mirror into the new mirror list, keeping its enabled state and credentials, so single-mirror feeds keep working unchanged. The admin feeds API (`/api/v1/feeds`) now returns a `mirrors` array instead of the `mirror*` fields.
+
+:::
 
 ### Feed settings override the global ones
 

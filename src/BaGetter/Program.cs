@@ -3,7 +3,9 @@ using System.IO;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using BaGetter.Core.Authentication;
 using BaGetter.Core.Configuration;
+using BaGetter.Core.Entities;
 using BaGetter.Core.Feeds;
 using BaGetter.Core.Upstream;
 using BaGetter.Web.Extensions;
@@ -64,6 +66,12 @@ public class Program
                 await MigrateGlobalMirrorConfigToDefaultFeedAsync(scope.ServiceProvider, cancellationToken);
             }
 
+            using (var scope = host.Services.CreateScope())
+            {
+                var seeder = scope.ServiceProvider.GetRequiredService<InitialAdminSeeder>();
+                await seeder.SeedAsync(cancellationToken);
+            }
+
             await host.RunAsync(cancellationToken);
         });
 
@@ -72,10 +80,9 @@ public class Program
 
     /// <summary>
     /// One-time upgrade helper: if the global Mirror config has Enabled=true and the default
-    /// feed has not yet had mirror settings populated, copy them. The guard checks for a
-    /// populated mirror source on the feed rather than <c>MirrorEnabled</c>, so an admin who
-    /// later toggles mirroring off on the default feed won't have it silently re-enabled on
-    /// the next startup.
+    /// feed has no mirrors yet, copy it as the default feed's first mirror. The guard checks for
+    /// any mirror row, enabled or not, so an admin who later disables the mirror on the default
+    /// feed won't have it silently re-enabled on the next startup.
     /// </summary>
     private static async Task MigrateGlobalMirrorConfigToDefaultFeedAsync(
         IServiceProvider provider,
@@ -96,11 +103,10 @@ public class Program
             return;
         }
 
-        // Guard: already migrated. Detect based on whether any mirror fields have been
-        // populated on the default feed, not on MirrorEnabled alone — otherwise an admin
-        // who intentionally disabled mirroring would see it re-enabled on every startup
+        // Guard: already migrated. Any mirror row counts, including a disabled one; otherwise an
+        // admin who intentionally disabled mirroring would see it re-enabled on every startup
         // as long as the obsolete global Mirror config still exists in appsettings.
-        if (!string.IsNullOrWhiteSpace(defaultFeed.MirrorPackageSource))
+        if (defaultFeed.Mirrors.Count > 0)
         {
             logger.LogDebug(
                 "Default feed already has mirror settings; skipping migration.");
@@ -110,30 +116,35 @@ public class Program
         logger.LogInformation(
             "Copying global Mirror configuration to default feed (one-time upgrade).");
 
-        defaultFeed.MirrorEnabled = true;
-        defaultFeed.MirrorPackageSource = mirrorOptions.PackageSource.ToString();
-        defaultFeed.MirrorLegacy = mirrorOptions.Legacy;
-        defaultFeed.MirrorDownloadTimeoutSeconds = mirrorOptions.PackageDownloadTimeoutSeconds;
+        var mirror = new FeedMirror
+        {
+            SortOrder = 0,
+            Enabled = true,
+            PackageSource = mirrorOptions.PackageSource.ToString(),
+            Legacy = mirrorOptions.Legacy,
+            DownloadTimeoutSeconds = mirrorOptions.PackageDownloadTimeoutSeconds,
+        };
 
         if (mirrorOptions.Authentication is { Type: not MirrorAuthenticationType.None } auth)
         {
-            defaultFeed.MirrorAuthType = auth.Type;
-            defaultFeed.MirrorAuthUsername = auth.Username;
-            defaultFeed.MirrorAuthPassword = auth.Password;
-            defaultFeed.MirrorAuthToken = auth.Token;
+            mirror.AuthType = auth.Type;
+            mirror.AuthUsername = auth.Username;
+            mirror.AuthPassword = auth.Password;
+            mirror.AuthToken = auth.Token;
 
             if (auth.CustomHeaders is { Count: > 0 })
             {
-                defaultFeed.MirrorAuthCustomHeaders =
+                mirror.AuthCustomHeaders =
                     JsonSerializer.Serialize(auth.CustomHeaders);
             }
         }
 
+        defaultFeed.Mirrors.Add(mirror);
         await feedService.UpdateFeedAsync(defaultFeed, cancellationToken);
 
         logger.LogInformation(
             "Global Mirror configuration copied to default feed (source: {PackageSource}).",
-            defaultFeed.MirrorPackageSource);
+            mirror.PackageSource);
     }
 
     public static IHostBuilder CreateHostBuilder(string[] args)

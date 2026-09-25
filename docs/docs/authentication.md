@@ -34,7 +34,30 @@ In every other mode those settings are ignored: there is no anonymous access, ev
 Administrators manage feeds, accounts, groups and permissions, and can pull, push and delete on every feed. How you get the first one depends on the mode:
 
 - **`Entra` and `Hybrid`**: assign the `Admin` app role to yourself in Entra ID (see [Step 3](#step-3-define-app-roles-recommended)) and sign in. Admin status always follows the token.
-- **`Local`**: there is currently no built-in way to create the first administrator, and the admin UI can't grant admin rights. Until this is solved ([#14](https://github.com/letreset/BaGetter/issues/14)), start in `Hybrid` mode with an Entra admin, or set `IsAdmin` on a user directly in the database.
+- **`Local`** (and optionally `Hybrid`): set `Authentication:InitialAdmin:Username` and `Authentication:InitialAdmin:Password`. On startup, while no user is an administrator, BaGetter creates that local account with admin rights and logs it.
+
+```json
+{
+    "Authentication": {
+        "Mode": "Local",
+        "InitialAdmin": {
+            "Username": "admin",
+            "Password": "<at least 12 characters>"
+        }
+    }
+}
+```
+
+Keep the password out of `appsettings.json`: pass it as the `Authentication__InitialAdmin__Password` environment variable or mount it as a [secret file](configuration.md#load-secrets-from-files). Sign in with it and change it on **Admin > Accounts** afterwards.
+
+The initial admin settings only ever create an account:
+
+- Once any administrator exists, they are ignored. You can remove them after the first start.
+- An existing user is never changed and a password is never reset. If a user with the configured username already exists but isn't an administrator, BaGetter logs a warning and leaves it alone; pick a different username.
+- The password must be at least 12 characters, the same rule as **Admin > Accounts**. Startup fails if only one of the two settings is set.
+- Several replicas can start at once: only one creates the account, the others skip it.
+
+In `Local` mode BaGetter logs a warning on startup while no administrator exists and the settings are missing. In `Config` and `Entra` mode they are ignored.
 
 ## Azure Entra ID setup
 
@@ -295,6 +318,10 @@ When a PAT is used as a password, the username must be the token owner's usernam
             "CallbackPath": "/signin-oidc",
             "RoleClaim": "roles"
         },
+        "InitialAdmin": {
+            "Username": "admin",
+            "Password": "<initial-admin-password>"
+        },
         "MaxTokenExpiryDays": 365,
         "MaxFailedAttempts": 5,
         "LockoutMinutes": 15,
@@ -332,6 +359,8 @@ All authentication settings can be provided via environment variables using the 
 | `Authentication__Entra__ClientSecret` | Client secret |
 | `Authentication__Entra__CallbackPath` | OIDC callback path |
 | `Authentication__Entra__RoleClaim` | Token claim name for App Roles (default: `roles`) |
+| `Authentication__InitialAdmin__Username` | Username of the [first administrator](#the-first-administrator) (`Local` and `Hybrid`) |
+| `Authentication__InitialAdmin__Password` | Password of the first administrator, at least 12 characters |
 | `Authentication__MaxTokenExpiryDays` | Maximum PAT lifetime in days |
 | `Authentication__MaxFailedAttempts` | Failed login threshold for lockout |
 | `Authentication__LockoutMinutes` | Lockout duration in minutes |

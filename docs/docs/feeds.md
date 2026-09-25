@@ -48,11 +48,11 @@ Set the values you want for most feeds in configuration, and override only where
 
 A feed can mirror an upstream NuGet feed, for example nuget.org. When a client asks the feed for a package it doesn't have, BaGetter fetches it from the upstream source, stores it in the feed and serves it. Later restores are served locally, which speeds up builds and keeps them working when the upstream is unreachable.
 
-Mirror settings are part of each feed's settings page:
+Mirrors are listed on each feed's settings page, under **Mirrors**. Use **Add mirror** to add one; each mirror has these settings:
 
 | Setting | Description |
 |---|---|
-| Enable mirror | Turn the read-through cache on for this feed |
+| Enabled | Use this mirror. Clear it to pause a mirror without losing its settings |
 | Package source URL | The upstream service index, e.g. `https://api.nuget.org/v3/index.json` |
 | Use NuGet V2 (legacy) protocol | For upstream servers that only speak the V2 protocol |
 | Download timeout (seconds) | How long to wait for an upstream download |
@@ -65,6 +65,25 @@ Password and token fields are write-only: leave them blank to keep the stored va
 Upstream credentials are stored in the BaGetter database. Restrict access to the database and its backups, and use a read-only token for the upstream feed where possible.
 
 :::
+
+### Multiple mirrors
+
+A feed can mirror several upstreams, in order. This is useful when packages live in different places, for example open source packages on nuget.org and licensed packages on a vendor's private feed:
+
+1. `https://api.nuget.org/v3/index.json`
+2. `https://nuget.vendor.example/v3/index.json` (Basic authentication)
+
+Developers then add only the BaGetter feed to `nuget.config`, and the vendor credentials stay on the server.
+
+With more than one enabled mirror, BaGetter:
+
+- **Merges version lists and metadata** from every mirror, so a package that exists on both upstreams shows the versions of both. When the same version exists on several mirrors, the earlier mirror's metadata wins.
+- **Downloads from the first mirror that has the package**, and caches it in the feed. The package records which upstream it came from.
+- **Skips a failing mirror**: an upstream that is unreachable or returns an error is logged and skipped, and the next mirror is tried.
+
+Use the arrow buttons to change the order and **Remove** to delete a mirror, then **Save Settings**. With a single enabled mirror, the feed behaves exactly as it did before multiple mirrors existed.
+
+Put the upstream that has most of your packages first: version lists query every mirror, but a download stops at the first mirror that has the package.
 
 :::info
 

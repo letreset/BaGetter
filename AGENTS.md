@@ -75,7 +75,7 @@ dotnet run --project src/BaGetter     # http://localhost:5000
 dotnet test --filter "FullyQualifiedName~UserServiceTests"
 ```
 
-The SDK is pinned in `global.json`. `tests/BaGetter.Tests/` contains two `.csproj` files, so pass the project path explicitly (`dotnet test tests/BaGetter.Tests/BaGetter.Tests.csproj`).
+The SDK is pinned in `global.json`.
 
 EF migrations need one per provider (Sqlite, SqlServer, PostgreSql, MySql):
 ```bash
@@ -121,7 +121,7 @@ ForwardedHeaders → PathBase → HSTS (optional) → `SecurityHeadersMiddleware
 
 Main keys:
 - `Database`, `Storage`, `Search`: each has a `Type`.
-- `Authentication`: `Mode`, `Entra`, token and lockout limits.
+- `Authentication`: `Mode`, `Entra`, `InitialAdmin` (`Username`, `Password`; `InitialAdminSeeder` creates this local admin at startup, after migrations, while no admin exists in `Local`/`Hybrid`), token and lockout limits.
 - `Email`, `PatExpiryNotification`.
 - `MaxPackageSizeGiB`, `RegistrationPageSize`, `Cors` (`AllowedOrigins`, `AllowCredentials`), `SecurityHeaders` (`Enabled`, `EnableHsts`, `HstsMaxAgeDays`), `RequestRateLimit` (`Enabled`, `PermitLimit`, `WindowSeconds`, `QueueLimit`; off by default).
 - `HealthCheck`, `Statistics`.

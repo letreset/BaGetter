@@ -13,6 +13,7 @@ public interface IUserService
     Task<User> FindByEntraObjectIdAsync(string entraObjectId, CancellationToken cancellationToken);
     Task<User> CreateEntraUserAsync(string entraObjectId, string username, string displayName, string email, CancellationToken cancellationToken);
     Task<User> CreateLocalUserAsync(string username, string displayName, string email, string password, bool canLoginToUI, Guid? createdByUserId, CancellationToken cancellationToken);
+    Task<User> CreateLocalAdminAsync(string username, string password, CancellationToken cancellationToken);
     Task UpdateUserAsync(User user, CancellationToken cancellationToken);
     Task SetPasswordAsync(Guid userId, string newPassword, CancellationToken cancellationToken);
     Task<bool> VerifyPasswordAsync(User user, string password);

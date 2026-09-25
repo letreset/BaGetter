@@ -19,6 +19,7 @@ See [`values.yaml`](values.yaml) for all options. Common ones:
 | Key | Default | Description |
 |-----|---------|-------------|
 | `configMaps.bagetter-env.data` | SQLite + FileSystem on `/data` | Environment variables passed to BaGetter. See the [configuration docs](https://letreset.github.io/BaGetter/docs/configuration). Put secrets in a Secret instead. |
+| `controllers.bagetter.containers.bagetter.env` | unset | Secret-backed environment variables, e.g. `Authentication__InitialAdmin__Password` from a Secret for the [first administrator](https://letreset.github.io/BaGetter/docs/authentication#the-first-administrator) in `Local` mode |
 | `controllers.bagetter.containers.bagetter.image.repository` | `letreset/bagetter` | Image repository |
 | `controllers.bagetter.containers.bagetter.image.tag` | release version | Image tag |
 | `controllers.bagetter.containers.bagetter.probes` | `/livez` liveness, `/health` readiness | Health probes |

@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using BaGetter.Core.Configuration;
 using BaGetter.Core.Entities;
 
@@ -26,18 +28,8 @@ public class FeedResponse
     public int? RetentionMaxPatchVersions { get; set; }
     public int? RetentionMaxPrereleaseVersions { get; set; }
 
-    public bool MirrorEnabled { get; set; }
-    public string MirrorPackageSource { get; set; }
-    public bool MirrorLegacy { get; set; }
-    public int? MirrorDownloadTimeoutSeconds { get; set; }
-    public MirrorAuthenticationType? MirrorAuthType { get; set; }
-    public string MirrorAuthUsername { get; set; }
-
-    /// <summary>True if a mirror password is configured; the value is never returned.</summary>
-    public bool HasMirrorAuthPassword { get; set; }
-
-    /// <summary>True if a mirror bearer token is configured; the value is never returned.</summary>
-    public bool HasMirrorAuthToken { get; set; }
+    /// <summary>The feed's upstream mirrors, in priority order.</summary>
+    public List<FeedMirrorResponse> Mirrors { get; set; }
 
     public DateTime CreatedAtUtc { get; set; }
     public DateTime UpdatedAtUtc { get; set; }
@@ -57,14 +49,10 @@ public class FeedResponse
         RetentionMaxMinorVersions = feed.RetentionMaxMinorVersions,
         RetentionMaxPatchVersions = feed.RetentionMaxPatchVersions,
         RetentionMaxPrereleaseVersions = feed.RetentionMaxPrereleaseVersions,
-        MirrorEnabled = feed.MirrorEnabled,
-        MirrorPackageSource = feed.MirrorPackageSource,
-        MirrorLegacy = feed.MirrorLegacy,
-        MirrorDownloadTimeoutSeconds = feed.MirrorDownloadTimeoutSeconds,
-        MirrorAuthType = feed.MirrorAuthType,
-        MirrorAuthUsername = feed.MirrorAuthUsername,
-        HasMirrorAuthPassword = !string.IsNullOrEmpty(feed.MirrorAuthPassword),
-        HasMirrorAuthToken = !string.IsNullOrEmpty(feed.MirrorAuthToken),
+        Mirrors = (feed.Mirrors ?? [])
+            .OrderBy(m => m.SortOrder)
+            .Select(FeedMirrorResponse.FromMirror)
+            .ToList(),
         CreatedAtUtc = feed.CreatedAtUtc,
         UpdatedAtUtc = feed.UpdatedAtUtc,
     };

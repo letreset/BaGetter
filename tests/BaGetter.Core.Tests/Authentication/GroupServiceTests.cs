@@ -446,8 +446,8 @@ public class GroupServiceTests
 
             // Seed feeds referenced in DeleteGroupAsync tests to satisfy FK constraints.
             Context.Feeds.AddRange(
-                new Feed { Id = new Guid("00000000-0000-0000-0000-000000000011"), Slug = "feed-11", Name = "Feed 11", MirrorEnabled = false, MirrorLegacy = false, CreatedAtUtc = DateTime.UtcNow, UpdatedAtUtc = DateTime.UtcNow },
-                new Feed { Id = new Guid("00000000-0000-0000-0000-000000000012"), Slug = "feed-12", Name = "Feed 12", MirrorEnabled = false, MirrorLegacy = false, CreatedAtUtc = DateTime.UtcNow, UpdatedAtUtc = DateTime.UtcNow });
+                new Feed { Id = new Guid("00000000-0000-0000-0000-000000000011"), Slug = "feed-11", Name = "Feed 11", CreatedAtUtc = DateTime.UtcNow, UpdatedAtUtc = DateTime.UtcNow },
+                new Feed { Id = new Guid("00000000-0000-0000-0000-000000000012"), Slug = "feed-12", Name = "Feed 12", CreatedAtUtc = DateTime.UtcNow, UpdatedAtUtc = DateTime.UtcNow });
             Context.SaveChanges();
 
             Target = new GroupService(
