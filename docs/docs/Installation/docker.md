@@ -33,6 +33,22 @@ Without `ApiKey` (and with the default `Config` [authentication mode](../authent
 
 Pin an exact version (or at least a major version) in production, and upgrade on purpose. The [releases page](https://github.com/letreset/BaGetter/releases) lists the changes in each version.
 
+## Build your own image
+
+Build the image from a clone of the repository:
+
+```shell
+docker build -t bagetter:local .
+```
+
+The build restores NuGet packages from `https://api.nuget.org/v3/index.json`. If the build machine can't reach nuget.org, point the restore at another feed (for example a mirror, or a BaGetter feed that mirrors nuget.org) with the `NuGetSource` build argument:
+
+```shell
+docker build -t bagetter:local --build-arg NuGetSource=https://nuget.example.com/v3/index.json .
+```
+
+That feed must serve every package the build needs. `NuGetSource` replaces the sources from `nuget.config` instead of adding to them.
+
 ## The `/data` volume
 
 By default the image keeps all of its state in `/data`:
