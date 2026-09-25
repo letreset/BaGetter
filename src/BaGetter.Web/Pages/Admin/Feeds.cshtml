@@ -84,7 +84,7 @@
                         </td>
                         <td>@feed.Name</td>
                         <td>@feed.Description</td>
-                        <td>@feed.CreatedAtUtc.ToString("yyyy-MM-dd")</td>
+                        <td>@Html.DisplayDate(feed.CreatedAtUtc)</td>
                         <td style="white-space: nowrap">
                             <a asp-page="/Admin/FeedSettings" asp-route-slug="@feed.Slug" class="btn btn-xs btn-default">Settings</a>
                             <button type="button"

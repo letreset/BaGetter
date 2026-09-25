@@ -132,7 +132,7 @@
                                 <span class="label label-danger">No</span>
                             }
                         </td>
-                        <td>@user.CreatedAtUtc.ToString("yyyy-MM-dd")</td>
+                        <td>@Html.DisplayDate(user.CreatedAtUtc)</td>
                         <td>
                             <form method="post" asp-page-handler="ToggleEnabled" style="display:inline">
                                 @Html.AntiForgeryToken()

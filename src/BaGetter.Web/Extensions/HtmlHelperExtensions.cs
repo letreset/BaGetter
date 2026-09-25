@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Text;
 using BaGetter.Web.Helper;
 using Microsoft.AspNetCore.Html;
@@ -55,6 +56,26 @@ public static class HtmlHelperExtensions
         }
 
         return new HtmlString(builder.ToString());
+    }
+
+    /// <summary>
+    /// Renders a UTC timestamp as a culture-independent <c>yyyy-MM-dd</c> date (or <paramref name="text"/>),
+    /// with the full UTC timestamp in the tooltip.
+    /// </summary>
+    /// <param name="htmlHelper">The HTML helper.</param>
+    /// <param name="utc">The timestamp. BaGetter stores all timestamps in UTC.</param>
+    /// <param name="text">The visible text. Defaults to the <c>yyyy-MM-dd</c> date.</param>
+    public static IHtmlContent DisplayDate(this IHtmlHelper htmlHelper, DateTime utc, string text = null)
+    {
+        var builder = new HtmlContentBuilder();
+        builder.AppendHtml("<time datetime=\"");
+        builder.Append(utc.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture));
+        builder.AppendHtml("\" title=\"");
+        builder.Append(utc.ToString("yyyy-MM-dd HH:mm:ss 'UTC'", CultureInfo.InvariantCulture));
+        builder.AppendHtml("\">");
+        builder.Append(text ?? utc.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+        builder.AppendHtml("</time>");
+        return builder;
     }
 
     private static void WriteMetaTag(StringBuilder builder, string name, string val)
