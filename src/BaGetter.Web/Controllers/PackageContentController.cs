@@ -32,6 +32,7 @@ public class PackageContentController : Controller
         _feedContext = feedContext;
     }
 
+    [ContentETag]
     public async Task<ActionResult<PackageVersionsResponse>> GetPackageVersionsAsync(string id, CancellationToken cancellationToken)
     {
         var versions = await _content.GetPackageVersionsOrNullAsync(_feedContext.CurrentFeed.Id, _feedContext.CurrentFeed.Slug, id, cancellationToken);
@@ -114,6 +115,8 @@ public class PackageContentController : Controller
         await using var bufferedStream = new MemoryStream();
         await iconStream.CopyToAsync(bufferedStream, cancellationToken);
         var iconBytes = bufferedStream.ToArray();
+
+        Response.Headers.CacheControl = "private, max-age=3600";
 
         return File(iconBytes, DetectImageContentType(iconBytes));
     }

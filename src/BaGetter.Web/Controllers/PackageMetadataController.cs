@@ -30,6 +30,7 @@ public class PackageMetadataController : Controller
 
     // GET v3/registration/{id}.json
     [HttpGet]
+    [ContentETag]
     public async Task<ActionResult<BaGetterRegistrationIndexResponse>> RegistrationIndexAsync(string id, CancellationToken cancellationToken)
     {
         var index = await _metadata.GetRegistrationIndexOrNullAsync(_feedContext.CurrentFeed.Id, _feedContext.CurrentFeed.Slug, id, cancellationToken);
@@ -43,6 +44,7 @@ public class PackageMetadataController : Controller
 
     // GET v3/registration/{id}/page/{lower}/{upper}.json
     [HttpGet]
+    [ContentETag]
     public async Task<ActionResult<BaGetterRegistrationPageResponse>> RegistrationPageAsync(string id, string lower, string upper, CancellationToken cancellationToken)
     {
         if (!NuGetVersion.TryParse(lower, out var lowerVersion) ||
@@ -62,6 +64,7 @@ public class PackageMetadataController : Controller
 
     // GET v3/registration/{id}/{version}.json
     [HttpGet]
+    [ContentETag]
     public async Task<ActionResult<RegistrationLeafResponse>> RegistrationLeafAsync(string id, string version, CancellationToken cancellationToken)
     {
         if (!NuGetVersion.TryParse(version, out var nugetVersion))

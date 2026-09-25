@@ -516,6 +516,15 @@ Make sure BaGetter is only reachable through your proxy and that the proxy overw
 
 :::
 
+## HTTP caching
+
+BaGetter sets caching headers on a few endpoints. There is nothing to configure.
+
+- Registration responses (`/v3/registration/...`) and package version lists (`/v3/package/{id}/index.json`) are sent with `Cache-Control: private, no-cache` and an `ETag` derived from the response content. A client that repeats the request with a matching `If-None-Match` header gets `304 Not Modified` without the body.
+- Package icons are sent with `Cache-Control: private, max-age=3600`, so browsers reuse them for an hour.
+
+Responses are never marked `public` or `immutable`: feeds can require authentication, and a feed that allows package overwrites can change the content of an existing version. Make sure your reverse proxy doesn't cache these responses in a shared cache.
+
 ## Statistics
 
 On the application's statistics page the currently used services and overall package and version counts are listed.
