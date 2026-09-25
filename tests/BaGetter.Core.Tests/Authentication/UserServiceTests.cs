@@ -122,6 +122,25 @@ public class UserServiceTests
         }
     }
 
+    public class CreateLocalAdminAsync : FactsBase
+    {
+        [Fact]
+        public async Task CreatesEnabledLocalAdminWithHashedPassword()
+        {
+            var result = await Target.CreateLocalAdminAsync("root", "MyPassword123!", Ct);
+
+            Assert.Equal("root", result.Username);
+            Assert.Equal("root", result.DisplayName);
+            Assert.Equal(AuthProvider.Local, result.AuthProvider);
+            Assert.True(result.IsAdmin);
+            Assert.True(result.IsEnabled);
+            Assert.True(result.CanLoginToUI);
+            Assert.Null(result.CreatedByUserId);
+            Assert.True(await Target.VerifyPasswordAsync(result, "MyPassword123!"));
+            Assert.True(await Target.IsAdminAsync(result.Id, Ct));
+        }
+    }
+
     public class VerifyPasswordAsync : FactsBase
     {
         [Fact]

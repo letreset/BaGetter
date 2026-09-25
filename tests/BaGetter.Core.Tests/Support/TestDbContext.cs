@@ -1,4 +1,5 @@
 using BaGetter.Core.Entities;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
 namespace BaGetter.Core.Tests.Support;
@@ -9,7 +10,11 @@ public class TestDbContext : AbstractContext<TestDbContext>
         : base(options)
     { }
 
-    public override bool IsUniqueConstraintViolationException(DbUpdateException exception) => false;
+    public override bool IsUniqueConstraintViolationException(DbUpdateException exception)
+    {
+        // SQLITE_CONSTRAINT, the same check SqliteContext does.
+        return exception.InnerException is SqliteException { SqliteErrorCode: 19 };
+    }
 
     public static TestDbContext Create()
     {

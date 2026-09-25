@@ -84,6 +84,30 @@ public class UserService : IUserService
         Guid? createdByUserId,
         CancellationToken cancellationToken)
     {
+        return await CreateLocalUserAsync(
+            username, displayName, email, password, canLoginToUI, isAdmin: false, createdByUserId, cancellationToken);
+    }
+
+    public async Task<User> CreateLocalAdminAsync(
+        string username,
+        string password,
+        CancellationToken cancellationToken)
+    {
+        // A single insert, so a crash can never leave the account behind without admin rights.
+        return await CreateLocalUserAsync(
+            username, username, email: null, password, canLoginToUI: true, isAdmin: true, createdByUserId: null, cancellationToken);
+    }
+
+    private async Task<User> CreateLocalUserAsync(
+        string username,
+        string displayName,
+        string email,
+        string password,
+        bool canLoginToUI,
+        bool isAdmin,
+        Guid? createdByUserId,
+        CancellationToken cancellationToken)
+    {
         var now = DateTime.UtcNow;
         var user = new User
         {
@@ -95,6 +119,7 @@ public class UserService : IUserService
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(password, BcryptWorkFactor),
             IsEnabled = true,
             CanLoginToUI = canLoginToUI,
+            IsAdmin = isAdmin,
             CreatedByUserId = createdByUserId,
             CreatedAtUtc = now,
             UpdatedAtUtc = now
