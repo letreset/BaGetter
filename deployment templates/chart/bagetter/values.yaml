@@ -24,6 +24,10 @@ configMaps:
       #Mirror__Enabled: "true"
       #Mirror__PackageSource: "https://api.nuget.org/v3/index.json"
       #PackageDeletionBehavior: "HardDelete"
+      # -- Local accounts. The first admin is created on startup while no admin exists; its
+      # password comes from a Secret (see `env` on the container below).
+      #Authentication__Mode: "Local"
+      #Authentication__InitialAdmin__Username: "admin"
 
 # -- Configures containers for the chart.
 # @default -- See values.yaml
@@ -41,6 +45,14 @@ controllers:
         envFrom:
           - configMapRef:
               name: bagetter-bagetter-env
+        # -- Secret-backed settings, e.g. the initial admin password (at least 12 characters):
+        # kubectl create secret generic bagetter-initial-admin --from-literal=password=...
+        #env:
+        #  Authentication__InitialAdmin__Password:
+        #    valueFrom:
+        #      secretKeyRef:
+        #        name: bagetter-initial-admin
+        #        key: password
         resources:
           requests:
             cpu: 100m

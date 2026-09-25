@@ -110,6 +110,7 @@ public static partial class DependencyInjectionExtensions
         services.TryAddSingleton(NuGetClientFactoryFactory);
 
         services.TryAddScoped<DownloadsImporter>();
+        services.TryAddScoped<InitialAdminSeeder>();
 
         services.TryAddScoped<IFeedService, FeedService>();
         services.TryAddScoped<FeedContext>();

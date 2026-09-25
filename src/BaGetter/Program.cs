@@ -3,6 +3,7 @@ using System.IO;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using BaGetter.Core.Authentication;
 using BaGetter.Core.Configuration;
 using BaGetter.Core.Entities;
 using BaGetter.Core.Feeds;
@@ -63,6 +64,12 @@ public class Program
                 var feedService = scope.ServiceProvider.GetRequiredService<IFeedService>();
                 await feedService.EnsureDefaultFeedExistsAsync(cancellationToken);
                 await MigrateGlobalMirrorConfigToDefaultFeedAsync(scope.ServiceProvider, cancellationToken);
+            }
+
+            using (var scope = host.Services.CreateScope())
+            {
+                var seeder = scope.ServiceProvider.GetRequiredService<InitialAdminSeeder>();
+                await seeder.SeedAsync(cancellationToken);
             }
 
             await host.RunAsync(cancellationToken);

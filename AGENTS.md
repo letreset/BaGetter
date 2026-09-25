@@ -121,7 +121,7 @@ ForwardedHeaders → PathBase → HSTS (optional) → `SecurityHeadersMiddleware
 
 Main keys:
 - `Database`, `Storage`, `Search`: each has a `Type`.
-- `Authentication`: `Mode`, `Entra`, token and lockout limits.
+- `Authentication`: `Mode`, `Entra`, `InitialAdmin` (`Username`, `Password`; `InitialAdminSeeder` creates this local admin at startup, after migrations, while no admin exists in `Local`/`Hybrid`), token and lockout limits.
 - `Email`, `PatExpiryNotification`.
 - `MaxPackageSizeGiB`, `RegistrationPageSize`, `Cors` (`AllowedOrigins`, `AllowCredentials`), `SecurityHeaders` (`Enabled`, `EnableHsts`, `HstsMaxAgeDays`), `RequestRateLimit` (`Enabled`, `PermitLimit`, `WindowSeconds`, `QueueLimit`; off by default).
 - `HealthCheck`, `Statistics`.
