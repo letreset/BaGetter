@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using BaGetter.Core.Configuration;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
 namespace BaGetter;
@@ -75,6 +76,14 @@ public class ValidateBaGetterOptions
             failures.Add(
                 $"The '{nameof(BaGetterOptions.Database)}:{nameof(DatabaseOptions.Type)}' config is invalid. " +
                 $"Allowed values: {string.Join(", ", _validDatabaseTypes)}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(options.Database?.ServerVersion)
+            && !ServerVersion.TryParse(options.Database.ServerVersion, out _))
+        {
+            failures.Add(
+                $"The '{nameof(BaGetterOptions.Database)}:{nameof(DatabaseOptions.ServerVersion)}' config is invalid. " +
+                "Expected a MySQL or MariaDB version such as '8.0.36-mysql' or '11.4.2-mariadb'");
         }
 
         if (!_validStorageTypes.Contains(options.Storage?.Type))

@@ -43,6 +43,6 @@ public class MySqlContext : AbstractContext<MySqlContext>
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         if(!optionsBuilder.IsConfigured)
-            optionsBuilder.UseMySql(_bagetterOptions.ConnectionString, ServerVersion.AutoDetect(_bagetterOptions.ConnectionString));
+            optionsBuilder.UseMySql(_bagetterOptions.ConnectionString, MySqlServerVersionResolver.Resolve(_bagetterOptions));
     }
 }
