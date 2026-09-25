@@ -1,51 +1,18 @@
 # Run BaGetter on Google Cloud Platform
 
-:::warning
+On Google Cloud, store package metadata in [Cloud SQL](https://cloud.google.com/sql) and packages in [Cloud Storage](https://cloud.google.com/storage/). Run BaGetter itself on [App Engine](#google-app-engine) (flexible environment), [Cloud Run](https://cloud.google.com/run), or [GKE](https://cloud.google.com/kubernetes-engine) with the [Helm chart](kubernetes.md).
 
-This page is a work in progress!
-
-:::
-
-We're open source and accept contributions!
-[Fork us on GitHub](https://github.com/letreset/BaGetter).
-
-Before you begin, you should decide which [AppEngine region](https://cloud.google.com/appengine/docs/locations)
-you will use. For best performance, Cloud Storage and Cloud SQL should be located
-in the same region as your AppEngine deployment.
+For best performance, put Cloud Storage, Cloud SQL and BaGetter in the same region.
 
 ## Google Cloud Storage
 
-Packages can be stored in [Google Cloud Storage](https://cloud.google.com/storage/).
-
 ### Setup
 
-Follow the instructions in [Using Cloud Storage](https://cloud.google.com/appengine/docs/flexible/dotnet/using-cloud-storage) to create a bucket.
+[Create a bucket](https://cloud.google.com/storage/docs/creating-buckets) for the packages. The identity BaGetter runs as needs the **Storage Object Admin** role (`roles/storage.objectAdmin`) on the bucket.
 
 ### Configuration
 
-**NOTE:** If you plan to use AppEngine, skip this part and follow the AppEngine instructions below.
-
-Set up a service account, create and download a key as JSON file. Set the [`GOOGLE_APPLICATION_CREDENTIALS`](https://cloud.google.com/docs/authentication/provide-credentials-adc#wlif-key)
-environment variable to the path to the JSON file you downloaded. The file should contain something like this:
-
-```json
-{
-  "type": "service_account",
-  "project_id": "your_project",
-  "private_key_id": "6950mvh3690mg3h90jg3986vgm",
-  "private_key": "-----BEGIN PRIVATE KEY-----\hriv eohgrup4nhg8594nhvpog59p4w5...",
-  "client_email": "your-service-account@your_project.iam.gserviceaccount.com",
-  "client_id": "49826518658461496",
-  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-  "token_uri": "https://oauth2.googleapis.com/token",
-  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/your-service-account%40your_project.iam.gserviceaccount.com",
-  "universe_domain": "googleapis.com"
-}
-
-```
-
-Configure BaGetter to use Google Cloud Storage by updating the `appsettings.json` file:
+Set the storage type and the bucket name in `appsettings.json`:
 
 ```json
 {
@@ -60,67 +27,115 @@ Configure BaGetter to use Google Cloud Storage by updating the `appsettings.json
 }
 ```
 
-Or set the `Storage__Type` and `Storage__BucketName` environment variables in your deployment (i.e. AppEngine project) accordingly.
+Or set the `Storage__Type` and `Storage__BucketName` environment variables.
+
+### Credentials
+
+BaGetter uses [Application Default Credentials](https://cloud.google.com/docs/authentication/application-default-credentials), so there is nothing to configure in BaGetter itself:
+
+- On App Engine, Cloud Run and GKE (with [Workload Identity](https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity)), BaGetter uses the service account attached to the workload.
+- Anywhere else, create a service account key, download it as a JSON file and set the [`GOOGLE_APPLICATION_CREDENTIALS`](https://cloud.google.com/docs/authentication/provide-credentials-adc#local-key) environment variable to the path of that file. Treat the file like a password.
 
 ## Google Cloud SQL
 
-- Follow the instructions in [Using Cloud SQL](https://cloud.google.com/appengine/docs/flexible/dotnet/using-cloud-sql) to create a (for example) 2nd Gen MySQL 5.7 Google Cloud SQL instance. The default options should work well.
-- Create a database named `bagetter`. This can be done through the Google Cloud Console. Use `utf8mb4` as the Character set.
-- Follow [Configuring SSL/TLS](https://cloud.google.com/sql/docs/mysql/configure-ssl-instance#new-client) to create a client certificate. Download the three files it creates.
-- Convert the PEM to a PFX by running `openssl pkcs12 -inkey client-key.pem -in client-cert.pem -export -out client.pfx`
-  - One way to obtain OpenSSL on Windows is to install [Git Bash](https://gitforwindows.org/).
-- Configure BaGetter to use Google Cloud SQL by updating the [`appsettings.json`](https://github.com/letreset/BaGetter/blob/main/src/BaGetter/appsettings.json) file:
+BaGetter works with Cloud SQL for MySQL, PostgreSQL and SQL Server. The steps below use MySQL.
+
+1. [Create a Cloud SQL for MySQL instance](https://cloud.google.com/sql/docs/mysql/create-instance). The default options work well.
+2. Create a database named `bagetter` with the `utf8mb4` character set, and a user for BaGetter.
+3. Configure the connection. BaGetter creates and updates its tables on startup, so the user needs permission to change the schema.
+
+On App Engine and Cloud Run, connect through the built-in Cloud SQL connection, which is a Unix socket under `/cloudsql/`:
 
 ```json
 {
     ...
+
     "Database": {
         "Type": "MySql",
-        "ConnectionString": "Server=YOURIP;User Id=root;Password=***;Database=bagetter;CertificateFile=C:\\Path\\To\\client.pfx;CACertificateFile=C:\\Path\\To\\server-ca.pem;SSL Mode=VerifyCA"
+        "ConnectionString": "Server=/cloudsql/PROJECT:REGION:INSTANCE;Database=bagetter;User Id=bagetter;Password=..."
     },
+
     ...
 }
 ```
 
-- Create the tables by running `dotnet ef database update --context MySqlContext --project src\BaGetter`
+From anywhere else, connect through the [Cloud SQL Auth Proxy](https://cloud.google.com/sql/docs/mysql/sql-proxy), or connect to the instance's IP address with TLS and [client certificates](https://cloud.google.com/sql/docs/mysql/configure-ssl-instance):
 
-## Google AppEngine
+```json
+{
+    ...
 
-BaGetter can be hosted in Google AppEngine. See [here](https://cloud.google.com/appengine/docs/flexible/dotnet/quickstart)
-for a tutorial on how to create a new AppEngine project.
+    "Database": {
+        "Type": "MySql",
+        "ConnectionString": "Server=YOURIP;Database=bagetter;User Id=bagetter;Password=...;SslMode=VerifyCA;SslCa=server-ca.pem;SslCert=client-cert.pem;SslKey=client-key.pem"
+    },
 
-Create a `app.yaml` file to publish the Docker container built by the Dockerfile in this repo. In the template
-below, make the following replacements:
+    ...
+}
+```
 
-- `PROJECT` - your GCP project, as returned by `gcloud config get-value project`
-- `REGION` -- the GCP region your Google Cloud SQL database is in, e.g., `us-central1` or `us-west2`
-- `DBINSTANCE` -- the name of your Google Cloud SQL database instance
-- `DBNAME` -- the name of the BaGetter database on that instance (e.g., `bagetter` in the instructions above)
-- `PASSWORD` -- the password for the database root user
-- `BUCKETNAME` -- the name of the Google Cloud Storage Bucket configured above
+For other database types and more on connection strings, see [Database configuration](../configuration.md#database-configuration).
+
+## Google App Engine
+
+BaGetter can run on the App Engine [flexible environment](https://cloud.google.com/appengine/docs/flexible) as a custom container. Create an `app.yaml` file next to a `Dockerfile` that starts from the published image:
+
+```dockerfile
+FROM letreset/bagetter:2
+```
+
+In the `app.yaml` template below, make these replacements:
+
+- `PROJECT`: your GCP project, as returned by `gcloud config get-value project`
+- `REGION`: the region of your Cloud SQL instance, e.g. `us-central1`
+- `INSTANCE`: the name of your Cloud SQL instance
+- `PASSWORD`: the password of the `bagetter` database user
+- `BUCKETNAME`: the name of the Cloud Storage bucket
+- `APIKEY`: a long random value used to push packages, or leave it out and set up [user accounts](../authentication.md)
 
 ```yaml
 runtime: custom
 env: flex
 
-# The settings below are to reduce costs during testing and are not necessarily
-# appropriate for production use. For more information, see:
-# https://cloud.google.com/appengine/docs/flexible/dotnet/configuring-your-app-with-app-yaml
+# The settings below keep costs low while testing and are not necessarily
+# appropriate for production. See:
+# https://cloud.google.com/appengine/docs/flexible/reference/app-yaml
 resources:
   cpu: 1
-  memory_gb: 0.5
+  memory_gb: 1
   disk_size_gb: 10
 
 beta_settings:
-  cloud_sql_instances: "PROJECT:REGION:DBINSTANCE"
+  cloud_sql_instances: "PROJECT:REGION:INSTANCE"
+
+liveness_check:
+  path: "/livez"
+
+readiness_check:
+  path: "/health"
 
 env_variables:
   Database__Type: "MySql"
-  Database__ConnectionString: "Server=/cloudsql/PROJECT:REGION:DBINSTANCE;User Id=root;Password=PASSWORD;Database=DBNAME;SslMode=None"
+  Database__ConnectionString: "Server=/cloudsql/PROJECT:REGION:INSTANCE;Database=bagetter;User Id=bagetter;Password=PASSWORD"
   Storage__Type: "GoogleCloud"
   Storage__BucketName: "BUCKETNAME"
-  Search__Type: "Database"
-  ASPNETCORE_URLS: "http://0.0.0.0:8080"
+  ApiKey: "APIKEY"
 ```
 
-To publish the application, run `gcloud app deploy`.
+The container listens on port 8080, which is the port App Engine expects. To publish the application, run `gcloud app deploy`.
+
+Keep the database password and the API key out of `app.yaml` if it is checked in, for example by reading them from [Secret Manager](https://cloud.google.com/secret-manager).
+
+## Run several instances
+
+With the database on Cloud SQL and packages on Cloud Storage, you can run more than one BaGetter instance. [Data Protection keys](../upgrading.md#data-protection-keys) are stored in the bucket as well, so sign-in cookies work on every instance.
+
+## Publish and restore packages
+
+Replace `your-server` with the address of your BaGetter server, for example `PROJECT.REGION_ID.r.appspot.com`.
+
+```shell
+dotnet nuget push -s https://your-server/v3/index.json -k <api-key> package.1.0.0.nupkg
+```
+
+Restore from `https://your-server/v3/index.json`. Other [feeds](../feeds.md) are at `https://your-server/feeds/{slug}/v3/index.json`, and symbols are at `https://your-server/api/download/symbols`.
