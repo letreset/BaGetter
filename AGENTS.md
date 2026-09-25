@@ -120,7 +120,7 @@ ForwardedHeaders → PathBase → HSTS (optional) → `SecurityHeadersMiddleware
 `BaGetterOptions` (`Core/Configuration/`) is bound from the config root. Sources, later ones winning: `appsettings*.json` (from `BAGET_CONFIG_ROOT` if set), user secrets, the optional machine-wide file (`%ProgramData%\BaGetter\appsettings.json` or `/etc/bagetter/appsettings.json`, see `Program.AddPlatformConfigFile`), environment variables, command line, `/run/secrets` (key-per-file). `ValidateBaGetterOptions` fails startup on invalid values.
 
 Main keys:
-- `Database`, `Storage`, `Search`: each has a `Type`.
+- `Database`, `Storage`, `Search`: each has a `Type`. `Database:ServerVersion` (MySQL only, optional) skips server version detection, which otherwise runs once per connection string (`MySqlServerVersionResolver`).
 - `Authentication`: `Mode`, `Entra`, `InitialAdmin` (`Username`, `Password`; `InitialAdminSeeder` creates this local admin at startup, after migrations, while no admin exists in `Local`/`Hybrid`), token and lockout limits.
 - `Email`, `PatExpiryNotification`.
 - `MaxPackageSizeGiB`, `RegistrationPageSize`, `Cors` (`AllowedOrigins`, `AllowCredentials`), `SecurityHeaders` (`Enabled`, `EnableHsts`, `HstsMaxAgeDays`), `RequestRateLimit` (`Enabled`, `PermitLimit`, `WindowSeconds`, `QueueLimit`; off by default).
@@ -138,6 +138,8 @@ Docker defaults (`Dockerfile`): the `/data` volume holds packages, symbols and t
 - No primary constructors. No expression-bodied methods or constructors (properties and accessors are fine).
 - One top-level type per file. The exception is a small helper that is only meaningful next to its owner (e.g. `enum PackageAddResult` beside `IPackageDatabase`). If a reader would look for the helper anywhere else, split it out.
 - Suppress CS1591 for non-public XML docs.
+- Logging goes through the `[LoggerMessage]` source generator: make the class `partial` and add `private partial void LogXxx(...)` methods at the bottom of the file. Don't call `ILogger.LogInformation`/`LogWarning`/… directly (CA1873). Keep placeholder names stable, since they are structured log properties (e.g. the `AUDIT` lines in `PackagePublishController`).
+- The build should stay free of warnings. EF migrations are exempt from CA1861 via `.editorconfig`.
 
 ## Testing
 
