@@ -6,6 +6,7 @@ using BaGetter.Core.Content;
 using BaGetter.Core.Entities;
 using BaGetter.Core.Feeds;
 using BaGetter.Web.Controllers;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using NuGet.Versioning;
@@ -59,7 +60,10 @@ public class PackageContentControllerFacts
         protected PackageContentController Build()
         {
             FeedContext.Setup(f => f.CurrentFeed).Returns(Feed);
-            return new PackageContentController(Content.Object, FeedContext.Object);
+            return new PackageContentController(Content.Object, FeedContext.Object)
+            {
+                ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
+            };
         }
     }
 }
