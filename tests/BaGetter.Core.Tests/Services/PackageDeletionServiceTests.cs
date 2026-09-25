@@ -57,6 +57,62 @@ public class PackageDeletionServiceTests
             Mock.Of<ILogger<PackageDeletionService>>());
     }
 
+    public class DeleteOldVersionsAsync
+    {
+        private readonly Mock<IPackageDatabase> _packages = new Mock<IPackageDatabase>();
+        private readonly Mock<IPackageStorageService> _storage = new Mock<IPackageStorageService>();
+        private readonly PackageDeletionService _target;
+
+        public DeleteOldVersionsAsync()
+        {
+            _target = new PackageDeletionService(
+                _packages.Object,
+                _storage.Object,
+                Mock.Of<IFeedSettingsResolver>(),
+                Mock.Of<IFeedService>(),
+                Mock.Of<ILogger<PackageDeletionService>>());
+        }
+
+        [Fact]
+        public async Task KeepsTheIndexedVersionEvenWhenItIsOutsideTheLimits()
+        {
+            // Arrange: 3.0.0 is already cached and an older 1.0.0 is being indexed (e.g. mirrored).
+            var cancellationToken = CancellationToken.None;
+            _packages
+                .Setup(p => p.FindAsync(It.IsAny<Guid>(), _packageId, true, cancellationToken))
+                .ReturnsAsync([
+                    new Package { Id = _packageId, Version = new NuGetVersion("1.0.0") },
+                    new Package { Id = _packageId, Version = new NuGetVersion("1.1.0") },
+                    new Package { Id = _packageId, Version = new NuGetVersion("2.0.0") },
+                    new Package { Id = _packageId, Version = new NuGetVersion("3.0.0") },
+                ]);
+            _packages
+                .Setup(p => p.HardDeletePackageAsync(It.IsAny<Guid>(), _packageId, It.IsAny<NuGetVersion>(), cancellationToken))
+                .ReturnsAsync(true);
+
+            // Act
+            var deleted = await _target.DeleteOldVersionsAsync(
+                Guid.Empty, "default",
+                new Package { Id = _packageId, Version = new NuGetVersion("1.0.0") },
+                maxMajor: 1, maxMinor: null, maxPatch: null, maxPrerelease: null, cancellationToken);
+
+            // Assert
+            Assert.Equal(2, deleted);
+            _packages.Verify(
+                p => p.HardDeletePackageAsync(It.IsAny<Guid>(), _packageId, new NuGetVersion("1.1.0"), cancellationToken),
+                Times.Once);
+            _packages.Verify(
+                p => p.HardDeletePackageAsync(It.IsAny<Guid>(), _packageId, new NuGetVersion("2.0.0"), cancellationToken),
+                Times.Once);
+            _packages.Verify(
+                p => p.HardDeletePackageAsync(It.IsAny<Guid>(), _packageId, new NuGetVersion("1.0.0"), It.IsAny<CancellationToken>()),
+                Times.Never);
+            _storage.Verify(
+                s => s.DeleteAsync(It.IsAny<string>(), _packageId, new NuGetVersion("1.0.0"), It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
