@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -9,6 +10,8 @@ using BaGetter.Web.Extensions;
 using McMaster.Extensions.CommandLineUtils;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration.EnvironmentVariables;
+using Microsoft.Extensions.Configuration.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -146,6 +149,8 @@ public class Program
                     config.SetBasePath(root);
                 }
 
+                AddPlatformConfigFile(config, GetPlatformConfigFilePath());
+
                 // Optionally load secrets from files in the conventional path
                 config.AddKeyPerFile("/run/secrets", optional: true);
             })
@@ -160,5 +165,48 @@ public class Program
 
                 web.UseStartup<Startup>();
             });
+    }
+
+    /// <summary>
+    /// The machine-wide config file that lets IIS, Windows service and systemd installs keep
+    /// their settings outside the app folder.
+    /// </summary>
+    public static string GetPlatformConfigFilePath()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+                "BaGetter",
+                "appsettings.json");
+        }
+
+        return "/etc/bagetter/appsettings.json";
+    }
+
+    /// <summary>
+    /// Adds the optional JSON file at <paramref name="path"/> right before the environment
+    /// variables source, so it overrides the app folder's <c>appsettings*.json</c> and user
+    /// secrets, while environment variables, the command line and key-per-file secrets still
+    /// override it. The file is only watched for changes when its folder exists at startup,
+    /// otherwise the watcher would fall back to a parent such as <c>/etc</c> and watch it recursively.
+    /// </summary>
+    public static void AddPlatformConfigFile(IConfigurationBuilder config, string path)
+    {
+        var source = new JsonConfigurationSource
+        {
+            Path = path,
+            Optional = true,
+            ReloadOnChange = Directory.Exists(Path.GetDirectoryName(path)),
+        };
+        source.ResolveFileProvider();
+
+        var index = 0;
+        while (index < config.Sources.Count && config.Sources[index] is not EnvironmentVariablesConfigurationSource)
+        {
+            index++;
+        }
+
+        config.Sources.Insert(index, source);
     }
 }

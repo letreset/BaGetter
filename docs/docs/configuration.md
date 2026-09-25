@@ -5,6 +5,24 @@ import TabItem from '@theme/TabItem';
 
 You can modify BaGetter's configurations by editing the `appsettings.json` file.
 
+## Machine-wide config file
+
+BaGetter also reads an optional `appsettings.json` from a fixed location outside the app folder, so IIS, Windows service and systemd installs can keep their settings when the app files are replaced:
+
+- Windows: `%ProgramData%\BaGetter\appsettings.json` (usually `C:\ProgramData\BaGetter\appsettings.json`)
+- Linux and macOS: `/etc/bagetter/appsettings.json`
+
+The file uses the same format as `appsettings.json`. It is reloaded when it changes, as long as its folder existed when BaGetter started; if you create the folder later, restart BaGetter once. Later sources override earlier ones:
+
+1. `appsettings.json` and `appsettings.{Environment}.json` in the app folder (or in `BAGET_CONFIG_ROOT`, if set)
+2. User secrets (Development only)
+3. The machine-wide config file
+4. Environment variables
+5. Command line arguments
+6. [Secrets from files](#load-secrets-from-files) under `/run/secrets`
+
+Make sure the account BaGetter runs as can read the file.
+
 ## Require an API key
 
 You can require that users provide a password, called an API key, to publish packages.
