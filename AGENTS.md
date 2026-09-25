@@ -1,221 +1,151 @@
 # AGENTS.md
 
-This file provides guidance to AI agents when working with code in this repository.
+Guidance for AI agents working in this repository.
 
 ## Guidelines for AI Agents
+
 ### 1. Think Before Coding
-
 **Don't assume. Don't hide confusion. Surface tradeoffs.**
-
-Before implementing:
-- State your assumptions explicitly. If uncertain, ask.
-- If multiple interpretations exist, present them - don't pick silently.
-- If a simpler approach exists, say so. Push back when warranted.
-- If something is unclear, stop. Name what's confusing. Ask.
+- State your assumptions explicitly. If you're uncertain, ask.
+- If there are several interpretations, present them. Don't pick one silently.
+- If a simpler approach exists, say so. Push back when it's warranted.
+- If something is unclear, stop, name what's confusing, and ask.
 
 ### 2. Simplicity First
-
-**Minimum code that solves the problem. Nothing speculative.**
-
-- No features beyond what was asked.
-- No abstractions for single-use code.
-- No "flexibility" or "configurability" that wasn't requested.
+**Write the minimum code that solves the problem. Nothing speculative.**
+- No features beyond what was asked, no abstractions for single-use code, and no configurability that wasn't requested.
 - No error handling for impossible scenarios.
-- If you write 200 lines and it could be 50, rewrite it.
-
-Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
+- Test: would a senior engineer call this overcomplicated? If so, simplify.
 
 ### 3. Surgical Changes
-
 **Touch only what you must. Clean up only your own mess.**
-
-When editing existing code:
-- Don't "improve" adjacent code, comments, or formatting.
-- Don't refactor things that aren't broken.
-- Match existing style, even if you'd do it differently.
-- If you notice unrelated dead code, mention it - don't delete it.
-
-When your changes create orphans:
-- Remove imports/variables/functions that YOUR changes made unused.
-- Don't remove pre-existing dead code unless asked.
-
-The test: Every changed line should trace directly to the user's request.
+- Don't "improve" adjacent code, comments or formatting, and don't refactor what isn't broken. Match the existing style.
+- Mention unrelated dead code instead of deleting it. Do remove imports and variables that *your* change made unused.
+- Every changed line should trace back to the request.
 
 ### 4. Goal-Driven Execution
-
 **Define success criteria. Loop until verified.**
-
-Transform tasks into verifiable goals:
-- "Add validation" → "Write tests for invalid inputs, then make them pass"
-- "Fix the bug" → "Write a test that reproduces it, then make it pass"
-- "Refactor X" → "Ensure tests pass before and after"
-
-For multi-step tasks, state a brief plan:
-```
-1. [Step] → verify: [check]
-2. [Step] → verify: [check]
-3. [Step] → verify: [check]
-```
-
-Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+- "Fix the bug" means: write a test that reproduces it, then make it pass. "Refactor X" means: tests pass before and after.
+- For multi-step tasks, state a brief plan with a verification check per step.
 
 ---
 
-**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
+## What is BaGetter (this fork)
 
----
+A lightweight NuGet and symbol server: ASP.NET Core on .NET 10, implementing the NuGet v3 protocol, with pluggable database, storage and search backends.
 
-## About this project: What is BaGetter
+This repo is **letreset/BaGetter**. It's a fork of Niverplast/BaGetter, which is itself a fork of bagetter/BaGetter, and it has diverged substantially from upstream:
+- **Multi-feed**: each feed has its own packages, settings, mirror and permissions.
+- **Local/Entra/Hybrid auth**: users, groups, PATs and per-feed permissions.
+- **Admin UI**, PAT-expiry emails, and Data Protection keys persisted to storage.
 
-BaGetter is a lightweight, open-source NuGet and symbol server (ASP.NET Core, .NET 10). Community fork of BaGet. Implements NuGet v3 protocol with pluggable database, storage, and search backends.
+Upstream is only a source to cherry-pick from. We don't send PRs there.
 
-### Repo Layout (top level)
+## Branches, versions, releases
 
-- **`src/`** — application projects (see Project Layout below).
-- **`tests/`** — xUnit test projects mirroring `src/`.
-- **`samples/`** — `BaGetterWebApplication` (embed BaGetter in a host app) and `BaGetter.Protocol.Samples.Tests` (protocol client examples).
-- **`docs/`** — Docusaurus documentation site (Node/Yarn, `yarn.lock`); published separately from the server.
-- **`deployment templates/`** — ready-to-use deployment manifests (e.g., Docker Compose, cloud).
-- **`Directory.Packages.props`**, **`global.json`**, **`nuget.config`** — central package versions, pinned SDK, restore sources.
-- **`Dockerfile`** — multi-stage Alpine build; publishes to `/app` and defaults `/data` for packages/symbols/db.
+- `main` is the only long-lived branch. Work happens on `feature/*` branches, which are merged into `main` with `--no-ff`.
+- Versioning is independent semver starting at **2.0.0** and is unrelated to upstream's 1.x.
+- Pushing a `vX.Y.Z` tag on `main` runs `.github/workflows/release.yml`. It runs the tests, creates a GitHub release with a zip and a git-cliff changelog, pushes the Docker image `letreset/bagetter` to Docker Hub, and pushes the Helm chart to `oci://ghcr.io/letreset/charts`.
+- A `-` in the tag (e.g. `v2.1.0-rc.1`) marks a prerelease, which does not move the `latest` image tag.
+- Use [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `docs:`, `ci:`, …). `cliff.toml` groups the changelog by these prefixes.
+- The roadmap lives in GitHub issues on letreset/BaGetter, one issue per task.
 
-## Build & Test Commands
+## Repo layout
+
+| Path | Contents |
+|---|---|
+| `src/BaGetter/` | Host: `Program.cs`, `Startup.cs` (DI and middleware pipeline), `ValidateBaGetterOptions`, `ConfigureBaGetterServer` (CORS, forms, forwarded headers, IIS), Data Protection key storage |
+| `src/BaGetter.Core/` | Business logic, database-agnostic. `Authentication/`, `Configuration/`, `Content/`, `Email/`, `Entities/`, `Feeds/`, `Indexing/`, `Metadata/`, `Notifications/`, `Search/`, `ServiceIndex/`, `Statistics/`, `Storage/`, `Upstream/`, `Validation/` |
+| `src/BaGetter.Web/` | Controllers, Razor Pages (`Pages/`, `Pages/Admin/`, `Pages/Account/`), `Middleware/`, `Authentication/`, routing (`BaGetterEndpointBuilder`, `Routes`), `BaGetterUrlGenerator` |
+| `src/BaGetter.Protocol/` | NuGet v3 client and models, used for upstream mirrors |
+| `src/BaGetter.Database.{Sqlite,SqlServer,PostgreSql,MySql}/` | EF Core context and migrations per provider |
+| `src/BaGetter.{Aws,Azure,Gcp,Aliyun,Tencent}/` | Cloud storage providers |
+| `tests/` | xUnit projects mirroring `src/` |
+| `docs/` | Docusaurus site, deployed to GitHub Pages by `docs.yml` |
+| `deployment templates/` | Helm chart (`chart/bagetter`, built on bjw-s app-template) |
+
+## Build & test
 
 ```bash
 dotnet restore
 dotnet build --no-restore
-dotnet test --no-build --verbosity normal
-dotnet run --project src/BaGetter        # runs on http://localhost:5000
-```
-
-Run a single test class or method:
-```bash
+dotnet test --no-build
+dotnet run --project src/BaGetter     # http://localhost:5000
 dotnet test --filter "FullyQualifiedName~UserServiceTests"
-dotnet test --filter "FullyQualifiedName~UserServiceTests+CreateEntraUserAsync"
 ```
 
-EF Core migrations (example for SQLite):
+The SDK is pinned in `global.json`. `tests/BaGetter.Tests/` contains two `.csproj` files, so pass the project path explicitly (`dotnet test tests/BaGetter.Tests/BaGetter.Tests.csproj`).
+
+EF migrations need one per provider (Sqlite, SqlServer, PostgreSql, MySql):
 ```bash
-dotnet ef migrations add MigrationName --project src/BaGetter.Database.Sqlite --startup-project src/BaGetter
+dotnet ef migrations add Name --project src/BaGetter.Database.Sqlite --startup-project src/BaGetter
 ```
-
-Requires .NET SDK 10.0.104 (pinned in `global.json`).
 
 ## Architecture
 
-### Provider Pattern
+### Provider pattern
+Storage, database, search and email use `IProvider<T>`. Every implementation is registered (via `TryAdd*`), and the configuration (`Database:Type`, `Storage:Type`, …) picks the active one at runtime through `DependencyInjectionExtensions.GetServiceFromProviders<T>`.
 
-Storage, database, and search services use a configuration-driven provider pattern (`IProvider<T>`). Multiple implementations coexist in DI (registered via `TryAddTransient`); the active one is selected by `appsettings.json` config at runtime. This is the core extensibility mechanism.
+### Multi-feed
+- The `Feed` entity (`Core/Entities/Feed.cs`) holds per-feed overrides: overwrite and deletion behavior, read-only mode, max package size, retention, and **mirror settings, which live in the DB rather than in config**. `IFeedSettingsResolver` merges a feed's overrides with the global `BaGetterOptions`.
+- `FeedResolutionMiddleware` maps `/feeds/{slug}/…` to that feed by moving the slug into `PathBase`. Any other path resolves to the default feed (`Feed.DefaultSlug = "default"`). Controllers read `IFeedContext.CurrentFeed`, and services take `feedId`/`feedSlug`.
+- Because the slug is in `PathBase`, routes and `BaGetterUrlGenerator` stay feed-agnostic. Add a route once and it works for every feed.
+- Storage paths are `packages/{feedSlug}/{id}/{version}/…` and `symbols/{feedSlug}/…`.
+- Upstream clients come from `UpstreamClientFactory.CreateForFeed(feed)`.
 
-### Project Layout
+### Authentication & authorization
+- `Authentication:Mode` is one of `Config` (legacy `ApiKey`/`Credentials`, backward compatible), `Local`, `Entra` or `Hybrid`.
+- The `NugetBasicAuth` scheme is the default. It forwards to the cookie scheme (`BaGetter.Auth`, 60-minute sliding expiry) when a cookie is present without an `Authorization` header, which separates browsers from client tools.
+- `IFeedAuthenticationService` authenticates by PAT (`AuthenticateByTokenAsync`) or by username/password (`AuthenticateByCredentialsAsync`). Passwords use bcrypt; tokens are stored as prefix + hash.
+- `FeedPermissionHandler` enforces per-feed permissions (pull/push/delete) for the current feed. User permissions come from groups via `PermissionService`, and `EntraRoleSyncService` syncs Entra app roles into local groups.
 
-- **`src/BaGetter/`** — ASP.NET Core host. Entry point (`Program.cs`), DI/middleware setup (`Startup.cs`), config, `ValidateBaGetterOptions`, `ConfigureBaGetterServer`, `wwwroot/` static assets.
-- **`src/BaGetter.Core/`** — Business logic, EF Core entities, authentication services, configuration options, storage/search interfaces. Database-agnostic. Notable subfolders: `Indexing/`, `Metadata/`, `Search/`, `Storage/`, `Upstream/` (read-through mirror/cache), `Statistics/`, `ServiceIndex/`, `Content/`, `Validation/`, `Feeds/` (multi-feed WIP).
-- **`src/BaGetter.Web/`** — HTTP controllers (`FeedController`, `PackageContentController`, `PackageMetadataController`, `PackagePublishController`, `SearchController`, `ServiceIndexController`, `SymbolController`), Razor Pages UI (`Pages/`), endpoint routing (`BaGetterEndpointBuilder.cs`), URL generation (`BaGetterUrlGenerator.cs`), `OperationCancelledMiddleware`, `libman.json` for client-side libs.
-- **`src/BaGetter.Protocol/`** — NuGet v3 protocol client and models for upstream feed communication.
-- **`src/BaGetter.Database.{Sqlite,SqlServer,PostgreSql,MySql}/`** — EF Core context + migrations per database provider.
-- **`src/BaGetter.{Aws,Azure,Gcp,Aliyun,Tencent}/`** — Cloud storage provider implementations.
+### Data model
+All entities are defined in `Core/Entities/AbstractContext.cs`: Feed, Package, PackageDependency, PackageType, TargetFramework, User, Group, UserGroup, FeedPermission, PersonalAccessToken.
 
-### Key Interfaces
+### HTTP pipeline (`Startup.Configure`, in order)
+ForwardedHeaders → PathBase → HSTS (optional) → `SecurityHeadersMiddleware` → ResponseCompression → `/livez` → `FeedStaticFilePathMiddleware` → StaticFiles → Authentication → `FeedResolutionMiddleware` → Routing → Authorization → CORS → `OperationCancelledMiddleware` (maps `OperationCanceledException` to 409) → endpoints → health check (`HealthCheck:Path`).
 
-| Interface | Purpose |
-|-----------|---------|
-| `IPackageDatabase` | Package CRUD operations |
-| `IStorageService` | Raw blob storage |
-| `IPackageStorageService` | Package-specific storage (nupkg, nuspec, readme, icon) |
-| `ISearchService` / `ISearchIndexer` | Package search and indexing |
-| `IContext` | EF Core DbContext abstraction |
-
-### Authentication
-
-Supports multiple simultaneous auth modes controlled by `AuthenticationMode` enum (`Config`, `Local`, `Entra`, `Hybrid`). `Config` is the backward-compatible mode. Auth services live in `src/BaGetter.Core/Authentication/`.
-
-- **NuGetBasicAuth** is the default scheme; it forwards to the cookie scheme when a session cookie is present without an `Authorization` header (browser vs. client tool detection).
-- **Entra ID** uses `AddMicrosoftIdentityWebApp()` (authorization code flow). `EntraRoleSyncService` syncs Entra app roles to local groups on token validation. Cookie name is `BaGetter.Auth`, 60-minute sliding session.
-- **`IFeedAuthenticationService`** provides two auth paths: `AuthenticateByTokenAsync()` (PAT) and `AuthenticateByCredentialsAsync()` (username/password).
-- **`FeedPermissionHandler`** (AuthorizationHandler) enforces feed-level permissions using the default feed ID `"default"`.
-- Passwords use bcrypt; tokens store prefix + hash.
-
-Authentication config structure:
-```json
-"Authentication": {
-  "Mode": "Hybrid",
-  "Entra": {
-    "Instance": "https://login.microsoftonline.com/",
-    "TenantId": "",
-    "ClientId": "",
-    "ClientSecret": "",
-    "CallbackPath": "/signin-oidc"
-  },
-  "MaxTokenExpiryDays": 365,
-  "MaxFailedAttempts": 5,
-  "LockoutMinutes": 15
-}
-```
-
-### Data Model
-
-Defined in `src/BaGetter.Core/Entities/AbstractContext.cs`. Core entities: Package, PackageDependency, PackageType, TargetFramework, User, PersonalAccessToken, Group, UserGroup, FeedPermission.
-
-### API Endpoints
-
-Routes defined in `BaGetterEndpointBuilder.cs`:
-- Service index: `GET /v3/index.json`
-- Search/autocomplete: `GET /v3/search`, `GET /v3/autocomplete`
-- Package metadata: `GET /v3/registration/{id}/index.json`
-- Package content: `GET /v3/package/{id}/{version}/{id}.nupkg`
-- Publish: `PUT /api/v2/package`
-- Symbols: `PUT /api/v2/symbol`, `GET /api/download/symbols/...`
-
-### Middleware
-
-- **`OperationCancelledMiddleware`** converts `OperationCanceledException` to HTTP 409 Conflict.
-- **`ConfigureBaGetterServer`** (implements multiple `IConfigureOptions<T>`) configures CORS, `FormOptions` (multipart upload limits via `MaxPackageSizeGiB`), forwarded headers, and IIS options.
+### API routes (`BaGetterEndpointBuilder`; every route is also available under `/feeds/{slug}/`)
+- `GET /v3/index.json`: the service index.
+- `GET /v3/search`, `GET /v3/autocomplete`.
+- `GET /v3/registration/{id}/index.json`, `…/page/{lower}/{upper}.json`, `…/{version}.json`. The index is paged once a package has more than `RegistrationPageSize` versions (default 64).
+- `GET /v3/package/{id}/index.json`, and `…/{version}/{id}.{version}.nupkg`, `.nuspec`, `/readme`, `/icon`.
+- `GET /v3/dependents`.
+- `PUT /api/v2/package`, `DELETE`/`POST` `/api/v2/package/{id}/{version}`.
+- `PUT /api/v2/symbol`, `GET /api/download/symbols/…`.
 
 ## Configuration
 
-Options class: `BaGetterOptions` in `src/BaGetter.Core/Configuration/`. Config sources (in order): `appsettings.json`, env vars, user secrets, Docker secrets (`/run/secrets/`), optional `BAGET_CONFIG_ROOT` env var.
+`BaGetterOptions` (`Core/Configuration/`) is bound from the config root. Sources: `appsettings.json`, environment variables, user secrets, `/run/secrets` (key-per-file), and optionally `BAGET_CONFIG_ROOT`. `ValidateBaGetterOptions` fails startup on invalid values.
 
-`ValidateBaGetterOptions` validates all config at startup — database/storage/search types against whitelists, Entra config completeness when required, and numeric minimums (token expiry, failed attempts, lockout).
+Main keys:
+- `Database`, `Storage`, `Search`: each has a `Type`.
+- `Authentication`: `Mode`, `Entra`, token and lockout limits.
+- `Email`, `PatExpiryNotification`.
+- `MaxPackageSizeGiB`, `RegistrationPageSize`, `Cors` (`AllowedOrigins`, `AllowCredentials`), `SecurityHeaders` (`Enabled`, `EnableHsts`, `HstsMaxAgeDays`).
+- `HealthCheck`, `Statistics`.
+- `Mirror`, `AllowPackageOverwrites`, `PackageDeletionBehavior` and `Retention` are only **defaults and seeds**. Per-feed values in the DB override them. The global `Mirror` block is `[Obsolete]` and is only read once, to seed the default feed.
 
-Top-level `BaGetterOptions` keys (see `src/BaGetter/appsettings.json`):
+Docker defaults (`Dockerfile`): the `/data` volume holds packages, symbols and the SQLite DB (`Data Source=/data/db/bagetter.db`).
 
-- `ApiKey`, `PackageDeletionBehavior` (`Unlist`/`HardDelete`), `AllowPackageOverwrites`, `MaxPackageSizeGiB` (default 8).
-- `Database` — `Type` + `ConnectionString`.
-- `Storage` — `Type` + provider-specific settings (`Path` for FileSystem).
-- `Search` — `Type` (`Database` default; Azure Search alternative).
-- `Mirror` — upstream read-through cache; `Enabled`, `PackageSource`, optional `Legacy` flag for NuGet v2.
-- `Authentication` — see Authentication section. Legacy `Credentials[]` and `ApiKeys[]` arrays are supported for backward-compat alongside the new Local/Entra/Hybrid modes.
-- `HealthCheck.Path` (default `/health`).
-- `Statistics.EnableStatisticsPage`, `Statistics.ListConfiguredServices`.
-- Standard ASP.NET `Kestrel` and `Logging` sections.
+## Code style (`.editorconfig`, warnings)
 
-Docker defaults (`Dockerfile`): `Storage__Path=/data`, `Search__Type=Database`, `Database__Type=Sqlite`, `Database__ConnectionString=Data Source=/data/db/bagetter.db`. Volume-mount `/data` to persist packages, symbols, and the SQLite DB.
-
-## Code Style
-
-Enforced via `.editorconfig`: 4-space indent (2-space for JSON), PascalCase for public APIs/constants, `_camelCase` for private fields, `var` preferred, System usings first, all usings outside namespace.
-
-Additional enforced rules (warning severity):
-- File-scoped namespaces (`namespace Foo;`)
-- Accessibility modifiers always required
-- Readonly fields where possible
-- No `this.` qualification
-- Predefined types (`int`, `string`) over framework types (`Int32`, `String`)
-- No primary constructors (`csharp_style_prefer_primary_constructors = false`)
-- No expression-bodied methods or constructors (properties/accessors OK)
-- One top-level type per file — with a narrow exception. Never bundle unrelated types together just to save tool calls. Co-locating a small helper type with its primary owner is OK when the helper is only meaningful in that owner's context: a result enum for an interface (e.g. `enum PackageAddResult` beside `interface IPackageDatabase`), a response item beside its response wrapper (e.g. `PackageDependent` beside `DependentsResponse`), or tightly-coupled serialization models. Rule of thumb: if a reader would look for the helper anywhere other than next to the primary type, split it out.
-
-Suppress CS1591 for non-public XML doc comments.
+- 4-space indent (2-space for JSON).
+- Naming: PascalCase for public members, `_camelCase` for private fields.
+- `var` preferred. `System` usings first, all usings outside the namespace, file-scoped namespaces.
+- Accessibility modifiers are required. Mark fields readonly where possible. No `this.`. Use predefined types (`int`, `string`).
+- No primary constructors. No expression-bodied methods or constructors (properties and accessors are fine).
+- One top-level type per file. The exception is a small helper that is only meaningful next to its owner (e.g. `enum PackageAddResult` beside `IPackageDatabase`). If a reader would look for the helper anywhere else, split it out.
+- Suppress CS1591 for non-public XML docs.
 
 ## Testing
 
-xUnit + Moq. Test projects mirror source: `tests/BaGetter.Core.Tests/`, `tests/BaGetter.Web.Tests/`, `tests/BaGetter.Protocol.Tests/`. Integration tests use in-memory SQLite.
+- The stack is xUnit + Moq. Integration tests use a temp-dir SQLite DB.
+- Name the outer class after the type under test: `<Type>Tests` in `BaGetter.Core.Tests`, `<Type>Facts` in `BaGetter.Web.Tests`.
+- Group each method's tests in a nested class named after the method, sharing a `FactsBase` (e.g. `PermissionServiceTests` → `public class CanPushAsync : FactsBase`). Don't use the old `The<Method>Method` naming.
+- `BaGetterApplication` (`tests/BaGetter.Tests/Support/BaGetApplication.cs`) is the `WebApplicationFactory` host. It pins `SystemTime` to 2020-01-01. Pass `inMemoryConfiguration: dict => …` to override config, and seed data with `AddPackageAsync`/`AddSymbolPackageAsync`.
+- Adding a service index resource changes the expected counts in `BaGetClientIntegrationTests`/`NuGetClientIntegrationTests` and the expected JSON in `TestData.resx`.
 
-Naming convention: the outer test class is named after the type under test — `<Type>Tests` in `BaGetter.Core.Tests`, `<Type>Facts` in `BaGetter.Web.Tests`. Tests for one method are grouped in a nested class named exactly after that method, with a shared-setup `FactsBase` (e.g. `PermissionServiceTests` → `public class CanPushAsync : FactsBase`). Some older `BaGetter.Web.Tests` classes are flat (no nested per-method classes); prefer the nested style for new tests. Do not use the older `The<Method>Method` idiom.
+## Packages
 
-**`BaGetterApplication`** (WebApplicationFactory) is the integration test host — it mocks `SystemTime` to 2020-01-01, creates temp-dir SQLite databases, and wires up `XunitLoggerProvider`. Use `BaGetWebApplicationFactoryExtensions` helpers (`AddPackageAsync`, `AddSymbolPackageAsync`) to seed test data. Override config via in-memory dictionary config sources in test setup.
-
-## Centralized Package Versions
-
-All NuGet package versions managed in `Directory.Packages.props` at repo root. Do not specify versions in individual `.csproj` files.
+All versions live in `Directory.Packages.props` (central package management). Never put versions in a `.csproj`.
