@@ -122,7 +122,7 @@ else
                                                 </td>
                                                 <td>
                                                     <i class="ms-Icon ms-Icon--Download" aria-hidden="true"></i>
-                                                    <span>@package.TotalDownloads.ToString("N0")</span>
+                                                    <span>@package.TotalDownloads.ToString("N0", CultureInfo.InvariantCulture)</span>
                                                 </td>
                                             </tr>
                                         }
@@ -214,7 +214,7 @@ else
                                             }
                                         }
                                     </td>
-                                    <td>@version.Downloads.ToString("N0")</td>
+                                    <td>@version.Downloads.ToString("N0", CultureInfo.InvariantCulture)</td>
                                     <td>@Html.DisplayDate(version.LastUpdated)</td>
                                 </tr>
                             }
@@ -280,12 +280,12 @@ else
                 <ul class="list-unstyled ms-Icon-ul">
                     <li>
                         <i class="ms-Icon ms-Icon--Download"></i>
-                        @Model.TotalDownloads.ToString("N0") total downloads
+                        @Model.TotalDownloads.ToString("N0", CultureInfo.InvariantCulture) total downloads
                     </li>
 
                     <li>
                         <i class="ms-Icon ms-Icon--Giftbox"></i>
-                        @Model.Package.Downloads.ToString("N0") downloads of current version
+                        @Model.Package.Downloads.ToString("N0", CultureInfo.InvariantCulture) downloads of current version
                     </li>
                 </ul>
             </div>
