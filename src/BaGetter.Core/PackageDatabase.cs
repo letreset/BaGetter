@@ -101,7 +101,11 @@ public class PackageDatabase : IPackageDatabase
 
     public async Task AddDownloadAsync(Guid feedId, string id, NuGetVersion version, CancellationToken cancellationToken)
     {
-        await TryUpdatePackageAsync(feedId, id, version, p => p.Downloads += 1, cancellationToken);
+        // A single UPDATE statement, so concurrent downloads don't overwrite each other's increments.
+        await _context.Packages
+            .Where(p => p.FeedId == feedId && p.Id == id)
+            .Where(p => p.NormalizedVersionString == version.ToNormalizedString())
+            .ExecuteUpdateAsync(s => s.SetProperty(p => p.Downloads, p => p.Downloads + 1), cancellationToken);
     }
 
     public async Task<bool> HardDeletePackageAsync(Guid feedId, string id, NuGetVersion version, CancellationToken cancellationToken)
