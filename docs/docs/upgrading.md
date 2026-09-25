@@ -64,6 +64,12 @@ Switching away from `Config` turns off anonymous access, `ApiKey` and `Credentia
 
 BaGetter 2.x keeps its ASP.NET Core Data Protection keys (which protect sign-in cookies and forms) in the configured package storage, at `dataprotection/keyring.xml`. With file system storage in Docker this is inside `/data`. If `/data` isn't a persistent volume, every restart signs everybody out, and several replicas can't share cookies.
 
+### PostgreSQL: package versions become case-insensitive
+
+Some PostgreSQL databases created by BaGet or upstream BaGetter still have `Packages.Version` as `varchar(64)`, even though the migration that should have made it `citext` is recorded as applied. On those databases, prerelease versions with capital letters (for example `5.7.22-Hdbfd3d9a85-b6`) can't be found or deleted. BaGetter 2.x repairs this automatically on startup and leaves databases where the column is already `citext` alone.
+
+If the log says `Cannot convert "Packages"."Version" to citext`, the database has versions of the same package that only differ by case. Delete one of each pair and start BaGetter again.
+
 ### New settings you may want
 
 These are optional and off or safe by default. See [Configuration](configuration.md).
