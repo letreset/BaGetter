@@ -95,11 +95,7 @@ public partial class PackageIndexingService : IPackageIndexingService
                 {
                     // The nuspec declares an icon that isn't in the archive. The icon is cosmetic,
                     // so index the package as one without an embedded icon.
-                    _logger.LogWarning(
-                        e,
-                        "Package {PackageId} {PackageVersion} declares an embedded icon that is missing, ignoring the icon",
-                        package.Id,
-                        package.NormalizedVersionString);
+                    LogEmbeddedIconMissing(e, package.Id, package.NormalizedVersionString);
 
                     package.HasEmbeddedIcon = false;
                 }
@@ -245,4 +241,7 @@ public partial class PackageIndexingService : IPackageIndexingService
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Successfully indexed package {Id} {Version} in search")]
     private partial void LogPackageIndexed(string id, string version);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Package {PackageId} {PackageVersion} declares an embedded icon that is missing, ignoring the icon")]
+    private partial void LogEmbeddedIconMissing(Exception exception, string packageId, string packageVersion);
 }
