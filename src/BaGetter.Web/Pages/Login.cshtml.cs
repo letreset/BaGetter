@@ -15,7 +15,7 @@ using Microsoft.Extensions.Options;
 
 namespace BaGetter.Web.Pages;
 
-public class LoginModel : PageModel
+public partial class LoginModel : PageModel
 {
     private readonly IUserService _userService;
     private readonly IOptionsSnapshot<NugetAuthenticationOptions> _authOptions;
@@ -96,21 +96,21 @@ public class LoginModel : PageModel
         if (user == null || user.AuthProvider != AuthProvider.Local)
         {
             ErrorMessage = "Invalid username or password.";
-            _logger.LogWarning("Login failed: user '{Username}' not found or not a local account", Username);
+            LogUserNotFound(Username);
             return Page();
         }
 
         if (!user.IsEnabled)
         {
             ErrorMessage = "This account has been disabled.";
-            _logger.LogWarning("Login failed: user '{Username}' is disabled", Username);
+            LogUserDisabled(Username);
             return Page();
         }
 
         if (!user.CanLoginToUI)
         {
             ErrorMessage = "This account is not permitted to sign in to the web UI.";
-            _logger.LogWarning("Login failed: user '{Username}' does not have UI login permission", Username);
+            LogUiLoginNotPermitted(Username);
             return Page();
         }
 
@@ -121,7 +121,7 @@ public class LoginModel : PageModel
                 : _authOptions.Value.LockoutMinutes;
 
             ErrorMessage = $"This account is locked due to too many failed attempts. Try again in {minutesRemaining} minute(s).";
-            _logger.LogWarning("Login failed: user '{Username}' is locked out", Username);
+            LogUserLockedOut(Username);
             return Page();
         }
 
@@ -130,7 +130,7 @@ public class LoginModel : PageModel
         {
             await _userService.RecordFailedLoginAsync(user.Id, cancellationToken);
             ErrorMessage = "Invalid username or password.";
-            _logger.LogWarning("Login failed: invalid password for user '{Username}'", Username);
+            LogInvalidPassword(Username);
             return Page();
         }
 
@@ -158,7 +158,7 @@ public class LoginModel : PageModel
                 RedirectUri = ReturnUrl
             });
 
-        _logger.LogInformation("User '{Username}' signed in successfully via local account", Username);
+        LogSignedIn(Username);
 
         if (!string.IsNullOrEmpty(ReturnUrl) && Url.IsLocalUrl(ReturnUrl))
         {
@@ -183,4 +183,22 @@ public class LoginModel : PageModel
             new AuthenticationProperties { RedirectUri = redirectUrl },
             Core.Authentication.AuthenticationConstants.EntraOidcScheme);
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Login failed: user '{Username}' not found or not a local account")]
+    private partial void LogUserNotFound(string username);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Login failed: user '{Username}' is disabled")]
+    private partial void LogUserDisabled(string username);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Login failed: user '{Username}' does not have UI login permission")]
+    private partial void LogUiLoginNotPermitted(string username);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Login failed: user '{Username}' is locked out")]
+    private partial void LogUserLockedOut(string username);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Login failed: invalid password for user '{Username}'")]
+    private partial void LogInvalidPassword(string username);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "User '{Username}' signed in successfully via local account")]
+    private partial void LogSignedIn(string username);
 }

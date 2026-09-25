@@ -21,7 +21,7 @@ using Microsoft.Extensions.Options;
 
 namespace BaGetter;
 
-public class Program
+public partial class Program
 {
     public static async Task Main(string[] args)
     {
@@ -99,7 +99,7 @@ public class Program
         var defaultFeed = await feedService.GetDefaultFeedAsync(cancellationToken);
         if (defaultFeed == null)
         {
-            logger.LogWarning("Default feed not found during mirror config migration; skipping.");
+            LogDefaultFeedNotFound(logger);
             return;
         }
 
@@ -108,13 +108,11 @@ public class Program
         // as long as the obsolete global Mirror config still exists in appsettings.
         if (defaultFeed.Mirrors.Count > 0)
         {
-            logger.LogDebug(
-                "Default feed already has mirror settings; skipping migration.");
+            LogMirrorAlreadyMigrated(logger);
             return;
         }
 
-        logger.LogInformation(
-            "Copying global Mirror configuration to default feed (one-time upgrade).");
+        LogMirrorMigrationStarting(logger);
 
         var mirror = new FeedMirror
         {
@@ -142,9 +140,7 @@ public class Program
         defaultFeed.Mirrors.Add(mirror);
         await feedService.UpdateFeedAsync(defaultFeed, cancellationToken);
 
-        logger.LogInformation(
-            "Global Mirror configuration copied to default feed (source: {PackageSource}).",
-            mirror.PackageSource);
+        LogMirrorMigrated(logger, mirror.PackageSource);
     }
 
     public static IHostBuilder CreateHostBuilder(string[] args)
@@ -220,4 +216,16 @@ public class Program
 
         config.Sources.Insert(index, source);
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Default feed not found during mirror config migration; skipping.")]
+    private static partial void LogDefaultFeedNotFound(ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Default feed already has mirror settings; skipping migration.")]
+    private static partial void LogMirrorAlreadyMigrated(ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Copying global Mirror configuration to default feed (one-time upgrade).")]
+    private static partial void LogMirrorMigrationStarting(ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Global Mirror configuration copied to default feed (source: {PackageSource}).")]
+    private static partial void LogMirrorMigrated(ILogger logger, string packageSource);
 }

@@ -10,7 +10,7 @@ namespace BaGetter.Web;
 /// Captures <see cref="OperationCanceledException" /> and converts to HTTP 409 response.
 /// </summary>
 /// <remarks>Based off: <see href="https://github.com/aspnet/AspNetCore/blob/28157e62597bf0e043bc7e937e44c5ec81946b83/src/Middleware/Diagnostics/src/DeveloperExceptionPage/DeveloperExceptionPageMiddleware.cs"/></remarks>
-public class OperationCancelledMiddleware
+public partial class OperationCancelledMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly ILogger<OperationCancelledMiddleware> _logger;
@@ -31,7 +31,7 @@ public class OperationCancelledMiddleware
         {
             try
             {
-                _logger.LogWarning("Request cancelled");
+                LogRequestCancelled();
 
                 context.Response.Clear();
                 context.Response.StatusCode = (int)HttpStatusCode.Conflict;
@@ -55,4 +55,7 @@ public class OperationCancelledMiddleware
             return false;
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Request cancelled")]
+    private partial void LogRequestCancelled();
 }

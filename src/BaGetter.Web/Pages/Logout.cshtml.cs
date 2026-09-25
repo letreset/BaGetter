@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 
 namespace BaGetter.Web.Pages;
 
-public class LogoutModel : PageModel
+public partial class LogoutModel : PageModel
 {
     private readonly ILogger<LogoutModel> _logger;
 
@@ -22,8 +22,11 @@ public class LogoutModel : PageModel
 
         await HttpContext.SignOutAsync(Core.Authentication.AuthenticationConstants.CookieScheme);
 
-        _logger.LogInformation("User '{Username}' signed out", username);
+        LogSignedOut(username);
 
         return RedirectToPage("/Index");
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "User '{Username}' signed out")]
+    private partial void LogSignedOut(string username);
 }

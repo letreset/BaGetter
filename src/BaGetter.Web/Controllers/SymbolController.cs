@@ -16,7 +16,7 @@ using Microsoft.Extensions.Options;
 namespace BaGetter.Web.Controllers;
 
 [Authorize(AuthenticationSchemes = AuthenticationConstants.NugetBasicAuthenticationScheme, Policy = AuthenticationConstants.NugetUserPolicy)]
-public class SymbolController : Controller
+public partial class SymbolController : Controller
 {
     private readonly IAuthenticationService _authentication;
     private readonly IFeedAuthenticationService _feedAuthentication;
@@ -93,7 +93,7 @@ public class SymbolController : Controller
         }
         catch (Exception e)
         {
-            _logger.LogError(e, "Exception thrown during symbol upload");
+            LogUploadException(e);
 
             HttpContext.Response.StatusCode = 500;
         }
@@ -138,4 +138,7 @@ public class SymbolController : Controller
 
         return false;
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Exception thrown during symbol upload")]
+    private partial void LogUploadException(Exception exception);
 }

@@ -9,7 +9,7 @@ using Microsoft.Extensions.Logging;
 
 namespace BaGetter.Core.Authentication;
 
-public class GroupService : IGroupService
+public partial class GroupService : IGroupService
 {
     private readonly IContext _context;
     private readonly ILogger<GroupService> _logger;
@@ -54,7 +54,7 @@ public class GroupService : IGroupService
         _context.Groups.Add(group);
         await _context.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation("Created group {GroupName} with ID {GroupId}", name, group.Id);
+        LogGroupCreated(name, group.Id);
         return group;
     }
 
@@ -94,7 +94,7 @@ public class GroupService : IGroupService
         });
 
         await _context.SaveChangesAsync(cancellationToken);
-        _logger.LogInformation("Added user {UserId} to group {GroupId}", userId, groupId);
+        LogUserAddedToGroup(userId, groupId);
     }
 
     public async Task RemoveUserFromGroupAsync(Guid userId, Guid groupId, CancellationToken cancellationToken)
@@ -112,7 +112,7 @@ public class GroupService : IGroupService
 
         _context.UserGroups.Remove(membership);
         await _context.SaveChangesAsync(cancellationToken);
-        _logger.LogInformation("Removed user {UserId} from group {GroupId}", userId, groupId);
+        LogUserRemovedFromGroup(userId, groupId);
     }
 
     public async Task SyncAppRoleMembershipsAsync(
@@ -160,8 +160,7 @@ public class GroupService : IGroupService
         }
 
         await _context.SaveChangesAsync(cancellationToken);
-        _logger.LogInformation("Synced App Role memberships for user {UserId}: {RoleCount} roles",
-            userId, appRoleValues.Count);
+        LogAppRoleMembershipsSynced(userId, appRoleValues.Count);
     }
 
     public async Task<bool> IsRoleLinkedGroupAsync(Guid groupId, CancellationToken cancellationToken)
@@ -203,6 +202,21 @@ public class GroupService : IGroupService
         _context.Groups.Remove(group);
         await _context.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation("Deleted group {GroupName} (ID: {GroupId})", group.Name, groupId);
+        LogGroupDeleted(group.Name, groupId);
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Created group {GroupName} with ID {GroupId}")]
+    private partial void LogGroupCreated(string groupName, Guid groupId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Added user {UserId} to group {GroupId}")]
+    private partial void LogUserAddedToGroup(Guid userId, Guid groupId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Removed user {UserId} from group {GroupId}")]
+    private partial void LogUserRemovedFromGroup(Guid userId, Guid groupId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Synced App Role memberships for user {UserId}: {RoleCount} roles")]
+    private partial void LogAppRoleMembershipsSynced(Guid userId, int roleCount);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Deleted group {GroupName} (ID: {GroupId})")]
+    private partial void LogGroupDeleted(string groupName, Guid groupId);
 }

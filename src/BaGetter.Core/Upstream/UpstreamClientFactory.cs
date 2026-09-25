@@ -15,7 +15,7 @@ using Microsoft.Extensions.Options;
 
 namespace BaGetter.Core.Upstream;
 
-public class UpstreamClientFactory : IUpstreamClientFactory
+public partial class UpstreamClientFactory : IUpstreamClientFactory
 {
     private readonly IFeedSettingsResolver _feedSettings;
     private readonly DisabledUpstreamClient _disabled;
@@ -107,9 +107,7 @@ public class UpstreamClientFactory : IUpstreamClientFactory
                         {
                             if (_blockedHeaderNames.Contains(header))
                             {
-                                logger.LogWarning(
-                                    "Skipping blocked header '{HeaderName}' from the custom headers of feed {FeedId} mirror {PackageSource}.",
-                                    header, feedId, options.PackageSource);
+                                LogBlockedHeaderSkipped(logger, header, feedId, options.PackageSource);
                                 continue;
                             }
                             client.DefaultRequestHeaders.Add(header, value);
@@ -133,4 +131,7 @@ public class UpstreamClientFactory : IUpstreamClientFactory
 
         public T Get(string name) => Value;
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Skipping blocked header '{HeaderName}' from the custom headers of feed {FeedId} mirror {PackageSource}.")]
+    private static partial void LogBlockedHeaderSkipped(ILogger logger, string headerName, Guid feedId, Uri packageSource);
 }

@@ -293,7 +293,7 @@ public class DatabaseSearchService : ISearchService
         };
     }
 
-    private static IReadOnlyList<string> SortFacet(IEnumerable<string> values)
+    private static List<string> SortFacet(IEnumerable<string> values)
     {
         return values
             .Where(v => !string.Equals(v, "any", StringComparison.OrdinalIgnoreCase))

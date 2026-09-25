@@ -27,7 +27,6 @@
     <PackageVersion Include="NuGet.Frameworks" Version="6.13.2" />
     <PackageVersion Include="NuGet.Protocol" Version="6.13.2" />
     <PackageVersion Include="NuGet.Versioning" Version="6.13.2" />
-    <PackageVersion Include="System.Reflection.Metadata" Version="9.0.10" />
     <PackageVersion Include="System.Text.Json" Version="9.0.8" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
@@ -50,6 +49,7 @@
     <PackageVersion Include="Microsoft.Azure.Storage.Blob" Version="11.2.3" />
     <PackageVersion Include="Google.Cloud.Storage.V1" Version="4.11.0" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.10" />
+    <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.13" />
     <PackageVersion Include="Tencent.QCloud.Cos.Sdk" Version="5.4.44" />
   </ItemGroup>
 </Project>

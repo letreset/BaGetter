@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
@@ -14,7 +15,7 @@ using BaGetter.Web.Extensions;
 
 namespace BaGetter.Web.Authentication;
 
-public class NugetBasicAuthenticationHandler : AuthenticationHandler<AuthenticationSchemeOptions>
+public partial class NugetBasicAuthenticationHandler : AuthenticationHandler<AuthenticationSchemeOptions>
 {
     private readonly IOptions<BaGetterOptions> _bagetterOptions;
     private readonly IFeedAuthenticationService _feedAuthService;
@@ -89,8 +90,7 @@ public class NugetBasicAuthenticationHandler : AuthenticationHandler<Authenticat
             var tokenResult = await _feedAuthService.AuthenticateByTokenAsync(apiKey, Context.RequestAborted);
             if (tokenResult.IsAuthenticated)
             {
-                Logger.LogInformation("Audit: {EventType} - User {Username} ({UserId}) authenticated via API key from {IP}",
-                    "LoginSuccess", tokenResult.Username, tokenResult.UserId, Context.Connection.RemoteIpAddress?.ToString());
+                LogApiKeyLoginSuccess(Logger, "LoginSuccess", tokenResult.Username, tokenResult.UserId, Context.Connection.RemoteIpAddress);
                 return await CreateUserAuthenticationResult(tokenResult.Username, tokenResult.UserId?.ToString());
             }
         }
@@ -119,14 +119,12 @@ public class NugetBasicAuthenticationHandler : AuthenticationHandler<Authenticat
         if (!result.IsAuthenticated)
         {
             var failIp = Context.Connection.RemoteIpAddress?.ToString();
-            Logger.LogWarning("Audit: {EventType} - Authentication failed for {Username} from {IP}",
-                "LoginFailure", username, failIp);
+            LogLoginFailure(Logger, "LoginFailure", username, failIp);
             return AuthenticateResult.Fail("Invalid Username or Password");
         }
 
         var ip = Context.Connection.RemoteIpAddress?.ToString();
-        Logger.LogInformation("Audit: {EventType} - User {Username} ({UserId}) authenticated from {IP}",
-            "LoginSuccess", result.Username, result.UserId, ip);
+        LogLoginSuccess(Logger, "LoginSuccess", result.Username, result.UserId, ip);
 
         return await CreateUserAuthenticationResult(result.Username, result.UserId?.ToString());
     }
@@ -172,4 +170,13 @@ public class NugetBasicAuthenticationHandler : AuthenticationHandler<Authenticat
     {
         return _bagetterOptions.Value.Authentication.Credentials.Any(a => a.Username.Equals(username, StringComparison.OrdinalIgnoreCase) && a.Password == password);
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Audit: {EventType} - User {Username} ({UserId}) authenticated via API key from {IP}")]
+    private static partial void LogApiKeyLoginSuccess(ILogger logger, string eventType, string username, Guid? userId, IPAddress ip);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Audit: {EventType} - Authentication failed for {Username} from {IP}")]
+    private static partial void LogLoginFailure(ILogger logger, string eventType, string username, string ip);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Audit: {EventType} - User {Username} ({UserId}) authenticated from {IP}")]
+    private static partial void LogLoginSuccess(ILogger logger, string eventType, string username, Guid? userId, string ip);
 }

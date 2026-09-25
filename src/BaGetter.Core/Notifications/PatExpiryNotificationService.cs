@@ -19,7 +19,7 @@ namespace BaGetter.Core.Notifications;
 /// Periodically scans personal access tokens and emails their owners as expiry approaches,
 /// once per configured threshold (see <see cref="PatExpiryNotificationOptions"/>).
 /// </summary>
-public class PatExpiryNotificationService : BackgroundService
+public partial class PatExpiryNotificationService : BackgroundService
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly PatExpiryNotificationOptions _options;
@@ -45,7 +45,7 @@ public class PatExpiryNotificationService : BackgroundService
     {
         if (!_options.Enabled)
         {
-            _logger.LogInformation("PAT expiry notifications are disabled; scanner will not run.");
+            LogNotificationsDisabled();
             return;
         }
 
@@ -56,7 +56,7 @@ public class PatExpiryNotificationService : BackgroundService
         {
             if (scope.ServiceProvider.GetRequiredService<IEmailSender>() is NullEmailSender)
             {
-                _logger.LogInformation("Email is not configured; PAT expiry scanner will not run.");
+                LogScannerNotRunningEmailNotConfigured();
                 return;
             }
         }
@@ -77,7 +77,7 @@ public class PatExpiryNotificationService : BackgroundService
             catch (Exception ex)
             {
                 // Never let a single scan failure kill the loop.
-                _logger.LogError(ex, "PAT expiry notification scan failed; will retry after {Interval}.", interval);
+                LogScanFailed(ex, interval);
             }
 
             try
@@ -98,7 +98,7 @@ public class PatExpiryNotificationService : BackgroundService
     /// <returns>The number of notification emails sent.</returns>
     internal async Task<int> RunOnceAsync(CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Starting PAT expiry notification scan.");
+        LogScanStarting();
         using var scope = _serviceProvider.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<IContext>();
         var emailSender = scope.ServiceProvider.GetRequiredService<IEmailSender>();
@@ -108,7 +108,7 @@ public class PatExpiryNotificationService : BackgroundService
         // invariant local so no-op sends can never advance the per-token de-dup threshold.
         if (emailSender is NullEmailSender)
         {
-            _logger.LogInformation("Email is not configured; skipping PAT expiry scan.");
+            LogScanSkippedEmailNotConfigured();
             return 0;
         }
 
@@ -145,9 +145,7 @@ public class PatExpiryNotificationService : BackgroundService
 
             if (string.IsNullOrWhiteSpace(token.User.Email))
             {
-                _logger.LogWarning(
-                    "Token {TokenId} for user {UserId} expires soon but the user has no email address; skipping notification.",
-                    token.Id, token.UserId);
+                LogUserHasNoEmail(token.Id, token.UserId);
                 continue;
             }
 
@@ -162,21 +160,17 @@ public class PatExpiryNotificationService : BackgroundService
                 await context.SaveChangesAsync(cancellationToken);
                 sent++;
 
-                _logger.LogInformation(
-                    "Sent expiry notification for token {TokenId} (user {UserId}) at the {Threshold}-day threshold.",
-                    token.Id, token.UserId, due.Value);
+                LogNotificationSent(token.Id, token.UserId, due.Value);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 // Isolate per-token failures (e.g. a bad recipient address or a transient
                 // send error) so one token cannot starve the rest of the batch.
-                _logger.LogError(ex,
-                    "Failed to send expiry notification for token {TokenId} (user {UserId}); skipping.",
-                    token.Id, token.UserId);
+                LogNotificationSendFailed(ex, token.Id, token.UserId);
             }
         }
 
-        _logger.LogInformation("PAT expiry notification scan complete; {Sent} emails sent.", sent);
+        LogScanCompleted(sent);
         return sent;
     }
 
@@ -198,4 +192,31 @@ public class PatExpiryNotificationService : BackgroundService
         var reached = thresholds.Where(t => daysUntil <= t).ToList();
         return reached.Count == 0 ? null : reached.Min();
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "PAT expiry notifications are disabled; scanner will not run.")]
+    private partial void LogNotificationsDisabled();
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Email is not configured; PAT expiry scanner will not run.")]
+    private partial void LogScannerNotRunningEmailNotConfigured();
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "PAT expiry notification scan failed; will retry after {Interval}.")]
+    private partial void LogScanFailed(Exception exception, TimeSpan interval);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Starting PAT expiry notification scan.")]
+    private partial void LogScanStarting();
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Email is not configured; skipping PAT expiry scan.")]
+    private partial void LogScanSkippedEmailNotConfigured();
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Token {TokenId} for user {UserId} expires soon but the user has no email address; skipping notification.")]
+    private partial void LogUserHasNoEmail(Guid tokenId, Guid userId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Sent expiry notification for token {TokenId} (user {UserId}) at the {Threshold}-day threshold.")]
+    private partial void LogNotificationSent(Guid tokenId, Guid userId, int threshold);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Failed to send expiry notification for token {TokenId} (user {UserId}); skipping.")]
+    private partial void LogNotificationSendFailed(Exception exception, Guid tokenId, Guid userId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "PAT expiry notification scan complete; {Sent} emails sent.")]
+    private partial void LogScanCompleted(int sent);
 }

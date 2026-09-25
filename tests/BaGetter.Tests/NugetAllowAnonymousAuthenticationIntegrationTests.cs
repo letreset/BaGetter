@@ -40,7 +40,7 @@ public class NugetAllowAnonymousAuthenticationIntegrationTests : IDisposable
         // Arrange
         _client.DefaultRequestHeaders.Add(
             "Authorization",
-            (IEnumerable<string?>)new StringValues($"Basic {Convert.ToBase64String(Encoding.UTF8.GetBytes($"x:x"))}"));
+            (IEnumerable<string>)new StringValues($"Basic {Convert.ToBase64String(Encoding.UTF8.GetBytes($"x:x"))}"));
 
         // Act
         using var response = await _client.GetAsync("v3/index.json");

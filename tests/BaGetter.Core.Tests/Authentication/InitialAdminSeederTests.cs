@@ -132,6 +132,7 @@ public class InitialAdminSeederTests
         protected FactsBase()
         {
             Context = TestDbContext.Create();
+            Logger.Setup(l => l.IsEnabled(It.IsAny<LogLevel>())).Returns(true);
             Users = new UserService(
                 Context,
                 Snapshot(new NugetAuthenticationOptions()),

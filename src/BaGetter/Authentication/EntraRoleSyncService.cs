@@ -14,7 +14,7 @@ namespace BaGetter.Authentication;
 /// <summary>
 /// Handles user provisioning and App Role-based group synchronization on OIDC token validation.
 /// </summary>
-public class EntraRoleSyncService
+public partial class EntraRoleSyncService
 {
     private const string AdminRoleValue = "Admin";
 
@@ -47,7 +47,7 @@ public class EntraRoleSyncService
 
         if (string.IsNullOrEmpty(oid))
         {
-            _logger.LogWarning("Entra ID token is missing the object identifier claim");
+            LogMissingObjectIdentifier();
             return;
         }
 
@@ -69,7 +69,7 @@ public class EntraRoleSyncService
         var user = await _userService.FindByEntraObjectIdAsync(oid, cancellationToken);
         if (user == null)
         {
-            _logger.LogInformation("Provisioning new Entra user: {Username} (OID: {Oid})", username, oid);
+            LogProvisioningUser(username, oid);
             user = await _userService.CreateEntraUserAsync(oid, username, displayName, email, cancellationToken);
         }
         else
@@ -88,13 +88,13 @@ public class EntraRoleSyncService
 
         if (!user.IsEnabled)
         {
-            _logger.LogWarning("Login denied: Entra user {Username} is disabled", user.Username);
+            LogLoginDeniedDisabled(user.Username);
             throw new UnauthorizedAccessException($"Account '{user.Username}' has been disabled.");
         }
 
         if (!user.CanLoginToUI)
         {
-            _logger.LogWarning("Login denied: Entra user {Username} does not have UI login permission", user.Username);
+            LogLoginDeniedNoUIPermission(user.Username);
             throw new UnauthorizedAccessException($"Account '{user.Username}' is not permitted to sign in to the web UI.");
         }
 
@@ -106,9 +106,7 @@ public class EntraRoleSyncService
         var hasAdminRole = roles.Contains(AdminRoleValue, StringComparer.OrdinalIgnoreCase);
         if (hasAdminRole != user.IsAdmin)
         {
-            _logger.LogInformation(
-                "{Action} admin for Entra user {Username} based on App Role",
-                hasAdminRole ? "Granting" : "Revoking", user.Username);
+            LogAdminRoleSync(hasAdminRole ? "Granting" : "Revoking", user.Username);
             await _userService.SetAdminAsync(user.Id, hasAdminRole, cancellationToken);
         }
 
@@ -128,4 +126,19 @@ public class EntraRoleSyncService
             identity.AddClaim(new Claim(AuthenticationConstants.IsAdminClaim, user.IsAdmin ? "true" : "false"));
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Entra ID token is missing the object identifier claim")]
+    private partial void LogMissingObjectIdentifier();
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Provisioning new Entra user: {Username} (OID: {Oid})")]
+    private partial void LogProvisioningUser(string username, string oid);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Login denied: Entra user {Username} is disabled")]
+    private partial void LogLoginDeniedDisabled(string username);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Login denied: Entra user {Username} does not have UI login permission")]
+    private partial void LogLoginDeniedNoUIPermission(string username);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "{Action} admin for Entra user {Username} based on App Role")]
+    private partial void LogAdminRoleSync(string action, string username);
 }

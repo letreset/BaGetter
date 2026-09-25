@@ -17,7 +17,7 @@ using Microsoft.Extensions.Logging;
 namespace BaGetter.Web.Pages.Admin;
 
 [Authorize(AuthenticationSchemes = Core.Authentication.AuthenticationConstants.CookieScheme)]
-public class FeedsModel : PageModel
+public partial class FeedsModel : PageModel
 {
     private static readonly Regex _slugRegex = new(@"^[a-z0-9](?:[a-z0-9-]{0,126}[a-z0-9])?$", RegexOptions.Compiled);
 
@@ -187,12 +187,12 @@ public class FeedsModel : PageModel
         }
         catch (DbUpdateException ex)
         {
-            _logger.LogError(ex, "Database error while deleting feed {FeedId}", feedId);
+            LogDeleteDatabaseError(ex, feedId);
             ErrorMessage = "Could not delete the feed because of a database error. Please try again.";
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unexpected error while deleting feed {FeedId}", feedId);
+            LogDeleteUnexpectedError(ex, feedId);
             ErrorMessage = "An unexpected error occurred while deleting the feed.";
         }
 
@@ -211,4 +211,10 @@ public class FeedsModel : PageModel
         await _feedService.ReorderFeedsAsync(orderedFeedIds, cancellationToken);
         return new OkResult();
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Database error while deleting feed {FeedId}")]
+    private partial void LogDeleteDatabaseError(Exception exception, Guid feedId);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Unexpected error while deleting feed {FeedId}")]
+    private partial void LogDeleteUnexpectedError(Exception exception, Guid feedId);
 }

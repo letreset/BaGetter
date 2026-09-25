@@ -13,7 +13,7 @@ using Microsoft.Extensions.Options;
 
 namespace BaGetter.Core.Authentication;
 
-public class TokenService : ITokenService
+public partial class TokenService : ITokenService
 {
     public const string TokenPrefix = "bg_";
     private const int TokenHexLength = 40;
@@ -86,8 +86,7 @@ public class TokenService : ITokenService
             throw new ArgumentException($"A token named '{name}' already exists.");
         }
 
-        _logger.LogInformation("Audit: {EventType} - Created PAT {TokenId} for user {UserId} with prefix {TokenPrefix}",
-            "TokenCreated", token.Id, userId, token.TokenPrefix);
+        LogTokenCreated("TokenCreated", token.Id, userId, token.TokenPrefix);
 
         return new TokenCreateResult(token, plaintextToken);
     }
@@ -110,22 +109,19 @@ public class TokenService : ITokenService
 
         if (token.IsRevoked)
         {
-            _logger.LogWarning("Audit: {EventType} - Attempted use of revoked token {TokenId}",
-                "TokenUseRevoked", token.Id);
+            LogRevokedTokenUsed("TokenUseRevoked", token.Id);
             return null;
         }
 
         if (token.ExpiresAtUtc <= DateTime.UtcNow)
         {
-            _logger.LogWarning("Audit: {EventType} - Attempted use of expired token {TokenId}",
-                "TokenUseExpired", token.Id);
+            LogExpiredTokenUsed("TokenUseExpired", token.Id);
             return null;
         }
 
         if (!token.User.IsEnabled)
         {
-            _logger.LogWarning("Audit: {EventType} - Attempted use of token {TokenId} for disabled user {UserId}",
-                "TokenUseDisabledUser", token.Id, token.UserId);
+            LogDisabledUserTokenUsed("TokenUseDisabledUser", token.Id, token.UserId);
             return null;
         }
 
@@ -133,8 +129,7 @@ public class TokenService : ITokenService
         token.LastUsedAtUtc = DateTime.UtcNow;
         await _context.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation("Audit: {EventType} - Token {TokenId} used by user {UserId}",
-            "TokenUsed", token.Id, token.UserId);
+        LogTokenUsed("TokenUsed", token.Id, token.UserId);
 
         return token;
     }
@@ -150,8 +145,7 @@ public class TokenService : ITokenService
         token.RevokedAtUtc = DateTime.UtcNow;
         await _context.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation("Audit: {EventType} - Revoked token {TokenId}",
-            "TokenRevoked", tokenId);
+        LogTokenRevoked("TokenRevoked", tokenId);
     }
 
     public async Task<List<PersonalAccessToken>> GetUserTokensAsync(
@@ -177,4 +171,22 @@ public class TokenService : ITokenService
         var hash = SHA256.HashData(bytes);
         return Convert.ToHexString(hash).ToLowerInvariant();
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Audit: {EventType} - Created PAT {TokenId} for user {UserId} with prefix {TokenPrefix}")]
+    private partial void LogTokenCreated(string eventType, Guid tokenId, Guid userId, string tokenPrefix);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Audit: {EventType} - Attempted use of revoked token {TokenId}")]
+    private partial void LogRevokedTokenUsed(string eventType, Guid tokenId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Audit: {EventType} - Attempted use of expired token {TokenId}")]
+    private partial void LogExpiredTokenUsed(string eventType, Guid tokenId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Audit: {EventType} - Attempted use of token {TokenId} for disabled user {UserId}")]
+    private partial void LogDisabledUserTokenUsed(string eventType, Guid tokenId, Guid userId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Audit: {EventType} - Token {TokenId} used by user {UserId}")]
+    private partial void LogTokenUsed(string eventType, Guid tokenId, Guid userId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Audit: {EventType} - Revoked token {TokenId}")]
+    private partial void LogTokenRevoked(string eventType, Guid tokenId);
 }

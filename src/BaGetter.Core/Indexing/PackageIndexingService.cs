@@ -14,7 +14,7 @@ using NuGet.Packaging;
 
 namespace BaGetter.Core.Indexing;
 
-public class PackageIndexingService : IPackageIndexingService
+public partial class PackageIndexingService : IPackageIndexingService
 {
     private readonly IPackageDatabase _packages;
     private readonly IPackageStorageService _storage;
@@ -49,7 +49,7 @@ public class PackageIndexingService : IPackageIndexingService
 #pragma warning disable CS0618 // Type or member is obsolete
         if (_options.Value.MaxVersionsPerPackage > 0)
         {
-            _logger.LogError("MaxVersionsPerPackage is deprecated and is not used. Please use MaxMajorVersions, MaxMinorVersions, MaxPatchVersions, and MaxPrereleaseVersions instead.");
+            LogMaxVersionsPerPackageDeprecated();
         }
 #pragma warning restore CS0618 // Type or member is obsolete
     }
@@ -107,7 +107,7 @@ public class PackageIndexingService : IPackageIndexingService
         }
         catch (Exception e)
         {
-            _logger.LogError(e, "Uploaded package is invalid");
+            LogInvalidPackage(e);
 
             return PackageIndexingResult.InvalidPackage;
         }
@@ -129,10 +129,7 @@ public class PackageIndexingService : IPackageIndexingService
 
         // TODO: Add more package validations
         // TODO: Call PackageArchiveReader.ValidatePackageEntriesAsync
-        _logger.LogInformation(
-            "Validated package {PackageId} {PackageVersion}, persisting content to storage...",
-            package.Id,
-            package.NormalizedVersionString);
+        LogPackageValidated(package.Id, package.NormalizedVersionString);
 
         try
         {
@@ -152,42 +149,29 @@ public class PackageIndexingService : IPackageIndexingService
             // This may happen due to concurrent pushes.
             // TODO: Make IPackageStorageService.SavePackageContentAsync return a result enum so this
             // can be properly handled.
-            _logger.LogError(
-                e,
-                "Failed to persist package {PackageId} {PackageVersion} content to storage",
-                package.Id,
-                package.NormalizedVersionString);
+            LogPersistContentFailed(e, package.Id, package.NormalizedVersionString);
 
             throw;
         }
 
-        _logger.LogInformation(
-            "Persisted package {Id} {Version} content to storage, saving metadata to database...",
-            package.Id,
-            package.NormalizedVersionString);
+        LogContentPersisted(package.Id, package.NormalizedVersionString);
 
         var result = await _packages.AddAsync(package, cancellationToken);
         if (result == PackageAddResult.PackageAlreadyExists)
         {
-            _logger.LogWarning(
-                "Package {Id} {Version} metadata already exists in database",
-                package.Id,
-                package.NormalizedVersionString);
+            LogMetadataAlreadyExists(package.Id, package.NormalizedVersionString);
 
             return PackageIndexingResult.PackageAlreadyExists;
         }
 
         if (result != PackageAddResult.Success)
         {
-            _logger.LogError($"Unknown {nameof(PackageAddResult)} value: {{PackageAddResult}}", result);
+            LogUnknownPackageAddResult(result);
 
             throw new InvalidOperationException($"Unknown {nameof(PackageAddResult)} value: {result}");
         }
 
-        _logger.LogInformation(
-            "Successfully persisted package {Id} {Version} metadata to database. Indexing in search...",
-            package.Id,
-            package.NormalizedVersionString);
+        LogMetadataPersisted(package.Id, package.NormalizedVersionString);
 
         await _search.IndexAsync(package, cancellationToken);
 
@@ -199,10 +183,7 @@ public class PackageIndexingService : IPackageIndexingService
         {
             try
             {
-                _logger.LogInformation(
-                    "Deleting older packages for package {PackageId} {PackageVersion}",
-                    package.Id,
-                    package.NormalizedVersionString);
+                LogDeletingOlderVersions(package.Id, package.NormalizedVersionString);
 
                 var deleted = await _packageDeletionService.DeleteOldVersionsAsync(
                     feedId,
@@ -215,28 +196,53 @@ public class PackageIndexingService : IPackageIndexingService
                     cancellationToken);
                 if (deleted > 0)
                 {
-                    _logger.LogInformation(
-                        "Deleted {packages} older packages for package {PackageId} {PackageVersion}",
-                        deleted,
-                        package.Id,
-                        package.NormalizedVersionString);
+                    LogOlderVersionsDeleted(deleted, package.Id, package.NormalizedVersionString);
                 }
             }
             catch (Exception e)
             {
-                _logger.LogError(
-                    e,
-                    "Failed to cleanup older versions of package {PackageId} {PackageVersion}",
-                    package.Id,
-                    package.NormalizedVersionString);
+                LogCleanupOlderVersionsFailed(e, package.Id, package.NormalizedVersionString);
             }
         }
 
-        _logger.LogInformation(
-            "Successfully indexed package {Id} {Version} in search",
-            package.Id,
-            package.NormalizedVersionString);
+        LogPackageIndexed(package.Id, package.NormalizedVersionString);
 
         return PackageIndexingResult.Success;
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "MaxVersionsPerPackage is deprecated and is not used. Please use MaxMajorVersions, MaxMinorVersions, MaxPatchVersions, and MaxPrereleaseVersions instead.")]
+    private partial void LogMaxVersionsPerPackageDeprecated();
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Uploaded package is invalid")]
+    private partial void LogInvalidPackage(Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Validated package {PackageId} {PackageVersion}, persisting content to storage...")]
+    private partial void LogPackageValidated(string packageId, string packageVersion);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Failed to persist package {PackageId} {PackageVersion} content to storage")]
+    private partial void LogPersistContentFailed(Exception exception, string packageId, string packageVersion);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Persisted package {Id} {Version} content to storage, saving metadata to database...")]
+    private partial void LogContentPersisted(string id, string version);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Package {Id} {Version} metadata already exists in database")]
+    private partial void LogMetadataAlreadyExists(string id, string version);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Unknown PackageAddResult value: {PackageAddResult}")]
+    private partial void LogUnknownPackageAddResult(PackageAddResult packageAddResult);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Successfully persisted package {Id} {Version} metadata to database. Indexing in search...")]
+    private partial void LogMetadataPersisted(string id, string version);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Deleting older packages for package {PackageId} {PackageVersion}")]
+    private partial void LogDeletingOlderVersions(string packageId, string packageVersion);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Deleted {packages} older packages for package {PackageId} {PackageVersion}")]
+    private partial void LogOlderVersionsDeleted(int packages, string packageId, string packageVersion);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Failed to cleanup older versions of package {PackageId} {PackageVersion}")]
+    private partial void LogCleanupOlderVersionsFailed(Exception exception, string packageId, string packageVersion);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Successfully indexed package {Id} {Version} in search")]
+    private partial void LogPackageIndexed(string id, string version);
 }

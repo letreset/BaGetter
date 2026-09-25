@@ -23,7 +23,7 @@ using INuGetLogger = NuGet.Common.ILogger;
 /// <summary>
 /// The client to upstream a NuGet server that uses the V2 protocol.
 /// </summary>
-public class V2UpstreamClient : IUpstreamClient, IDisposable
+public partial class V2UpstreamClient : IUpstreamClient, IDisposable
 {
     private readonly SourceCacheContext _cache;
     private readonly SourceRepository _repository;
@@ -83,7 +83,7 @@ public class V2UpstreamClient : IUpstreamClient, IDisposable
         }
         catch (Exception e)
         {
-            _logger.LogError(e, "Failed to mirror {PackageId}'s upstream versions", id);
+            LogMirrorVersionsFailed(e, id);
             return new List<NuGetVersion>();
         }
     }
@@ -107,7 +107,7 @@ public class V2UpstreamClient : IUpstreamClient, IDisposable
         }
         catch (Exception e)
         {
-            _logger.LogError(e, "Failed to mirror {PackageId}'s upstream versions", id);
+            LogMirrorVersionsFailed(e, id);
             return new List<Package>();
         }
     }
@@ -138,11 +138,7 @@ public class V2UpstreamClient : IUpstreamClient, IDisposable
         }
         catch (Exception e)
         {
-            _logger.LogError(
-                e,
-                "Failed to index package {Id} {Version} from upstream",
-                id,
-                version);
+            LogIndexFailed(e, id, version);
 
             packageStream.Dispose();
             return null;
@@ -228,4 +224,10 @@ public class V2UpstreamClient : IUpstreamClient, IDisposable
             TargetFramework = framework,
         });
     }
+
+    [LoggerMessage(Level = Microsoft.Extensions.Logging.LogLevel.Error, Message = "Failed to mirror {PackageId}'s upstream versions")]
+    private partial void LogMirrorVersionsFailed(Exception exception, string packageId);
+
+    [LoggerMessage(Level = Microsoft.Extensions.Logging.LogLevel.Error, Message = "Failed to index package {Id} {Version} from upstream")]
+    private partial void LogIndexFailed(Exception exception, string id, NuGetVersion version);
 }

@@ -14,7 +14,7 @@ namespace BaGetter.Core.Authentication;
 /// Local or Hybrid install has a way into Admin &gt; Accounts. It only acts while no administrator
 /// exists, and never changes an existing user.
 /// </summary>
-public class InitialAdminSeeder
+public partial class InitialAdminSeeder
 {
     private readonly IContext _context;
     private readonly IUserService _userService;
@@ -50,9 +50,7 @@ public class InitialAdminSeeder
             // Hybrid can still get an admin from the Entra Admin app role.
             if (mode == AuthenticationMode.Local)
             {
-                _logger.LogWarning(
-                    "No administrator exists and Authentication:InitialAdmin is not configured, so nobody can manage accounts. " +
-                    "Set Authentication:InitialAdmin:Username and Authentication:InitialAdmin:Password to create one on startup.");
+                LogInitialAdminNotConfigured();
             }
 
             return;
@@ -60,10 +58,7 @@ public class InitialAdminSeeder
 
         if (await _userService.FindByUsernameAsync(username, cancellationToken) != null)
         {
-            _logger.LogWarning(
-                "No administrator exists, but the configured initial administrator {Username} already exists as a non-admin user. " +
-                "The user was left unchanged; choose a different Authentication:InitialAdmin:Username.",
-                username);
+            LogInitialAdminExistsAsNonAdmin(username);
             return;
         }
 
@@ -71,14 +66,24 @@ public class InitialAdminSeeder
         {
             var user = await _userService.CreateLocalAdminAsync(username, password, cancellationToken);
 
-            _logger.LogInformation("Audit: {EventType} - Created initial administrator {Username} with ID {UserId} from configuration",
-                "InitialAdminCreated", username, user.Id);
+            LogInitialAdminCreated("InitialAdminCreated", username, user.Id);
         }
         catch (DbUpdateException ex) when (_context.IsUniqueConstraintViolationException(ex))
         {
             // Another replica starting at the same time won the insert.
-            _logger.LogInformation(
-                "The initial administrator {Username} was created by another instance; skipping.", username);
+            LogInitialAdminCreatedByAnotherInstance(username);
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "No administrator exists and Authentication:InitialAdmin is not configured, so nobody can manage accounts. Set Authentication:InitialAdmin:Username and Authentication:InitialAdmin:Password to create one on startup.")]
+    private partial void LogInitialAdminNotConfigured();
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "No administrator exists, but the configured initial administrator {Username} already exists as a non-admin user. The user was left unchanged; choose a different Authentication:InitialAdmin:Username.")]
+    private partial void LogInitialAdminExistsAsNonAdmin(string username);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Audit: {EventType} - Created initial administrator {Username} with ID {UserId} from configuration")]
+    private partial void LogInitialAdminCreated(string eventType, string username, Guid userId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "The initial administrator {Username} was created by another instance; skipping.")]
+    private partial void LogInitialAdminCreatedByAnotherInstance(string username);
 }

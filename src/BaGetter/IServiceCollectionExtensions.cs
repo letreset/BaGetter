@@ -19,7 +19,7 @@ using Microsoft.Extensions.Logging;
 
 namespace BaGetter;
 
-internal static class ServiceCollectionExtensions
+internal static partial class ServiceCollectionExtensions
 {
     internal static BaGetterApplication AddNugetBasicHttpAuthentication(this BaGetterApplication app)
     {
@@ -37,7 +37,7 @@ internal static class ServiceCollectionExtensions
         return app;
     }
 
-    internal static BaGetterApplication AddNugetBasicHttpAuthorization(this BaGetterApplication app, Action<AuthorizationPolicyBuilder>? configurePolicy = null)
+    internal static BaGetterApplication AddNugetBasicHttpAuthorization(this BaGetterApplication app, Action<AuthorizationPolicyBuilder> configurePolicy = null)
     {
         app.Services.AddScoped<IAuthorizationHandler, FeedPermissionHandler>();
 
@@ -172,7 +172,7 @@ internal static class ServiceCollectionExtensions
                 var logger = context.HttpContext.RequestServices
                     .GetRequiredService<ILoggerFactory>()
                     .CreateLogger(nameof(ServiceCollectionExtensions));
-                logger.LogWarning(context.Failure, "Entra authentication remote failure.");
+                LogRemoteFailure(logger, context.Failure);
 
                 context.Response.Redirect("/Login?error=authentication_failed");
                 context.HandleResponse();
@@ -202,4 +202,7 @@ internal static class ServiceCollectionExtensions
 
         return app;
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Entra authentication remote failure.")]
+    private static partial void LogRemoteFailure(ILogger logger, Exception exception);
 }

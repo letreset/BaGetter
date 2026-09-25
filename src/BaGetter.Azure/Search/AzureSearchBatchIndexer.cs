@@ -11,7 +11,7 @@ using Microsoft.Rest.Azure;
 
 namespace BaGetter.Azure
 {
-    public class AzureSearchBatchIndexer
+    public partial class AzureSearchBatchIndexer
     {
         /// <summary>
         /// Azure Search accepts batches of up to 1000 documents.
@@ -51,12 +51,12 @@ namespace BaGetter.Azure
                     IndexBatch.New(batch),
                     cancellationToken: cancellationToken);
 
-                _logger.LogInformation("Pushed batch of {DocumentCount} documents", batch.Count);
+                LogBatchPushed(batch.Count);
 
             }
             catch (IndexBatchException ex)
             {
-                _logger.LogError(ex, "An exception was thrown when pushing batch of documents");
+                LogBatchPushFailed(ex);
                 indexingResults = ex.IndexingResults;
                 innerException = ex;
             }
@@ -66,14 +66,7 @@ namespace BaGetter.Azure
                 var halfA = batch.Take(halfCount).ToList();
                 var halfB = batch.Skip(halfCount).ToList();
 
-                _logger.LogWarning(
-                    0,
-                    ex,
-                    "The request body for a batch of {BatchSize} was too large. Splitting into two batches of size " +
-                    "{HalfA} and {HalfB}.",
-                    batch.Count,
-                    halfA.Count,
-                    halfB.Count);
+                LogBatchTooLarge(ex, batch.Count, halfA.Count, halfB.Count);
 
                 await IndexAsync(halfA, cancellationToken);
                 await IndexAsync(halfB, cancellationToken);
@@ -84,5 +77,14 @@ namespace BaGetter.Azure
                 throw new InvalidOperationException("Failed to pushed batch of documents documents");
             }
         }
+
+        [LoggerMessage(Level = LogLevel.Information, Message = "Pushed batch of {DocumentCount} documents")]
+        private partial void LogBatchPushed(int documentCount);
+
+        [LoggerMessage(Level = LogLevel.Error, Message = "An exception was thrown when pushing batch of documents")]
+        private partial void LogBatchPushFailed(Exception exception);
+
+        [LoggerMessage(Level = LogLevel.Warning, Message = "The request body for a batch of {BatchSize} was too large. Splitting into two batches of size {HalfA} and {HalfB}.")]
+        private partial void LogBatchTooLarge(Exception exception, int batchSize, int halfA, int halfB);
     }
 }

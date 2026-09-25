@@ -7,7 +7,7 @@ namespace BaGetter.Core.Indexing;
 
 /// <summary>
 /// The result of attempting to index a symbol package.
-/// See <see cref="ISymbolIndexingService.IndexAsync(Stream, CancellationToken)"/>.
+/// See <see cref="ISymbolIndexingService.IndexAsync(Guid, string, Stream, CancellationToken)"/>.
 /// </summary>
 public enum SymbolIndexingResult
 {

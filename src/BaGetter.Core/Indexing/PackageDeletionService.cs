@@ -12,7 +12,7 @@ using NuGet.Versioning;
 
 namespace BaGetter.Core.Indexing;
 
-public class PackageDeletionService : IPackageDeletionService
+public partial class PackageDeletionService : IPackageDeletionService
 {
     private readonly IPackageDatabase _packages;
     private readonly IPackageStorageService _storage;
@@ -53,69 +53,58 @@ public class PackageDeletionService : IPackageDeletionService
 
     public async Task<bool> TryUnlistPackageAsync(Guid feedId, string id, NuGetVersion version, CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Unlisting package {PackageId} {PackageVersion}...", id, version);
+        LogUnlistingPackage(id, version);
 
         if (!await _packages.UnlistPackageAsync(feedId, id, version, cancellationToken))
         {
-            _logger.LogWarning("Could not find package {PackageId} {PackageVersion}", id, version);
+            LogPackageNotFound(id, version);
 
             return false;
         }
 
-        _logger.LogInformation("Unlisted package {PackageId} {PackageVersion}", id, version);
+        LogPackageUnlisted(id, version);
 
         return true;
     }
 
     public async Task<bool> TryRelistPackageAsync(Guid feedId, string id, NuGetVersion version, CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Relisting package {PackageId} {PackageVersion}...", id, version);
+        LogRelistingPackage(id, version);
 
         if (!await _packages.RelistPackageAsync(feedId, id, version, cancellationToken))
         {
-            _logger.LogWarning("Could not find package {PackageId} {PackageVersion}", id, version);
+            LogPackageNotFound(id, version);
 
             return false;
         }
 
-        _logger.LogInformation("Relisted package {PackageId} {PackageVersion}", id, version);
+        LogPackageRelisted(id, version);
 
         return true;
     }
 
     public async Task<bool> TryHardDeletePackageAsync(Guid feedId, string feedSlug, string id, NuGetVersion version, CancellationToken cancellationToken)
     {
-        _logger.LogInformation(
-            "Hard deleting package {PackageId} {PackageVersion} from the database...",
-            id,
-            version);
+        LogHardDeletingFromDatabase(id, version);
 
         var found = await _packages.HardDeletePackageAsync(feedId, id, version, cancellationToken);
         if (!found)
         {
-            _logger.LogWarning(
-                "Could not find package {PackageId} {PackageVersion} in the database",
-                id,
-                version);
+            LogPackageNotFoundInDatabase(id, version);
         }
 
         // Delete the package from storage. This is necessary even if the package isn't
         // in the database to ensure that the storage is consistent with the database.
-        _logger.LogInformation("Hard deleting package {PackageId} {PackageVersion} from storage...",
-            id,
-            version);
+        LogHardDeletingFromStorage(id, version);
 
         await _storage.DeleteAsync(feedSlug, id, version, cancellationToken);
 
-        _logger.LogInformation(
-            "Hard deleted package {PackageId} {PackageVersion} from storage",
-            id,
-            version);
+        LogHardDeletedFromStorage(id, version);
 
         return found;
     }
 
-    private static IList<NuGetVersion> GetValidVersions<TS, T>(IEnumerable<NuGetVersion> versions, Func<NuGetVersion, TS> getParent, Func<NuGetVersion, T> getSelector, int versionsToKeep)
+    private static List<NuGetVersion> GetValidVersions<TS, T>(IEnumerable<NuGetVersion> versions, Func<NuGetVersion, TS> getParent, Func<NuGetVersion, T> getSelector, int versionsToKeep)
             where TS : IComparable<TS>, IEquatable<TS>
             where T : IComparable<T>, IEquatable<T>
     {
@@ -248,9 +237,39 @@ public class PackageDeletionService : IPackageDeletionService
             }
             else
             {
-                _logger.LogWarning("Could not parse build number from prerelease label {PrereleaseLabel} - prerelease number is expected to be like 2.3.4-alpha.1 where 1 is prerelease", nuGetVersion);
+                LogInvalidPrereleaseBuildNumber(nuGetVersion);
             }
         }
         return null;
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Unlisting package {PackageId} {PackageVersion}...")]
+    private partial void LogUnlistingPackage(string packageId, NuGetVersion packageVersion);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Could not find package {PackageId} {PackageVersion}")]
+    private partial void LogPackageNotFound(string packageId, NuGetVersion packageVersion);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Unlisted package {PackageId} {PackageVersion}")]
+    private partial void LogPackageUnlisted(string packageId, NuGetVersion packageVersion);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Relisting package {PackageId} {PackageVersion}...")]
+    private partial void LogRelistingPackage(string packageId, NuGetVersion packageVersion);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Relisted package {PackageId} {PackageVersion}")]
+    private partial void LogPackageRelisted(string packageId, NuGetVersion packageVersion);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Hard deleting package {PackageId} {PackageVersion} from the database...")]
+    private partial void LogHardDeletingFromDatabase(string packageId, NuGetVersion packageVersion);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Could not find package {PackageId} {PackageVersion} in the database")]
+    private partial void LogPackageNotFoundInDatabase(string packageId, NuGetVersion packageVersion);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Hard deleting package {PackageId} {PackageVersion} from storage...")]
+    private partial void LogHardDeletingFromStorage(string packageId, NuGetVersion packageVersion);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Hard deleted package {PackageId} {PackageVersion} from storage")]
+    private partial void LogHardDeletedFromStorage(string packageId, NuGetVersion packageVersion);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Could not parse build number from prerelease label {PrereleaseLabel} - prerelease number is expected to be like 2.3.4-alpha.1 where 1 is prerelease")]
+    private partial void LogInvalidPrereleaseBuildNumber(NuGetVersion prereleaseLabel);
 }

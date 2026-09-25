@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Net;
 using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
@@ -18,7 +19,7 @@ using NuGet.Versioning;
 
 namespace BaGetter.Web.Controllers;
 
-public class PackagePublishController : Controller
+public partial class PackagePublishController : Controller
 {
     private readonly IAuthenticationService _authentication;
     private readonly IFeedAuthenticationService _feedAuthentication;
@@ -110,7 +111,7 @@ public class PackagePublishController : Controller
         }
         catch (Exception e)
         {
-            _logger.LogError(e, "Exception thrown during package upload");
+            LogUploadException(e);
 
             HttpContext.Response.StatusCode = 500;
         }
@@ -256,9 +257,8 @@ public class PackagePublishController : Controller
         if (!_logger.IsEnabled(level))
             return;
 
-        _logger.Log(
+        LogAuditEvent(
             level,
-            "AUDIT {Event} feed={Feed} package_id={PackageId} package_version={PackageVersion} actor={Actor} ip={Ip}",
             eventName,
             _feedContext.CurrentFeed.Slug,
             packageId,
@@ -284,4 +284,10 @@ public class PackagePublishController : Controller
             packageStream.Position = 0;
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Exception thrown during package upload")]
+    private partial void LogUploadException(Exception exception);
+
+    [LoggerMessage(Message = "AUDIT {Event} feed={Feed} package_id={PackageId} package_version={PackageVersion} actor={Actor} ip={Ip}")]
+    private partial void LogAuditEvent(LogLevel level, string @event, string feed, string packageId, string packageVersion, string actor, IPAddress ip);
 }

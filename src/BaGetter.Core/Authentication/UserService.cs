@@ -10,7 +10,7 @@ using Microsoft.Extensions.Options;
 
 namespace BaGetter.Core.Authentication;
 
-public class UserService : IUserService
+public partial class UserService : IUserService
 {
     private const int BcryptWorkFactor = 12;
 
@@ -70,8 +70,7 @@ public class UserService : IUserService
         _context.Users.Add(user);
         await _context.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation("Audit: {EventType} - Created Entra user {Username} with ID {UserId}",
-            "AccountCreated", username, user.Id);
+        LogEntraUserCreated("AccountCreated", username, user.Id);
         return user;
     }
 
@@ -128,8 +127,7 @@ public class UserService : IUserService
         _context.Users.Add(user);
         await _context.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation("Audit: {EventType} - Created local user {Username} with ID {UserId} by {CreatedBy}",
-            "AccountCreated", username, user.Id, createdByUserId);
+        LogLocalUserCreated("AccountCreated", username, user.Id, createdByUserId);
         return user;
     }
 
@@ -149,13 +147,12 @@ public class UserService : IUserService
         user.UpdatedAtUtc = DateTime.UtcNow;
         await _context.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation("Audit: {EventType} - Password updated for user {UserId}",
-            "PasswordReset", userId);
+        LogPasswordUpdated("PasswordReset", userId);
     }
 
     public Task<bool> VerifyPasswordAsync(User user, string password)
     {
-        if (user == null) throw new ArgumentNullException(nameof(user));
+        ArgumentNullException.ThrowIfNull(user);
         if (string.IsNullOrEmpty(user.PasswordHash)) return Task.FromResult(false);
 
         var result = BCrypt.Net.BCrypt.Verify(password, user.PasswordHash);
@@ -171,8 +168,7 @@ public class UserService : IUserService
         if (user.FailedLoginCount >= _authOptions.MaxFailedAttempts)
         {
             user.LockedUntilUtc = DateTime.UtcNow.AddMinutes(_authOptions.LockoutMinutes);
-            _logger.LogWarning("Audit: {EventType} - User {UserId} locked out until {LockedUntil} after {Attempts} failed attempts",
-                "AccountLockedOut", userId, user.LockedUntilUtc, user.FailedLoginCount);
+            LogUserLockedOut("AccountLockedOut", userId, user.LockedUntilUtc, user.FailedLoginCount);
         }
 
         user.UpdatedAtUtc = DateTime.UtcNow;
@@ -192,7 +188,7 @@ public class UserService : IUserService
 
     public Task<bool> IsLockedOutAsync(User user)
     {
-        if (user == null) throw new ArgumentNullException(nameof(user));
+        ArgumentNullException.ThrowIfNull(user);
 
         var isLocked = user.LockedUntilUtc.HasValue && user.LockedUntilUtc.Value > DateTime.UtcNow;
         return Task.FromResult(isLocked);
@@ -214,8 +210,7 @@ public class UserService : IUserService
         await _context.SaveChangesAsync(cancellationToken);
 
         var eventType = isEnabled ? "AccountEnabled" : "AccountDisabled";
-        _logger.LogInformation("Audit: {EventType} - User {UserId} enabled state set to {IsEnabled}",
-            eventType, userId, isEnabled);
+        LogUserEnabledStateChanged(eventType, userId, isEnabled);
     }
 
     public async Task SetCanLoginToUIAsync(Guid userId, bool canLoginToUI, CancellationToken cancellationToken)
@@ -229,8 +224,7 @@ public class UserService : IUserService
         await _context.SaveChangesAsync(cancellationToken);
 
         var eventType = canLoginToUI ? "UIAccessGranted" : "UIAccessRevoked";
-        _logger.LogInformation("Audit: {EventType} - User {UserId} web UI access set to {CanLoginToUI}",
-            eventType, userId, canLoginToUI);
+        LogUserUIAccessChanged(eventType, userId, canLoginToUI);
     }
 
     public async Task<bool> IsAdminAsync(Guid userId, CancellationToken cancellationToken)
@@ -250,8 +244,7 @@ public class UserService : IUserService
         await _context.SaveChangesAsync(cancellationToken);
 
         var eventType = isAdmin ? "AdminGranted" : "AdminRevoked";
-        _logger.LogInformation("Audit: {EventType} - User {UserId} admin state set to {IsAdmin}",
-            eventType, userId, isAdmin);
+        LogUserAdminStateChanged(eventType, userId, isAdmin);
     }
 
     public async Task DeleteUserAsync(Guid userId, CancellationToken cancellationToken)
@@ -267,7 +260,30 @@ public class UserService : IUserService
         _context.Users.Remove(user);
         await _context.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation("Audit: {EventType} - User {Username} ({UserId}) was deleted",
-            "AccountDeleted", username, userId);
+        LogUserDeleted("AccountDeleted", username, userId);
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Audit: {EventType} - Created Entra user {Username} with ID {UserId}")]
+    private partial void LogEntraUserCreated(string eventType, string username, Guid userId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Audit: {EventType} - Created local user {Username} with ID {UserId} by {CreatedBy}")]
+    private partial void LogLocalUserCreated(string eventType, string username, Guid userId, Guid? createdBy);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Audit: {EventType} - Password updated for user {UserId}")]
+    private partial void LogPasswordUpdated(string eventType, Guid userId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Audit: {EventType} - User {UserId} locked out until {LockedUntil} after {Attempts} failed attempts")]
+    private partial void LogUserLockedOut(string eventType, Guid userId, DateTime? lockedUntil, int attempts);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Audit: {EventType} - User {UserId} enabled state set to {IsEnabled}")]
+    private partial void LogUserEnabledStateChanged(string eventType, Guid userId, bool isEnabled);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Audit: {EventType} - User {UserId} web UI access set to {CanLoginToUI}")]
+    private partial void LogUserUIAccessChanged(string eventType, Guid userId, bool canLoginToUI);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Audit: {EventType} - User {UserId} admin state set to {IsAdmin}")]
+    private partial void LogUserAdminStateChanged(string eventType, Guid userId, bool isAdmin);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Audit: {EventType} - User {Username} ({UserId}) was deleted")]
+    private partial void LogUserDeleted(string eventType, string username, Guid userId);
 }

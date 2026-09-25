@@ -71,7 +71,7 @@ public class TencentStorageService : IStorageService
         return StoragePutResult.Success;
     }
 
-    private string PrepareKey(string path)
+    private static string PrepareKey(string path)
     {
         return path.Replace("\\", Separator);
     }

@@ -8,7 +8,7 @@ namespace BaGetter.Core.Validation;
 /// <summary>
 /// Validates BaGetter's options, used at startup.
 /// </summary>
-public class ValidateStartupOptions
+public partial class ValidateStartupOptions
 {
     private readonly IOptions<BaGetterOptions> _root;
     private readonly IOptions<DatabaseOptions> _database;
@@ -55,11 +55,17 @@ public class ValidateStartupOptions
         {
             foreach (var failure in e.Failures)
             {
-                _logger.LogError("{OptionsFailure}", failure);
+                LogOptionsFailure(failure);
             }
 
-            _logger.LogError(e, "BaGet configuration is invalid.");
+            LogConfigurationInvalid(e);
             return false;
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "{OptionsFailure}")]
+    private partial void LogOptionsFailure(string optionsFailure);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "BaGet configuration is invalid.")]
+    private partial void LogConfigurationInvalid(Exception exception);
 }

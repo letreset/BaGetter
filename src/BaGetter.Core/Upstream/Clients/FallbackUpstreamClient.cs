@@ -15,7 +15,7 @@ namespace BaGetter.Core.Upstream.Clients;
 /// the union of every upstream (an earlier upstream wins for the same version), and packages are
 /// downloaded from the first upstream that has them. A failing upstream is logged and skipped.
 /// </summary>
-public class FallbackUpstreamClient : IUpstreamClient
+public partial class FallbackUpstreamClient : IUpstreamClient
 {
     private readonly IReadOnlyList<IUpstreamClient> _upstreams;
     private readonly ILogger<FallbackUpstreamClient> _logger;
@@ -77,12 +77,7 @@ public class FallbackUpstreamClient : IUpstreamClient
             }
             catch (Exception e) when (!cancellationToken.IsCancellationRequested)
             {
-                _logger.LogWarning(
-                    e,
-                    "Failed to download {PackageId} {PackageVersion} from upstream {Upstream}, trying the next upstream",
-                    id,
-                    version,
-                    upstream.GetServiceIndexUrl());
+                LogDownloadFailed(e, id, version, upstream.GetServiceIndexUrl());
             }
         }
 
@@ -106,13 +101,15 @@ public class FallbackUpstreamClient : IUpstreamClient
         }
         catch (Exception e) when (!cancellationToken.IsCancellationRequested)
         {
-            _logger.LogWarning(
-                e,
-                "Failed to list {PackageId} from upstream {Upstream}, skipping it",
-                id,
-                upstream.GetServiceIndexUrl());
+            LogListFailed(e, id, upstream.GetServiceIndexUrl());
 
             return [];
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Failed to download {PackageId} {PackageVersion} from upstream {Upstream}, trying the next upstream")]
+    private partial void LogDownloadFailed(Exception exception, string packageId, NuGetVersion packageVersion, string upstream);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Failed to list {PackageId} from upstream {Upstream}, skipping it")]
+    private partial void LogListFailed(Exception exception, string packageId, string upstream);
 }

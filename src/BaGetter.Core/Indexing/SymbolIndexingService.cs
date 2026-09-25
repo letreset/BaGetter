@@ -14,7 +14,7 @@ namespace BaGetter.Core.Indexing;
 
 // Based off: https://github.com/NuGet/NuGetGallery/blob/master/src/NuGetGallery/Services/SymbolPackageUploadService.cs
 // Based off: https://github.com/NuGet/NuGet.Jobs/blob/master/src/Validation.Symbols/SymbolsValidatorService.cs#L44
-public class SymbolIndexingService : ISymbolIndexingService
+public partial class SymbolIndexingService : ISymbolIndexingService
 {
     private static readonly HashSet<string> _validSymbolPackageContentExtensions = new HashSet<string>
     {
@@ -85,7 +85,7 @@ public class SymbolIndexingService : ISymbolIndexingService
         }
         catch (Exception e)
         {
-            _logger.LogError(e, "Unable to index symbol package due to exception");
+            LogIndexingFailed(e);
             return SymbolIndexingResult.InvalidSymbolPackage;
         }
     }
@@ -138,7 +138,7 @@ public class SymbolIndexingService : ISymbolIndexingService
     {
         // TODO: Validate that the PDB has a corresponding DLL
         // See: https://github.com/NuGet/NuGet.Jobs/blob/master/src/Validation.Symbols/SymbolsValidatorService.cs#L170
-        Stream pdbStream = null;
+        FileStream pdbStream = null;
         PortablePdb result = null;
 
         try
@@ -198,4 +198,7 @@ public class SymbolIndexingService : ISymbolIndexingService
             }
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Unable to index symbol package due to exception")]
+    private partial void LogIndexingFailed(Exception exception);
 }

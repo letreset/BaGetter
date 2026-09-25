@@ -12,7 +12,7 @@ using NuGet.Versioning;
 
 namespace BaGetter.Core;
 
-public class PackageService : IPackageService
+public partial class PackageService : IPackageService
 {
     private readonly IPackageDatabase _db;
     private readonly IUpstreamClientFactory _upstreamFactory;
@@ -130,40 +130,26 @@ public class PackageService : IPackageService
         var feed = await _feedService.GetFeedByIdAsync(feedId, cancellationToken);
         var upstream = _upstreamFactory.CreateForFeed(feed);
 
-        _logger.LogInformation(
-            "Package {PackageId} {PackageVersion} does not exist locally. Checking upstream feed ({cacheFeedUrl})...",
-            id,
-            version,
-            upstream.GetServiceIndexUrl());
+        var upstreamUrl = upstream.GetServiceIndexUrl();
+        LogCheckingUpstream(id, version, upstreamUrl);
 
         try
         {
             using var packageStream = await upstream.DownloadPackageOrNullAsync(id, version, cancellationToken);
             if (packageStream == null)
             {
-                _logger.LogWarning(
-                    "Upstream feed does not have package {PackageId} {PackageVersion}",
-                    id,
-                    version);
+                LogUpstreamPackageNotFound(id, version);
                 return false;
             }
 
             // Read after the download: with several upstreams, this is the one that served the package.
             var cacheFeedUrl = upstream.GetServiceIndexUrl();
 
-            _logger.LogInformation(
-                "Downloaded package {PackageId} {PackageVersion} from {cacheFeedUrl}, indexing...",
-                id,
-                version,
-                cacheFeedUrl);
+            LogPackageDownloaded(id, version, cacheFeedUrl);
 
             var result = await _indexer.IndexAsync(feedId, feedSlug, packageStream, cacheFeedUrl, cancellationToken);
 
-            _logger.LogInformation(
-                "Finished indexing package {PackageId} {PackageVersion} from upstream feed with result {Result}",
-                id,
-                version,
-                result);
+            LogUpstreamIndexingFinished(id, version, result);
 
             // PackageAlreadyExists means the package is present locally (indexed by another
             // instance or pushed meanwhile), so it is available rather than a failure.
@@ -172,13 +158,24 @@ public class PackageService : IPackageService
         }
         catch (Exception e)
         {
-            _logger.LogError(
-                e,
-                "Failed to index package {PackageId} {PackageVersion} from upstream",
-                id,
-                version);
+            LogUpstreamIndexingFailed(e, id, version);
 
             return false;
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Package {PackageId} {PackageVersion} does not exist locally. Checking upstream feed ({cacheFeedUrl})...")]
+    private partial void LogCheckingUpstream(string packageId, NuGetVersion packageVersion, string cacheFeedUrl);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Upstream feed does not have package {PackageId} {PackageVersion}")]
+    private partial void LogUpstreamPackageNotFound(string packageId, NuGetVersion packageVersion);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Downloaded package {PackageId} {PackageVersion} from {cacheFeedUrl}, indexing...")]
+    private partial void LogPackageDownloaded(string packageId, NuGetVersion packageVersion, string cacheFeedUrl);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Finished indexing package {PackageId} {PackageVersion} from upstream feed with result {Result}")]
+    private partial void LogUpstreamIndexingFinished(string packageId, NuGetVersion packageVersion, PackageIndexingResult result);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Failed to index package {PackageId} {PackageVersion} from upstream")]
+    private partial void LogUpstreamIndexingFailed(Exception exception, string packageId, NuGetVersion packageVersion);
 }
