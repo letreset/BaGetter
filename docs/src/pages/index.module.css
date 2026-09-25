@@ -1,23 +1,78 @@
-/**
- * CSS files with the .module.css suffix will be treated as CSS modules
- * and scoped locally.
- */
-
-.heroBanner {
-  padding: 4rem 0;
-  text-align: center;
-  position: relative;
-  overflow: hidden;
+.hero {
+  padding: 5rem 0 4rem;
+  background: var(--bagetter-hero-background);
+  color: #fff;
 }
 
-@media screen and (max-width: 996px) {
-  .heroBanner {
-    padding: 2rem;
-  }
+.heroGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  gap: 3rem;
+  align-items: center;
+}
+
+.logo {
+  width: 72px;
+  height: 72px;
+  margin-bottom: 1rem;
+}
+
+.title {
+  font-size: 3.5rem;
+  margin-bottom: 0.5rem;
+  color: #fff;
+}
+
+.tagline {
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--ifm-color-primary-lightest);
+  margin-bottom: 1rem;
+}
+
+.subtitle {
+  font-size: 1.05rem;
+  opacity: 0.85;
+  max-width: 34rem;
 }
 
 .buttons {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.buttons :global(.button--secondary.button--outline) {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+.buttons :global(.button--secondary.button--outline:hover) {
+  color: #1b1b1d;
+  background: #fff;
+}
+
+.heroCode {
+  min-width: 0;
+}
+
+.heroCode :global(.theme-code-block) {
+  margin-bottom: 0;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+
+@media screen and (max-width: 996px) {
+  .hero {
+    padding: 3rem 0;
+  }
+
+  .heroGrid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2rem;
+  }
+
+  .title {
+    font-size: 2.5rem;
+  }
 }

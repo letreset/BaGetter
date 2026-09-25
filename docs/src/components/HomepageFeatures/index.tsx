@@ -1,53 +1,61 @@
-import clsx from 'clsx';
+import Link from '@docusaurus/Link';
 import Heading from '@theme/Heading';
 import styles from './styles.module.css';
 
 type FeatureItem = {
+  icon: string;
   title: string;
-  Svg: React.ComponentType<React.ComponentProps<'svg'>>;
-  description: JSX.Element;
+  to: string;
+  description: string;
 };
 
 const FeatureList: FeatureItem[] = [
   {
-    title: '(Self-) Host Everywhere',
-    Svg: require('@site/static/img/undraw_docusaurus_mountain.svg').default,
-    description: (
-      <>
-        BaGetter empowers you to (self-) host NuGet packages anywhere, ensuring flexibility in your deployment choices.
-      </>
-    ),
+    icon: '🗂️',
+    title: 'Multiple feeds',
+    to: '/docs/feeds',
+    description: 'Separate feeds on one server, each with its own packages, overwrite and deletion rules, retention and size limit.',
   },
   {
-    title: 'Easy to Use',
-    Svg: require('@site/static/img/undraw_docusaurus_tree.svg').default,
-    description: (
-      <>
-        It is designed for simplicity, making NuGet package management easy and straightforward.
-      </>
-    ),
+    icon: '🔐',
+    title: 'Users and permissions',
+    to: '/docs/authentication',
+    description: 'Local accounts, Microsoft Entra ID sign-in, groups synced from app roles, and pull, push and delete permissions per feed.',
   },
   {
-    title: 'Full Control',
-    Svg: require('@site/static/img/undraw_docusaurus_react.svg').default,
-    description: (
-      <>
-        With BaGetter, enjoy full control over your NuGet server.
-      </>
-    ),
+    icon: '🔑',
+    title: 'Personal access tokens',
+    to: '/docs/authentication#personal-access-tokens-pats',
+    description: 'Tokens for CI and NuGet clients, with a maximum lifetime and email reminders before they expire.',
+  },
+  {
+    icon: '🪞',
+    title: 'Read-through mirrors',
+    to: '/docs/feeds#mirror-read-through-cache',
+    description: 'Cache nuget.org or any other NuGet feed per feed, with basic, bearer or custom header authentication.',
+  },
+  {
+    icon: '☁️',
+    title: 'Pluggable backends',
+    to: '/docs/configuration#database-configuration',
+    description: 'SQLite, SQL Server, PostgreSQL or MySQL, and the file system, Azure Blob, AWS S3, Google Cloud, Aliyun or Tencent storage.',
+  },
+  {
+    icon: '🚀',
+    title: 'Easy to deploy',
+    to: '/docs/Installation/docker',
+    description: 'Multi-arch Docker image, a Helm chart on GHCR, or a zip that runs anywhere .NET runs, including behind IIS.',
   },
 ];
 
-function Feature({title, Svg, description}: FeatureItem) {
+function Feature({icon, title, to, description}: FeatureItem) {
   return (
-    <div className={clsx('col col--4')}>
-      <div className="text--center">
-        <Svg className={styles.featureSvg} role="img" />
-      </div>
-      <div className="text--center padding-horiz--md">
+    <div className="col col--4">
+      <Link className={styles.card} to={to}>
+        <span className={styles.icon} aria-hidden="true">{icon}</span>
         <Heading as="h3">{title}</Heading>
         <p>{description}</p>
-      </div>
+      </Link>
     </div>
   );
 }
@@ -57,8 +65,8 @@ export default function HomepageFeatures(): JSX.Element {
     <section className={styles.features}>
       <div className="container">
         <div className="row">
-          {FeatureList.map((props, idx) => (
-            <Feature key={idx} {...props} />
+          {FeatureList.map((props) => (
+            <Feature key={props.title} {...props} />
           ))}
         </div>
       </div>
