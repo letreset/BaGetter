@@ -80,6 +80,10 @@ Some PostgreSQL databases created by BaGet or upstream BaGetter still have `Pack
 
 If the log says `Cannot convert "Packages"."Version" to citext`, the database has versions of the same package that only differ by case. Delete one of each pair and start BaGetter again.
 
+### Mirrored feeds cache upstream version lists
+
+Mirrored feeds now keep upstream version lists and metadata in memory for 5 minutes by default, instead of asking the upstream on every request. This takes most of the load off the upstreams during restores, but a version newly published upstream can take up to 5 minutes to appear in the feed. To keep the old behavior, set `UpstreamListingCacheSeconds` to `0` globally or on the feed. See [Upstream listing cache](feeds.md#upstream-listing-cache).
+
 ### New settings you may want
 
 These are optional and off or safe by default. See [Configuration](configuration.md).
@@ -88,4 +92,6 @@ These are optional and off or safe by default. See [Configuration](configuration
 - `Cors`: allowed origins for browser clients.
 - `SecurityHeaders`: security headers (on by default) and optional HSTS.
 - `RequestRateLimit`: per-client request rate limiting (off by default).
+- `Database:ServerVersion` (MySQL): skips server version detection.
+- `Database:JournalMode` (SQLite): sets the journal mode, e.g. `WAL`.
 - `Email` and `PatExpiryNotification`: emails before personal access tokens expire.

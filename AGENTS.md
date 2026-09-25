@@ -139,6 +139,7 @@ Docker defaults (`Dockerfile`): the `/data` volume holds packages, symbols and t
 - One top-level type per file. The exception is a small helper that is only meaningful next to its owner (e.g. `enum PackageAddResult` beside `IPackageDatabase`). If a reader would look for the helper anywhere else, split it out.
 - Suppress CS1591 for non-public XML docs.
 - Logging goes through the `[LoggerMessage]` source generator: make the class `partial` and add `private partial void LogXxx(...)` methods at the bottom of the file. Don't call `ILogger.LogInformation`/`LogWarning`/… directly (CA1873). Keep placeholder names stable, since they are structured log properties (e.g. the `AUDIT` lines in `PackagePublishController`).
+- Razor pages must not depend on the server culture (the Docker image is invariant). Render dates with `Html.DisplayDate(utc)` (`yyyy-MM-dd` with a UTC tooltip) and format numbers with the invariant culture (e.g. `RazorExtensions.ToMetric`).
 - The build should stay free of warnings. EF migrations are exempt from CA1861 via `.editorconfig`.
 
 ## Testing
