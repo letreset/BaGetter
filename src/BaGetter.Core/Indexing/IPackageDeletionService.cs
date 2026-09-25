@@ -13,7 +13,7 @@ public interface IPackageDeletionService
     /// This leverages semver 2.0 - and assume a package is major.minor.patch-prerelease.build
     /// It can leverage the <see cref="IPackageDatabase"/> to list all versions of a package and then delete all but the last <paramref name="maxMajor"/> versions.
     /// The version of <paramref name="package"/> itself is never deleted, even if it falls outside the limits.
-    /// It also takes into account the <paramref name="maxMinor"/>, <paramref name="maxPath"/> and <paramref name="maxPrerelease"/> parameters to further filter the versions to delete.
+    /// It also takes into account the <paramref name="maxMinor"/>, <paramref name="maxPatch"/> and <paramref name="maxPrerelease"/> parameters to further filter the versions to delete.
     /// </summary>
     /// <param name="feedId">The feed's id.</param>
     /// <param name="feedSlug">The feed's slug, used to prefix storage paths.</param>
