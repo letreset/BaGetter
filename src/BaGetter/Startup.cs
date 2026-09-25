@@ -88,7 +88,7 @@ public class Startup
         ConfigureDataProtection(services);
     }
 
-    private void ConfigureDataProtection(IServiceCollection services)
+    private static void ConfigureDataProtection(IServiceCollection services)
     {
         // Persist the Data Protection key ring through BaGetter's storage abstraction so it survives
         // container restarts and new revisions, for every storage backend (FileSystem, Azure Blob,

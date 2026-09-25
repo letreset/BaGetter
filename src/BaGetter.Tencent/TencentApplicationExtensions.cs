@@ -26,8 +26,9 @@ public static class TencentApplicationExtensions
 
         app.Services.AddProvider<IStorageService>((provider, config) =>
         {
+            // AddProvider treats null as "not this provider"; BaGetter.Core has no nullable annotations.
             if (!config.HasStorageType("TencentCos"))
-                return null;
+                return null!;
 
             return provider.GetRequiredService<TencentStorageService>();
         });

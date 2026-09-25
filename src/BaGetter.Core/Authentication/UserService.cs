@@ -155,7 +155,7 @@ public class UserService : IUserService
 
     public Task<bool> VerifyPasswordAsync(User user, string password)
     {
-        if (user == null) throw new ArgumentNullException(nameof(user));
+        ArgumentNullException.ThrowIfNull(user);
         if (string.IsNullOrEmpty(user.PasswordHash)) return Task.FromResult(false);
 
         var result = BCrypt.Net.BCrypt.Verify(password, user.PasswordHash);
@@ -192,7 +192,7 @@ public class UserService : IUserService
 
     public Task<bool> IsLockedOutAsync(User user)
     {
-        if (user == null) throw new ArgumentNullException(nameof(user));
+        ArgumentNullException.ThrowIfNull(user);
 
         var isLocked = user.LockedUntilUtc.HasValue && user.LockedUntilUtc.Value > DateTime.UtcNow;
         return Task.FromResult(isLocked);

@@ -37,7 +37,7 @@ internal static class ServiceCollectionExtensions
         return app;
     }
 
-    internal static BaGetterApplication AddNugetBasicHttpAuthorization(this BaGetterApplication app, Action<AuthorizationPolicyBuilder>? configurePolicy = null)
+    internal static BaGetterApplication AddNugetBasicHttpAuthorization(this BaGetterApplication app, Action<AuthorizationPolicyBuilder> configurePolicy = null)
     {
         app.Services.AddScoped<IAuthorizationHandler, FeedPermissionHandler>();
 

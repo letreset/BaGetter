@@ -55,7 +55,9 @@ public class ValidateBaGetterOptions
         var failures = new List<string>();
 
         if (options.Database == null) failures.Add($"The '{nameof(BaGetterOptions.Database)}' config is required");
+#pragma warning disable CS0618 // Still validated because it seeds the default feed.
         if (options.Mirror == null) failures.Add($"The '{nameof(BaGetterOptions.Mirror)}' config is required");
+#pragma warning restore CS0618
         if (options.Search == null) failures.Add($"The '{nameof(BaGetterOptions.Search)}' config is required");
         if (options.Storage == null) failures.Add($"The '{nameof(BaGetterOptions.Storage)}' config is required");
         if (options.RegistrationPageSize < 1) failures.Add($"The '{nameof(BaGetterOptions.RegistrationPageSize)}' config must be at least 1");

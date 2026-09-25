@@ -74,7 +74,7 @@ public class BucketClient
     {
         try
         {
-            string nextMarker = null;
+            string? nextMarker = null;
             do
             {
                 var listRequest = new GetBucketRequest(_fullBucketName);

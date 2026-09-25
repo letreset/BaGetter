@@ -41,6 +41,7 @@ public interface ISearchService
     /// <summary>
     /// Find the packages that depend on a given package.
     /// </summary>
+    /// <param name="feedId">The feed's id.</param>
     /// <param name="packageId">The package whose dependents should be found.</param>
     /// <param name="cancellationToken">A token to cancel the task.</param>
     /// <returns>The dependents response.</returns>

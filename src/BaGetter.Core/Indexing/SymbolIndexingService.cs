@@ -138,7 +138,7 @@ public class SymbolIndexingService : ISymbolIndexingService
     {
         // TODO: Validate that the PDB has a corresponding DLL
         // See: https://github.com/NuGet/NuGet.Jobs/blob/master/src/Validation.Symbols/SymbolsValidatorService.cs#L170
-        Stream pdbStream = null;
+        FileStream pdbStream = null;
         PortablePdb result = null;
 
         try

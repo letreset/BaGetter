@@ -6,7 +6,7 @@ public class BaGetterOptions
 {
     /// <summary>
     /// The API Key required to authenticate package
-    /// operations. If <see cref="ApiKeys"/> and  <see cref="ApiKey"/> are not set, package operations do not require authentication.
+    /// operations. If <see cref="ApiKey"/> is not set, package operations do not require authentication.
     /// </summary>
     public string ApiKey { get; set; }
 
