@@ -6,6 +6,8 @@ What a user sees depends on their [permissions](authentication.md#feed-permissio
 
 ## Navigation
 
+![The package list of the Internal feed, with the feed switcher open](./assets/web-ui/packages.png)
+
 The top bar shows these tabs for the current feed:
 
 | Tab | Shown when | Contents |
@@ -16,7 +18,9 @@ The top bar shows these tabs for the current feed:
 | Upload | The user can push to the feed | Commands to publish packages |
 | Statistics | The page is [enabled](configuration.md#statistics) and the user can pull from the feed | Package and version counts |
 
-Signed-in users also get a user menu with **My Tokens**, and administrators get the **Admin** pages.
+Signed-in users also get a user menu. Entra users find **My Tokens** there, and administrators the **Admin** pages.
+
+In the `Local`, `Entra` and `Hybrid` modes, a signed-in user who opens the root URL lands on the first feed, in the order set on **Admin > Feeds**, that they can pull from. A user who opens a feed they can't pull from is sent to that feed as well.
 
 ## Search and filters
 
@@ -35,6 +39,8 @@ Users who can delete from the feed also see unlisted packages in the list, so th
 
 ## Package page
 
+![A package page with its readme, version history and the Manage section](./assets/web-ui/package.png)
+
 A package page shows:
 
 - The install command for the .NET CLI, `PackageReference`, Paket CLI and the Package Manager console, with a copy button.
@@ -45,7 +51,7 @@ A package page shows:
 
 ## Unlist, relist and delete
 
-Users with the **Delete** permission on the feed can manage versions on the package page:
+Users with the **Delete** permission on the feed can manage versions on the package page, in the **Manage** section:
 
 - **Unlist** hides a version from search and listings, but keeps it. Clients that already reference that exact version can still restore it.
 - **Relist** makes an unlisted version visible again. Unlisted versions are struck through in the version history, with a **Relist** link.
@@ -55,7 +61,9 @@ The feed's deletion behavior only applies to deletes from NuGet clients (`dotnet
 
 ## Connect
 
-The **Connect** tab shows the feed's service index URL with a copy button, and explains how to authenticate for the server's [authentication mode](authentication.md#authentication-modes): which user name and password or token to use, and a `nuget.config` example. In the `Local`, `Entra` and `Hybrid` modes, users must sign in to see it. See also [Connecting a client](feeds.md#connecting-a-client).
+![The Connect page of the Internal feed](./assets/web-ui/connect.png)
+
+The **Connect** tab shows the feed's service index URL with a copy button, and explains how to authenticate for the server's [authentication mode](authentication.md#authentication-modes): which user name and password or token to use, with commands for the .NET CLI, the NuGet CLI, `nuget.config` and Paket. In the `Local`, `Entra` and `Hybrid` modes, users must sign in to see it. See also [Connecting a client](feeds.md#connecting-a-client).
 
 ## Upload
 
@@ -67,7 +75,7 @@ The **Statistics** tab shows how many packages and versions the current feed has
 
 ## My Tokens
 
-**My Tokens** in the user menu lists the signed-in user's [personal access tokens](authentication.md#personal-access-tokens-pats), and lets them create and revoke tokens. A new token is shown only once.
+**My Tokens** in the user menu lists the signed-in user's [personal access tokens](authentication.md#personal-access-tokens-pats), and lets them create and revoke tokens. A new token is shown only once. The page is only available to users who signed in with Microsoft Entra ID.
 
 ## Administration
 
@@ -76,5 +84,21 @@ Administrators get these pages under **Admin**:
 | Page | Contents |
 |---|---|
 | Feeds | Create, edit, reorder and delete [feeds](feeds.md#managing-feeds), and open each feed's [settings](feeds.md#feed-settings) and mirrors |
-| Accounts | Create, enable, disable and delete [local accounts](authentication.md#local-accounts), allow or block web sign-in, reset passwords, and see Entra users who have signed in |
+| Accounts | Create, enable and disable [local accounts](authentication.md#local-accounts), allow or block web sign-in, and see Entra users who have signed in. A disabled account can be deleted |
 | Groups & Permissions | Manage [groups](authentication.md#groups), their members, and their [permissions](authentication.md#feed-permissions) on each feed |
+
+### Feeds
+
+![Admin > Feeds with three feeds](./assets/web-ui/admin-feeds.png)
+
+Drag a feed by its handle to change the order. The order is saved right away, and is used by the feed switcher and to pick the feed a user lands on.
+
+### Accounts
+
+![Admin > Accounts with four local accounts](./assets/web-ui/admin-accounts.png)
+
+### Groups & Permissions
+
+![A group with two members and its permissions on each feed](./assets/web-ui/admin-groups.png)
+
+Open **Feed Permissions** under a group to set its **Pull**, **Push** and **Delete** permissions on each feed, then select **Save all**. Clearing all three removes the group's access to that feed.

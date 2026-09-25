@@ -30,6 +30,8 @@ The same operations are available as a JSON API at `/api/v1/feeds` (`GET`, `POST
 
 Open **Admin > Feeds > Settings** for a feed (`/Admin/Feeds/{slug}/Settings`). Each setting has a **Use global default** checkbox: while it is checked, the feed follows the value from [configuration](configuration.md); uncheck it to override the value for this feed only.
 
+![Feed settings with an overwrite policy and two retention limits set for this feed, and the other settings on their global defaults](./assets/feeds/feed-settings.png)
+
 | Setting | Global setting | Description |
 |---|---|---|
 | Read-only mode | `IsReadOnlyMode` | Reject pushes and deletes on this feed |
@@ -60,6 +62,8 @@ Mirrors are listed on each feed's settings page, under **Mirrors**. Use **Add mi
 | Authentication type | `None`, `Basic` (username and password), `Bearer` (token) or `Custom` (headers as JSON, e.g. `{"X-Api-Key":"value"}`) |
 
 Password and token fields are write-only: leave them blank to keep the stored value.
+
+![The Mirrors section of a feed's settings, with nuget.org as the first of two mirrors](./assets/feeds/feed-mirrors.png)
 
 :::warning
 

@@ -6,9 +6,7 @@ sidebar_label: Introduction
 
 BaGetter (pronounced "ba getter") is a lightweight, self-hosted **NuGet and symbol server** for .NET teams. It implements the NuGet v3 protocol, so `dotnet`, NuGet, Visual Studio and Rider work with it out of the box. It is [open source](https://github.com/letreset/BaGetter), cross-platform and cloud ready.
 
-<p align="center">
-  <img width="100%" src="https://user-images.githubusercontent.com/737941/50140219-d8409700-0258-11e9-94c9-dad24d2b48bb.png" alt="The BaGetter package list"/>
-</p>
+![The BaGetter package list](./assets/overview.png)
 
 ## About this fork
 
