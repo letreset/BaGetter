@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="Pomelo.EntityFrameworkCore.MySql" />
   </ItemGroup>
 
