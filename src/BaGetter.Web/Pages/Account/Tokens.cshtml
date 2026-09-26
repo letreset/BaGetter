@@ -65,7 +65,7 @@
     else
     {
         <div class="table-responsive">
-        <table class="table table-striped">
+        <table class="table table-striped data-table">
             <thead>
                 <tr>
                     <th>Prefix</th>
@@ -74,7 +74,7 @@
                     <th>Expires</th>
                     <th>Last Used</th>
                     <th>Status</th>
-                    <th></th>
+                    <th class="cell-actions"></th>
                 </tr>
             </thead>
             <tbody>
@@ -83,9 +83,9 @@
                     <tr class="@(token.IsRevoked ? "text-muted" : (token.ExpiresAtUtc <= DateTime.UtcNow ? "text-muted" : ""))">
                         <td><code>@token.TokenPrefix...</code></td>
                         <td>@token.Name</td>
-                        <td>@Html.DisplayDate(token.CreatedAtUtc)</td>
-                        <td>@Html.DisplayDate(token.ExpiresAtUtc)</td>
-                        <td>@if (token.LastUsedAtUtc.HasValue) { @Html.DisplayDate(token.LastUsedAtUtc.Value) } else { <text>Never</text> }</td>
+                        <td class="text-nowrap">@Html.DisplayDate(token.CreatedAtUtc)</td>
+                        <td class="text-nowrap">@Html.DisplayDate(token.ExpiresAtUtc)</td>
+                        <td class="text-nowrap">@if (token.LastUsedAtUtc.HasValue) { @Html.DisplayDate(token.LastUsedAtUtc.Value) } else { <text>Never</text> }</td>
                         <td>
                             @if (token.IsRevoked)
                             {
@@ -100,15 +100,15 @@
                                 <span class="label label-success">Active</span>
                             }
                         </td>
-                        <td>
+                        <td class="cell-actions">
                             @if (!token.IsRevoked && token.ExpiresAtUtc > DateTime.UtcNow)
                             {
                                 <form method="post" asp-page-handler="Revoke" style="display:inline"
                                       data-confirm="Are you sure you want to revoke this token?">
                                     @Html.AntiForgeryToken()
                                     <input type="hidden" name="tokenId" value="@token.Id" />
-                                    <button type="submit" class="btn btn-danger btn-xs">
-                                        Revoke
+                                    <button type="submit" class="btn btn-sm btn-icon btn-icon-red" title="Revoke" aria-label="Revoke">
+                                        <span class="ms-Icon ms-Icon--Blocked" aria-hidden="true"></span>
                                     </button>
                                 </form>
                             }

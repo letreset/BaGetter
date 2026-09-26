@@ -1173,26 +1173,115 @@ code,
   border-color: var(--alert-success-border-color);
 }
 
-/* Admin > Accounts: row actions that need input (token, password) */
-.account-action {
+/* Shared style for the admin and account tables: headers on one line, cells centered vertically,
+   so rows line up. Add .data-table to the table. */
+.data-table > thead > tr > th {
+  white-space: nowrap;
+}
+
+.data-table > thead > tr > th,
+.data-table > tbody > tr > td {
+  padding-left: 6px;
+  padding-right: 6px;
+}
+
+.data-table > tbody > tr > td {
+  vertical-align: middle;
+}
+
+.data-table .label {
   display: inline-block;
-  vertical-align: top;
+  margin: 2px 4px 2px 0;
 }
 
-.account-action > summary {
-  list-style: none;
+/* Checkbox columns */
+.data-table .cell-center {
+  width: 72px;
+  text-align: center;
 }
 
-.account-action > summary::-webkit-details-marker {
-  display: none;
+.data-table .cell-center input[type="checkbox"] {
+  margin: 0;
 }
 
-.account-action[open] > form {
-  margin-top: 6px;
+/* The row's action buttons, kept as narrow as they can be */
+.data-table .cell-actions {
+  width: 1%;
+  white-space: nowrap;
 }
 
-.account-action .form-control {
-  margin-bottom: 4px;
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.row-actions + .row-actions {
+  margin-top: 4px;
+}
+
+.cell-actions .row-actions {
+  flex-wrap: nowrap;
+}
+
+/* Admin > Groups: the same username column width in every group, so the member tables line up */
+.group-members-table > thead > tr > th:first-child {
+  width: 40%;
+}
+
+.row-actions form {
+  display: inline;
+}
+
+/* Icon buttons. The name is in title (shown on hover) and aria-label. The icons are white,
+   so every color keeps at least 3:1 contrast. */
+.btn-icon {
+  min-width: 32px;
+  color: #fff;
+  border-color: transparent;
+}
+
+.btn-icon .ms-Icon {
+  font-size: 14px;
+  vertical-align: middle;
+}
+
+.btn-icon:hover,
+.btn-icon:focus {
+  color: #fff;
+  filter: brightness(0.85);
+}
+
+.btn-icon-blue { background-color: #2f6fb0; }
+.btn-icon-purple { background-color: #6f42c1; }
+.btn-icon-orange { background-color: #d97706; }
+.btn-icon-green { background-color: #2e8b57; }
+.btn-icon-teal { background-color: #0e7c86; }
+.btn-icon-slate { background-color: #5a6268; }
+.btn-icon-pink { background-color: #c2255c; }
+.btn-icon-red { background-color: #c9302c; }
+
+/* Admin > Accounts: small popups for the actions that need input (token, password) */
+.account-popover {
+  width: 320px;
+  max-width: calc(100vw - 32px);
+  padding: 16px;
+  color: var(--text-color);
+  background-color: var(--body-bg-color);
+  border: 1px solid rgba(128, 128, 128, 0.4);
+  border-radius: 4px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
+}
+
+.account-popover::backdrop {
+  background-color: rgba(0, 0, 0, 0.2);
+}
+
+.account-popover h4 {
+  margin-top: 0;
+  margin-bottom: 12px;
+  overflow-wrap: anywhere;
 }
 
 [x-cloak] {

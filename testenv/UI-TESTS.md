@@ -124,6 +124,8 @@ For every page you open, the browser console should show no errors.
 | A5a | `admin` | `alice` > **Make admin**, sign in as `alice` and open Admin > Accounts; then **Remove admin** as `admin` | `alice` can open the page while she is an admin |
 | A5b | `admin` | After S7 (`bob` locked), open Admin > Accounts and **Unlock** `bob` | A "Locked until" label before; `bob` can sign in right away after |
 | A6 | `admin` | `bob` > **Reset password** with a 12+ character password, then sign in as `bob` with it | "Password of 'bob' reset successfully.", and the sign-in works (also right after S7's lockout) |
+| A7 | `admin` | Look at the account table, hover the action buttons | Headers, dates and usernames stay on one line; every row has **New token** and **Reset password** on the first line and the state buttons below. The actions are colored icon buttons whose names show on hover |
+| A8 | `admin` | Open **New token** on `build-agent` (the last row), press Esc, open it again, type a name and press Enter | A small popup over the page with the cursor in the name field and nothing cut off; Esc closes it; Enter creates the token |
 
 ## Admin > Groups & Permissions
 

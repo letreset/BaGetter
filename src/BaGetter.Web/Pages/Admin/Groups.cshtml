@@ -70,7 +70,9 @@
                               data-confirm="Are you sure you want to delete this group? All memberships and permissions will be removed.">
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="groupId" value="@group.Id" />
-                            <button type="submit" class="btn btn-xs btn-danger">Delete</button>
+                            <button type="submit" class="btn btn-sm btn-icon btn-icon-red" title="Delete group" aria-label="Delete group">
+                                <span class="ms-Icon ms-Icon--Delete" aria-hidden="true"></span>
+                            </button>
                         </form>
                     </h4>
                     @if (!string.IsNullOrEmpty(group.Description))
@@ -89,12 +91,13 @@
                     }
                     @if (group.UserGroups != null && group.UserGroups.Count > 0)
                     {
-                        <table class="table table-condensed table-striped" style="margin-bottom:8px">
+                        @* Fixed column widths, so the member tables of all groups line up. *@
+                        <table class="table table-condensed table-striped data-table group-members-table">
                             <thead>
                                 <tr>
                                     <th>Username</th>
                                     <th>Provider</th>
-                                    <th style="width:1%"></th>
+                                    <th class="cell-actions"></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -111,14 +114,16 @@
                                                 <span class="label label-info" title="Synced via App Role '@group.AppRoleValue'">Synced</span>
                                             }
                                         </td>
-                                        <td>
+                                        <td class="cell-actions">
                                             @if (canRemove)
                                             {
                                                 <form method="post" asp-page-handler="RemoveUser">
                                                     @Html.AntiForgeryToken()
                                                     <input type="hidden" name="groupId" value="@group.Id" />
                                                     <input type="hidden" name="userId" value="@ug.UserId" />
-                                                    <button type="submit" class="btn btn-xs btn-danger" title="Remove member">Remove</button>
+                                                    <button type="submit" class="btn btn-sm btn-icon btn-icon-red" title="Remove member" aria-label="Remove member">
+                                                        <span class="ms-Icon ms-Icon--UserRemove" aria-hidden="true"></span>
+                                                    </button>
                                                 </form>
                                             }
                                         </td>
@@ -150,7 +155,9 @@
                                     }
                                 </select>
                             </div>
-                            <button type="submit" class="btn btn-xs btn-success">Add Member</button>
+                            <button type="submit" class="btn btn-sm btn-icon btn-icon-green" title="Add member" aria-label="Add member">
+                                <span class="ms-Icon ms-Icon--AddFriend" aria-hidden="true"></span>
+                            </button>
                         </form>
                     }
 
@@ -186,13 +193,13 @@
                             <form method="post" asp-page-handler="SavePermissions">
                                 @Html.AntiForgeryToken()
                                 <input type="hidden" name="groupId" value="@group.Id" />
-                                <table class="table table-condensed table-striped">
+                                <table class="table table-condensed table-striped data-table">
                                     <thead>
                                         <tr>
                                             <th>Feed</th>
-                                            <th style="width:1%; white-space:nowrap">Pull</th>
-                                            <th style="width:1%; white-space:nowrap">Push</th>
-                                            <th style="width:1%; white-space:nowrap">Delete</th>
+                                            <th class="cell-center">Pull</th>
+                                            <th class="cell-center">Push</th>
+                                            <th class="cell-center">Delete</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -206,15 +213,15 @@
                                                     <strong>@feed.Name</strong>
                                                     <small class="text-muted">(@feed.Slug)</small>
                                                 </td>
-                                                <td>
+                                                <td class="cell-center">
                                                     <input type="checkbox" name="permissions[@rowIndex].CanPull" value="true"
                                                            @(feedPerm?.CanPull == true ? "checked" : "") />
                                                 </td>
-                                                <td>
+                                                <td class="cell-center">
                                                     <input type="checkbox" name="permissions[@rowIndex].CanPush" value="true"
                                                            @(feedPerm?.CanPush == true ? "checked" : "") />
                                                 </td>
-                                                <td>
+                                                <td class="cell-center">
                                                     <input type="checkbox" name="permissions[@rowIndex].CanDelete" value="true"
                                                            @(feedPerm?.CanDelete == true ? "checked" : "") />
                                                 </td>
