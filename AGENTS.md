@@ -66,6 +66,16 @@ Upstream is only a source to cherry-pick from. We don't send PRs there.
 | `docs/` | Docusaurus site, deployed to GitHub Pages by `docs.yml` |
 | `deployment templates/` | Helm chart (`chart/bagetter`, built on bjw-s app-template) |
 
+## Code navigation (CodeGraph)
+
+The repo is indexed by CodeGraph (`.codegraph/` is local to each machine; only `.codegraph/.gitignore` is committed). When the index exists, use it before grep or reading whole files:
+
+- **MCP tools:** `codegraph_explore` returns the current, line-numbered source of the symbols you name plus the call paths between them, including DI and interface-to-implementation hops that grep can't follow. `codegraph_callers` lists who calls a symbol, `codegraph_impact` what a change affects, `codegraph_files` the indexed file tree.
+- **Always pass `projectPath`** (the repo root, e.g. `C:\Users\<you>\source\repos\BaGetter`). The server has no default project, and calls without it fail with "expected string, received undefined".
+- Name symbols or files in the query, e.g. `"FeedResolutionMiddleware IFeedContext CurrentFeed"`. One call covers about six files; spend a second call on the uncovered area rather than reading files.
+- The index lags behind uncommitted edits: files marked "changed on disk" come back without source, so read those directly, and re-read any file before editing it. Grep is still the tool for string literals, config keys, `.cshtml`, JSON and YAML.
+- If the MCP server doesn't connect, the CLI (`codegraph explore "<symbols or question>"`) prints the same output when it is on the `PATH`; otherwise fall back to grep and reading.
+
 ## Build & test
 
 ```bash
