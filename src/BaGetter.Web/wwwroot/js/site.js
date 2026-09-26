@@ -118,6 +118,30 @@
         }
     };
 
+    // Switch between the light and the dark theme. The inline script in _Layout applies the
+    // saved choice before the page renders; this keeps the button label in sync and saves changes.
+    function updateThemeToggles() {
+        var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        var label = dark ? 'Switch to light mode' : 'Switch to dark mode';
+        var toggles = document.querySelectorAll('[data-theme-toggle]');
+        for (var i = 0; i < toggles.length; i++) {
+            toggles[i].setAttribute('title', label);
+            toggles[i].setAttribute('aria-label', label);
+        }
+    }
+
+    document.addEventListener('click', function (event) {
+        var toggle = event.target.closest && event.target.closest('[data-theme-toggle]');
+        if (!toggle) return;
+
+        var theme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', theme);
+        try { localStorage.setItem('bagetter-theme', theme); } catch (e) { }
+        updateThemeToggles();
+    });
+
+    updateThemeToggles();
+
     // Ask for confirmation before submitting a form with a data-confirm attribute. The text
     // comes from an HTML attribute, never from JavaScript built on the server, so usernames,
     // slugs and package ids with quotes are shown literally and can't inject code.

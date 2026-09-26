@@ -43,9 +43,11 @@
   --code-text-color: #c7254e;
 }
 
-/* Dark Mode */
-@media (prefers-color-scheme: dark) {
-  :root {
+/* Dark Mode. The theme script in _Layout sets data-theme from the saved choice or the system setting.
+   The other dark rules are nested under :where(:root[data-theme="dark"]), which keeps their specificity
+   the same as without the theme selector. */
+:root[data-theme="dark"] {
+    color-scheme: dark;
     /* Layout */
     --body-bg-color: #121212;
     --footer-bg-color: #333;
@@ -88,12 +90,11 @@
     /* Upload page */
     --code-bg-color: #2d2d2d;
     --code-text-color: #e06c75;
-  }
 }
 
 
 /* Dark Mode - Form Controls */
-@media (prefers-color-scheme: dark) {
+:where(:root[data-theme="dark"]) {
   .form-control,
   .form-control:focus,
   input[type="text"],
@@ -581,7 +582,32 @@ code,
   text-decoration: none;
 }
 
-@media (prefers-color-scheme: dark) {
+/* Light/dark theme switch in the navigation bar; the icon shows the theme it switches to */
+.theme-toggle {
+  padding: 15px;
+  font-size: 16px;
+  line-height: 20px;
+  color: var(--navbar-text-color);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.theme-toggle:hover,
+.theme-toggle:focus {
+  color: var(--navbar-active-text-color);
+}
+
+.theme-toggle-light,
+:root[data-theme="dark"] .theme-toggle-dark {
+  display: none;
+}
+
+:root[data-theme="dark"] .theme-toggle-light {
+  display: inline-block;
+}
+
+:where(:root[data-theme="dark"]) {
   .dropdown-menu {
     background-color: #2a2a2a;
     border-color: #444;
