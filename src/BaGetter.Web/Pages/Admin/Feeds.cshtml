@@ -59,7 +59,7 @@
             that they have permission to access.
         </p>
         <div class="table-responsive">
-        <table class="table table-striped" id="feeds-table">
+        <table class="table table-striped data-table" id="feeds-table">
             <thead>
                 <tr>
                     <th style="width:1%"></th>
@@ -76,7 +76,7 @@
                     <tbody class="feed-group" data-feed-id="@feed.Id">
                     <tr>
                         <td class="drag-handle-cell"><span class="glyphicon glyphicon-menu-hamburger drag-handle" title="Drag to reorder" aria-hidden="true"></span></td>
-                        <td>
+                        <td class="text-nowrap">
                             @feed.Slug
                             @if (isDefault)
                             {
@@ -85,26 +85,34 @@
                         </td>
                         <td>@feed.Name</td>
                         <td>@feed.Description</td>
-                        <td>@Html.DisplayDate(feed.CreatedAtUtc)</td>
-                        <td style="white-space: nowrap">
-                            <a asp-page="/Admin/FeedSettings" asp-route-slug="@feed.Slug" class="btn btn-xs btn-default">Settings</a>
-                            <button type="button"
-                                    class="btn btn-xs btn-warning"
-                                    data-toggle="collapse"
-                                    data-target="#edit-@feed.Id"
-                                    aria-expanded="false"
-                                    aria-controls="edit-@feed.Id">
-                                Edit details
-                            </button>
-                            @if (!isDefault)
-                            {
-                                <form method="post" asp-page-handler="Delete" style="display:inline"
-                                      data-confirm="@($"Are you sure you want to delete feed '{feed.Slug}'? All packages in this feed will be removed.")">
-                                    @Html.AntiForgeryToken()
-                                    <input type="hidden" name="feedId" value="@feed.Id" />
-                                    <button type="submit" class="btn btn-xs btn-danger">Delete</button>
-                                </form>
-                            }
+                        <td class="text-nowrap">@Html.DisplayDate(feed.CreatedAtUtc)</td>
+                        <td class="cell-actions">
+                            <div class="row-actions">
+                                <a asp-page="/Admin/FeedSettings" asp-route-slug="@feed.Slug" class="btn btn-sm btn-icon btn-icon-slate" title="Settings" aria-label="Settings">
+                                    <span class="ms-Icon ms-Icon--Settings" aria-hidden="true"></span>
+                                </a>
+                                <button type="button"
+                                        class="btn btn-sm btn-icon btn-icon-blue"
+                                        data-toggle="collapse"
+                                        data-target="#edit-@feed.Id"
+                                        aria-expanded="false"
+                                        aria-controls="edit-@feed.Id"
+                                        title="Edit details"
+                                        aria-label="Edit details">
+                                    <span class="ms-Icon ms-Icon--Rename" aria-hidden="true"></span>
+                                </button>
+                                @if (!isDefault)
+                                {
+                                    <form method="post" asp-page-handler="Delete"
+                                          data-confirm="@($"Are you sure you want to delete feed '{feed.Slug}'? All packages in this feed will be removed.")">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="feedId" value="@feed.Id" />
+                                        <button type="submit" class="btn btn-sm btn-icon btn-icon-red" title="Delete" aria-label="Delete">
+                                            <span class="ms-Icon ms-Icon--Delete" aria-hidden="true"></span>
+                                        </button>
+                                    </form>
+                                }
+                            </div>
                         </td>
                     </tr>
                     <tr class="feed-edit-row">
@@ -121,7 +129,7 @@
                                         <label>Description</label>
                                         <input type="text" name="EditDescription" class="form-control input-sm" value="@feed.Description" style="max-width:400px" maxlength="4000" />
                                     </div>
-                                    <button type="submit" class="btn btn-xs btn-primary">Save</button>
+                                    <button type="submit" class="btn btn-sm btn-primary">Save</button>
                                 </form>
                             </div>
                         </td>

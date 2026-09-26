@@ -69,7 +69,7 @@
     else
     {
         <div class="table-responsive">
-        <table class="table table-striped">
+        <table class="table table-striped data-table">
             <thead>
                 <tr>
                     <th>Username</th>
@@ -88,14 +88,18 @@
                 {
                     var isSelf = user.Id == Model.CurrentUserId;
                     var isLocal = user.AuthProvider == BaGetter.Core.Entities.AuthProvider.Local;
+                    var isLocked = BaGetter.Web.Pages.Admin.AccountsModel.IsLocked(user);
+                    var enabledLabel = user.IsEnabled ? "Disable" : "Enable";
+                    var webAccessLabel = user.CanLoginToUI ? "Revoke Web Access" : "Grant Web Access";
+                    var adminLabel = user.IsAdmin ? "Remove admin" : "Make admin";
                     <tr class="@(!user.IsEnabled ? "text-muted" : "")">
-                        <td>
+                        <td class="text-nowrap">
                             @user.Username
                             @if (user.IsAdmin)
                             {
                                 <span class="label label-primary" title="@(isLocal ? "Administrator" : "Administrator through the Entra Admin app role")">Admin</span>
                             }
-                            @if (BaGetter.Web.Pages.Admin.AccountsModel.IsLocked(user))
+                            @if (isLocked)
                             {
                                 <span class="label label-warning" title="Too many failed sign-ins">Locked until @user.LockedUntilUtc.Value.ToString("yyyy-MM-dd HH:mm", System.Globalization.CultureInfo.InvariantCulture) UTC</span>
                             }
@@ -153,84 +157,103 @@
                                 <span class="label label-danger">No</span>
                             }
                         </td>
-                        <td>@Html.DisplayDate(user.CreatedAtUtc)</td>
+                        <td class="text-nowrap">@Html.DisplayDate(user.CreatedAtUtc)</td>
                         <td>
-                            @* The signed-in administrator can't lock themselves out, so their own row has no Disable, Revoke Web Access or Remove admin. *@
-                            @if (!isSelf)
-                            {
-                                <form method="post" asp-page-handler="ToggleEnabled" style="display:inline">
-                                    @Html.AntiForgeryToken()
-                                    <input type="hidden" name="userId" value="@user.Id" />
-                                    <input type="hidden" name="isEnabled" value="@user.IsEnabled.ToString()" />
-                                    <button type="submit" class="btn btn-xs @(user.IsEnabled ? "btn-warning" : "btn-success")">
-                                        @(user.IsEnabled ? "Disable" : "Enable")
-                                    </button>
-                                </form>
-                                <form method="post" asp-page-handler="ToggleCanLoginToUI" style="display:inline">
-                                    @Html.AntiForgeryToken()
-                                    <input type="hidden" name="userId" value="@user.Id" />
-                                    <input type="hidden" name="canLoginToUI" value="@user.CanLoginToUI.ToString()" />
-                                    <button type="submit" class="btn btn-xs @(user.CanLoginToUI ? "btn-warning" : "btn-success")">
-                                        @(user.CanLoginToUI ? "Revoke Web Access" : "Grant Web Access")
-                                    </button>
-                                </form>
-                                @if (isLocal)
-                                {
-                                    <form method="post" asp-page-handler="ToggleAdmin" style="display:inline">
-                                        @Html.AntiForgeryToken()
-                                        <input type="hidden" name="userId" value="@user.Id" />
-                                        <input type="hidden" name="isAdmin" value="@user.IsAdmin.ToString()" />
-                                        <button type="submit" class="btn btn-xs @(user.IsAdmin ? "btn-warning" : "btn-default")">
-                                            @(user.IsAdmin ? "Remove admin" : "Make admin")
-                                        </button>
-                                    </form>
-                                }
-                            }
-                            @if (BaGetter.Web.Pages.Admin.AccountsModel.IsLocked(user))
-                            {
-                                <form method="post" asp-page-handler="Unlock" style="display:inline">
-                                    @Html.AntiForgeryToken()
-                                    <input type="hidden" name="userId" value="@user.Id" />
-                                    <button type="submit" class="btn btn-xs btn-success">Unlock</button>
-                                </form>
-                            }
-                            @if (!user.IsEnabled)
-                            {
-                                <form method="post" asp-page-handler="Delete" style="display:inline"
-                                      data-confirm="@($"Are you sure you want to permanently delete the account '{user.Username}'? This action cannot be undone.")">
-                                    @Html.AntiForgeryToken()
-                                    <input type="hidden" name="userId" value="@user.Id" />
-                                    <button type="submit" class="btn btn-xs btn-danger">
-                                        Delete
-                                    </button>
-                                </form>
-                            }
+                            @* Credential actions come first, so they sit on the same line in every row. *@
                             @if (isLocal)
                             {
-                                <details class="account-action">
-                                    <summary class="btn btn-xs btn-default">New token</summary>
-                                    <form method="post" asp-page-handler="CreateToken" class="form-inline">
+                                <div class="row-actions">
+                                    <button type="button" class="btn btn-sm btn-icon btn-icon-blue" popovertarget="token-@user.Id" title="New token" aria-label="New token"><span class="ms-Icon ms-Icon--Permissions" aria-hidden="true"></span></button>
+                                    <button type="button" class="btn btn-sm btn-icon btn-icon-purple" popovertarget="password-@user.Id" title="Reset password" aria-label="Reset password"><span class="ms-Icon ms-Icon--PasswordField" aria-hidden="true"></span></button>
+                                </div>
+                                @* Popovers open in the top layer, so the table's scroll box doesn't clip them. *@
+                                <div id="token-@user.Id" popover class="account-popover">
+                                    <h4>New token for @user.Username</h4>
+                                    <form method="post" asp-page-handler="CreateToken">
                                         @Html.AntiForgeryToken()
                                         <input type="hidden" name="userId" value="@user.Id" />
-                                        <input type="text" name="tokenName" class="form-control input-sm" placeholder="Token name" maxlength="256" required />
-                                        <select name="expiryDays" class="form-control input-sm">
-                                            <option value="30">30 days</option>
-                                            <option value="90" selected>90 days</option>
-                                            <option value="180">180 days</option>
-                                            <option value="365">1 year</option>
-                                        </select>
-                                        <button type="submit" class="btn btn-xs btn-primary">Create</button>
+                                        <div class="form-group">
+                                            <input type="text" name="tokenName" class="form-control input-sm" placeholder="Token name" aria-label="Token name" maxlength="256" required autofocus />
+                                        </div>
+                                        <div class="form-group">
+                                            <select name="expiryDays" class="form-control input-sm" aria-label="Expires after">
+                                                <option value="30">30 days</option>
+                                                <option value="90" selected>90 days</option>
+                                                <option value="180">180 days</option>
+                                                <option value="365">1 year</option>
+                                            </select>
+                                        </div>
+                                        <button type="submit" class="btn btn-sm btn-primary">Create</button>
+                                        <button type="button" class="btn btn-sm btn-default" popovertarget="token-@user.Id" popovertargetaction="hide">Cancel</button>
                                     </form>
-                                </details>
-                                <details class="account-action">
-                                    <summary class="btn btn-xs btn-default">Reset password</summary>
-                                    <form method="post" asp-page-handler="ResetPassword" class="form-inline">
+                                </div>
+                                <div id="password-@user.Id" popover class="account-popover">
+                                    <h4>Reset password of @user.Username</h4>
+                                    <form method="post" asp-page-handler="ResetPassword">
                                         @Html.AntiForgeryToken()
                                         <input type="hidden" name="userId" value="@user.Id" />
-                                        <input type="password" name="newPassword" class="form-control input-sm" placeholder="New password" minlength="12" autocomplete="new-password" required />
-                                        <button type="submit" class="btn btn-xs btn-primary">Set</button>
+                                        <div class="form-group">
+                                            <input type="password" name="newPassword" class="form-control input-sm" placeholder="New password (at least 12 characters)" aria-label="New password" minlength="12" autocomplete="new-password" required autofocus />
+                                        </div>
+                                        <button type="submit" class="btn btn-sm btn-primary">Set</button>
+                                        <button type="button" class="btn btn-sm btn-default" popovertarget="password-@user.Id" popovertargetaction="hide">Cancel</button>
                                     </form>
-                                </details>
+                                </div>
+                            }
+                            @if (!isSelf || isLocked || !user.IsEnabled)
+                            {
+                                <div class="row-actions">
+                                    @* The signed-in administrator can't lock themselves out, so their own row has no Disable, Revoke Web Access or Remove admin. *@
+                                    @if (!isSelf)
+                                    {
+                                        <form method="post" asp-page-handler="ToggleEnabled" style="display:inline">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="userId" value="@user.Id" />
+                                            <input type="hidden" name="isEnabled" value="@user.IsEnabled.ToString()" />
+                                            <button type="submit" class="btn btn-sm btn-icon @(user.IsEnabled ? "btn-icon-orange" : "btn-icon-green")" title="@enabledLabel" aria-label="@enabledLabel">
+                                                <span class="ms-Icon @(user.IsEnabled ? "ms-Icon--BlockContact" : "ms-Icon--Accept")" aria-hidden="true"></span>
+                                            </button>
+                                        </form>
+                                        <form method="post" asp-page-handler="ToggleCanLoginToUI" style="display:inline">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="userId" value="@user.Id" />
+                                            <input type="hidden" name="canLoginToUI" value="@user.CanLoginToUI.ToString()" />
+                                            <button type="submit" class="btn btn-sm btn-icon btn-icon-teal" title="@webAccessLabel" aria-label="@webAccessLabel">
+                                                <span class="ms-Icon @(user.CanLoginToUI ? "ms-Icon--SignOut" : "ms-Icon--Signin")" aria-hidden="true"></span>
+                                            </button>
+                                        </form>
+                                        @if (isLocal)
+                                        {
+                                            <form method="post" asp-page-handler="ToggleAdmin" style="display:inline">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="userId" value="@user.Id" />
+                                                <input type="hidden" name="isAdmin" value="@user.IsAdmin.ToString()" />
+                                                <button type="submit" class="btn btn-sm btn-icon btn-icon-slate" title="@adminLabel" aria-label="@adminLabel">
+                                                    <span class="ms-Icon ms-Icon--Shield" aria-hidden="true"></span>
+                                                </button>
+                                            </form>
+                                        }
+                                    }
+                                    @if (isLocked)
+                                    {
+                                        <form method="post" asp-page-handler="Unlock" style="display:inline">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="userId" value="@user.Id" />
+                                            <button type="submit" class="btn btn-sm btn-icon btn-icon-pink" title="Unlock" aria-label="Unlock"><span class="ms-Icon ms-Icon--Unlock" aria-hidden="true"></span></button>
+                                        </form>
+                                    }
+                                    @if (!user.IsEnabled)
+                                    {
+                                        <form method="post" asp-page-handler="Delete" style="display:inline"
+                                              data-confirm="@($"Are you sure you want to permanently delete the account '{user.Username}'? This action cannot be undone.")">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="userId" value="@user.Id" />
+                                            <button type="submit" class="btn btn-sm btn-icon btn-icon-red" title="Delete" aria-label="Delete">
+                                                <span class="ms-Icon ms-Icon--Delete" aria-hidden="true"></span>
+                                            </button>
+                                        </form>
+                                    }
+                                </div>
                             }
                         </td>
                     </tr>
