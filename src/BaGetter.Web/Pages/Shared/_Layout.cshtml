@@ -31,6 +31,18 @@
 
     <link rel="shortcut icon" href="~/_content/BaGetter.Web/favicon.ico">
 
+    @* Applies the saved theme, or the system setting, before the page renders, so it doesn't flash. *@
+    <script>
+        (function () {
+            var theme = null;
+            try { theme = localStorage.getItem('bagetter-theme'); } catch (e) { }
+            if (theme !== 'light' && theme !== 'dark') {
+                theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            }
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
+
     <link rel="stylesheet" href="~/_content/BaGetter.Web/lib/bootstrap/dist/css/bootstrap.min.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/_content/BaGetter.Web/lib/office-ui-fabric-core/dist/css/fabric.min.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/_content/BaGetter.Web/css/site.css" asp-append-version="true" />
@@ -106,6 +118,14 @@
                             </li>
                         </ul>
                         @await Html.PartialAsync("_LoginPartial")
+                        <ul class="nav navbar-nav navbar-right">
+                            <li>
+                                <button type="button" class="theme-toggle" data-theme-toggle title="Switch to dark mode" aria-label="Switch to dark mode">
+                                    <span class="ms-Icon ms-Icon--ClearNight theme-toggle-dark" aria-hidden="true"></span>
+                                    <span class="ms-Icon ms-Icon--Sunny theme-toggle-light" aria-hidden="true"></span>
+                                </button>
+                            </li>
+                        </ul>
                     </div>
                 </div>
             </div>
