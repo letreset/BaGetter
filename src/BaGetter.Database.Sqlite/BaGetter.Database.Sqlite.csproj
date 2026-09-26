@@ -10,6 +10,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
     <!-- Pins SQLitePCLRaw 3.x, which ships the native library as the SQLite package, past the 2.1.x EF Core pulls in (GHSA-2m69-gcr7-jv3q affected SQLitePCLRaw.lib.e_sqlite3 before 2.1.11). -->
+    <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
   </ItemGroup>
 
