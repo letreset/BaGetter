@@ -49,7 +49,7 @@
     <PackageVersion Include="Microsoft.Azure.Storage.Blob" Version="11.2.3" />
     <PackageVersion Include="Google.Cloud.Storage.V1" Version="4.11.0" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.20" />
-    <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.13" />
+    <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />
     <PackageVersion Include="Tencent.QCloud.Cos.Sdk" Version="5.4.44" />
   </ItemGroup>
 </Project>
