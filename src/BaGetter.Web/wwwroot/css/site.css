@@ -446,6 +446,11 @@ code { color: inherit; }
   scrollbar-width: none;
 }
 .bgt-tabs::-webkit-scrollbar { display: none; }
+/* Set by site.js while more tabs are hidden to the right; it goes once the row is scrolled to the end. */
+.bgt-tabs.bgt-fade {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+}
 
 .bgt-tab {
   flex: none;
@@ -688,6 +693,7 @@ textarea.form-control { padding: 10px 12px; resize: vertical; }
 
 .field-validation-error, .text-danger { color: var(--bgt-danger) !important; font-size: 12.5px; }
 .field-validation-valid { display: none; }
+.input-validation-error, .input-validation-error:focus { border-color: var(--bgt-danger); }
 
 .bgt-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 14px; }
 .bgt-form-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
@@ -770,6 +776,8 @@ textarea.form-control { padding: 10px 12px; resize: vertical; }
   font-size: 15px;
   overflow: hidden;
 }
+/* The tint keeps its hue in dark mode but is darker, so the tiles don't glare on the dark surfaces. */
+[data-bs-theme=dark] .bgt-tile { background: oklch(.30 .05 var(--h)); color: oklch(.86 .08 var(--h)); }
 .bgt-tile img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #fff; }
 .bgt-tile-lg { width: clamp(48px, 8vw, 64px); height: clamp(48px, 8vw, 64px); border-radius: 14px; font-size: clamp(17px, 3vw, 22px); }
 
@@ -859,20 +867,29 @@ html:not(.bgt-view-grid) .bgt-pkg-grid { display: none; }
 /* ---------- Copy field ---------- */
 
 .bgt-cmd { display: flex; align-items: stretch; border: 1px solid var(--bgt-border); border-radius: 8px; background: var(--bgt-bg); overflow: hidden; }
+/* Commands keep their lines as written (one line, or the lines of nuget.config) and scroll
+   sideways when they are too wide, so they are never broken in the middle of a word. */
 .bgt-cmd code {
   flex: 1;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+  display: block;
+  align-self: center;
   padding: 10px 14px;
   font-size: 13px;
   line-height: 1.55;
   color: var(--bgt-text);
-  white-space: pre-wrap;
-  word-break: break-all;
+  white-space: pre;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--bs-border-color) transparent;
   user-select: all;
 }
+/* A single value without spaces (a URL, a token) wraps wherever it has to instead. */
+.bgt-cmd-value code { white-space: normal; overflow-wrap: anywhere; overflow-x: visible; }
+/* Browsers without scrollbar-color (Safari) use these. */
+.bgt-cmd code::-webkit-scrollbar { height: 6px; }
+.bgt-cmd code::-webkit-scrollbar-track { background: transparent; }
+.bgt-cmd code::-webkit-scrollbar-thumb { background: var(--bs-border-color); border-radius: 3px; }
 .bgt-cmd-btn {
   flex: none;
   min-height: 42px;
@@ -1140,6 +1157,8 @@ html:not(.bgt-view-grid) .bgt-pkg-grid { display: none; }
 .bgt-perm-table td:first-child { text-align: left; padding: 8px 18px; }
 .bgt-perm-table label { width: 40px; height: 40px; display: inline-grid; place-items: center; cursor: pointer; margin: 0; }
 .bgt-perm-foot { display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex-wrap: wrap; padding: 12px 18px; border-top: 1px solid var(--bgt-divider); font-size: 12.5px; color: var(--bgt-muted); }
+.bgt-perm-hint { flex: 1 1 240px; }
+.bgt-perm-dirty { font-size: 13px; font-weight: 500; color: var(--bgt-warn); }
 
 /* ---------- Feeds ---------- */
 
@@ -1202,10 +1221,36 @@ html:not(.bgt-view-grid) .bgt-pkg-grid { display: none; }
   border: 1px solid var(--bgt-border);
   border-radius: 12px;
   box-shadow: 0 8px 24px rgba(16, 24, 40, .12);
+  /* Hidden until the first change. The bar stays in the layout, so a negative margin as tall as
+     the bar and the 20px flex gap takes back the room it would use. */
+  margin-top: calc(-1 * var(--bgt-savebar-own, 64px) - 20px);
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(16px);
+  pointer-events: none;
+  transition: transform .15s ease-out, opacity .15s ease-out;
 }
+.bgt-savebar.show {
+  /* Leaves the bar's height plus 24px free under the last section (the flex gap is 20px of it). */
+  margin-top: calc(var(--bgt-savebar-h) + 24px - 20px);
+  visibility: visible;
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+/* The sticky bar covers the bottom of the viewport, so fields that the browser scrolls into view
+   (keyboard focus, find in page, validation) stop above it. The page measures the bar and sets
+   --bgt-savebar-h to its height while it is visible and to 0 while it is hidden. */
+html:has(.bgt-savebar.show) { scroll-padding-bottom: calc(var(--bgt-savebar-h, 64px) + 24px); }
 .bgt-savebar-status { flex: 1 1 160px; font-size: 13.5px; color: var(--bgt-muted); }
 .bgt-savebar-status.dirty { color: var(--bgt-warn); }
-.bgt-savebar-status.saved { color: var(--bgt-ok); }
+
+/* One line on small screens: the status shortens, the buttons stay side by side. */
+@media (max-width: 759.98px) {
+  .bgt-savebar { flex-wrap: nowrap; gap: 8px; padding: 10px 10px 10px 14px; }
+  .bgt-savebar-status { flex: 1 1 0; min-width: 0; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bgt-savebar .btn { --bs-btn-padding-x: 12px; --bs-btn-font-size: 13px; --bs-btn-border-radius: 7px; min-height: 36px; flex: none; }
+}
 
 /* ---------- Sign in ---------- */
 
