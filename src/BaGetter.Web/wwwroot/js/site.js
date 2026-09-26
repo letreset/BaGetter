@@ -118,29 +118,27 @@
         }
     };
 
-    // Switch between the light and the dark theme. The inline script in _Layout applies the
-    // saved choice before the page renders; this keeps the button label in sync and saves changes.
-    function updateThemeToggles() {
-        var dark = document.documentElement.getAttribute('data-theme') === 'dark';
-        var label = dark ? 'Switch to light mode' : 'Switch to dark mode';
-        var toggles = document.querySelectorAll('[data-theme-toggle]');
-        for (var i = 0; i < toggles.length; i++) {
-            toggles[i].setAttribute('title', label);
-            toggles[i].setAttribute('aria-label', label);
+    // The theme menu saves the choice in a cookie and reloads, so the server renders the page with
+    // the theme's stylesheet. Without a cookie the theme follows the system setting, and the menu
+    // marks that theme here because the server can't know it.
+    var currentTheme = document.documentElement.getAttribute('data-theme');
+    var themeItems = document.querySelectorAll('[data-theme-select]');
+    for (var t = 0; t < themeItems.length; t++) {
+        if (themeItems[t].getAttribute('data-theme-select') === currentTheme) {
+            themeItems[t].parentNode.classList.add('active');
         }
     }
 
     document.addEventListener('click', function (event) {
-        var toggle = event.target.closest && event.target.closest('[data-theme-toggle]');
-        if (!toggle) return;
+        var item = event.target.closest && event.target.closest('[data-theme-select]');
+        if (!item) return;
 
-        var theme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-        document.documentElement.setAttribute('data-theme', theme);
-        try { localStorage.setItem('bagetter-theme', theme); } catch (e) { }
-        updateThemeToggles();
+        event.preventDefault();
+        var theme = item.getAttribute('data-theme-select');
+        document.cookie = 'bagetter-theme=' + encodeURIComponent(theme) + '; path=/; max-age=31536000; SameSite=Lax';
+        try { localStorage.removeItem('bagetter-theme'); } catch (e) { }
+        window.location.reload();
     });
-
-    updateThemeToggles();
 
     // Ask for confirmation before submitting a form with a data-confirm attribute. The text
     // comes from an HTML attribute, never from JavaScript built on the server, so usernames,

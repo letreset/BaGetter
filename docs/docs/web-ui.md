@@ -20,6 +20,8 @@ The top bar shows these tabs for the current feed:
 
 Signed-in users also get a user menu with **My Tokens**, and administrators find the **Admin** pages there.
 
+The palette icon at the right of the top bar picks the look of the web UI: **BaGetter Light**, **BaGetter Dark**, or one of the 16 [Bootswatch 3](https://bootswatch.com/3/) themes. The choice is saved in a cookie in the browser, so it applies to every feed and to the admin pages, and each user picks their own. Until a theme is picked, BaGetter Light or Dark follows the system setting. Most Bootswatch themes load their fonts from Google Fonts; without internet access the browser falls back to a system font.
+
 In the `Local`, `Entra` and `Hybrid` modes, a signed-in user who opens the root URL lands on the first feed, in the order set on **Admin > Feeds**, that they can pull from. A user who opens a feed they can't pull from is sent to that feed as well.
 
 ## Search and filters

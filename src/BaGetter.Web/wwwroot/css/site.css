@@ -386,7 +386,6 @@ body {
   height: 100%;
   margin: 0;
   padding: 0;
-  font-family: "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-size: 16px;
   display: flex;
   flex-direction: column;
@@ -468,16 +467,29 @@ h4 {
   border-radius: 0;
 }
 
-.alert-warning {
-  color: var(--alert-warning-text-color);
-  background-color: var(--alert-warning-bg-color);
-  border-color: var(--alert-warning-border-color);
-}
+/* Fonts, alerts and code keep BaGetter's look only in its own themes; a Bootswatch theme
+   (see themes.css) brings its own. :where() keeps the specificity of the plain selectors. */
+:where(:root[data-theme="light"], :root[data-theme="dark"]) {
+  body {
+    font-family: "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
 
-.alert-success {
-  color: var(--alert-success-text-color);
-  background-color: var(--alert-success-bg-color);
-  border-color: var(--alert-success-border-color);
+  .alert-warning {
+    color: var(--alert-warning-text-color);
+    background-color: var(--alert-warning-bg-color);
+    border-color: var(--alert-warning-border-color);
+  }
+
+  .alert-success {
+    color: var(--alert-success-text-color);
+    background-color: var(--alert-success-bg-color);
+    border-color: var(--alert-success-border-color);
+  }
+
+  code {
+    background-color: var(--code-bg-color);
+    color: var(--code-text-color);
+  }
 }
 
 /* Navigation
@@ -573,38 +585,24 @@ code,
   background: none;
   border: none;
   cursor: pointer;
-  color: #333;
+  color: var(--dropdown-link-color, #333);
 }
 
 .dropdown-sign-out:hover {
-  background-color: #f5f5f5;
-  color: #262626;
+  background-color: var(--dropdown-link-hover-bg-color, #f5f5f5);
+  color: var(--dropdown-link-hover-color, #262626);
   text-decoration: none;
 }
 
-/* Light/dark theme switch in the navigation bar; the icon shows the theme it switches to */
-.theme-toggle {
-  padding: 15px;
+/* Theme menu in the navigation bar */
+.theme-menu-toggle .ms-Icon {
   font-size: 16px;
-  line-height: 20px;
-  color: var(--navbar-text-color);
-  background: none;
-  border: none;
-  cursor: pointer;
+  vertical-align: middle;
 }
 
-.theme-toggle:hover,
-.theme-toggle:focus {
-  color: var(--navbar-active-text-color);
-}
-
-.theme-toggle-light,
-:root[data-theme="dark"] .theme-toggle-dark {
-  display: none;
-}
-
-:root[data-theme="dark"] .theme-toggle-light {
-  display: inline-block;
+.theme-menu {
+  max-height: calc(100vh - 80px);
+  overflow-y: auto;
 }
 
 :where(:root[data-theme="dark"]) {
@@ -666,12 +664,12 @@ code,
 }
 
 .navbar-inverse .navbar-nav > .active > a:hover {
-  color: #fff;
+  color: var(--navbar-active-text-color);
 }
 
 .navbar-inverse .navbar-nav a.active span {
   padding: 5px 0;
-  border-bottom: 1px solid #fff;
+  border-bottom: 1px solid currentColor;
 }
 
 .nav > li {
@@ -694,8 +692,12 @@ code,
   border-radius: 0;
 }
 
-  .search-container button {
+  /* A Bootswatch theme sizes the button to match its own, often taller, input. */
+  :where(:root[data-theme="light"], :root[data-theme="dark"]) .search-container button {
     height: 34px;
+  }
+
+  .search-container button {
     color: #fff;
     background-color: var(--search-button-bg-color);
     border-color: var(--search-button-border-color);
@@ -912,7 +914,7 @@ code,
     line-height: 1.5;
     color: var(--tabbed-info-script-text-color);
     background-color: var(--tabbed-info-script-bg-color);
-    border-color: #002440;
+    border-color: var(--tabbed-info-script-bg-color);
     border-style: solid;
     border-width: 1px 0 1px 1px;
   }
@@ -1331,13 +1333,6 @@ code,
   position: relative;
   color: #888;
   font-size: 14px;
-}
-
-/* Upload page
--------------------------------------------------- */
-code {
-  background-color: var(--code-bg-color);
-  color: var(--code-text-color);
 }
 
 /* Animated edit panel on the Feed Management admin page. */

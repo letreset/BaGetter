@@ -1,0 +1,504 @@
+/* Bootswatch 3 themes (https://bootswatch.com/3/). Bootstrap itself comes from the theme's own
+   stylesheet; these blocks only give BaGetter's own components (navigation bar, search and copy
+   buttons, install instructions, footer, ...) the colors of the selected theme. The values come from
+   each theme's compiled bootstrap.min.css. When no theme matches, site.css keeps BaGetter's colors. */
+
+:root[data-theme="cerulean"] {
+  --body-bg-color: #ffffff;
+  --text-color: #555555;
+  --footer-bg-color: #f5f5f5;
+  --footer-text-color: #555555;
+  --navbar-bg-color: #033c73;
+  --navbar-border-color: #022f5a;
+  --navbar-text-color: #ffffff;
+  --navbar-active-text-color: #ffffff;
+  --search-button-bg-color: #2fa4e7;
+  --search-button-border-color: #2fa4e7;
+  --search-button-hover-bg-color: #178acc;
+  --search-button-hover-border-color: #1684c2;
+  --copy-button-bg-color: #2fa4e7;
+  --copy-button-border-color: #2fa4e7;
+  --copy-button-hover-bg-color: #178acc;
+  --copy-button-hover-border-color: #1684c2;
+  --tabbed-info-bg-color: #f5f5f5;
+  --tabbed-info-active-bg-color: #2fa4e7;
+  --tabbed-info-active-text-color: #ffffff;
+  --tabbed-info-script-bg-color: #178acc;
+  --tabbed-info-script-text-color: #fff;
+  --link-button-color: #2fa4e7;
+  --package-details-tag-bg-color: #f5f5f5;
+  --package-used-by-border-color: #dddddd;
+  --versions-table-bg-color-current: #f5f5f5;
+  --dropdown-link-color: #333333;
+  --dropdown-link-hover-bg-color: #2fa4e7;
+  --dropdown-link-hover-color: #ffffff;
+}
+
+:root[data-theme="cosmo"] {
+  --body-bg-color: #ffffff;
+  --text-color: #333333;
+  --footer-bg-color: #f5f5f5;
+  --footer-text-color: #333333;
+  --navbar-bg-color: #2780e3;
+  --navbar-border-color: #1967be;
+  --navbar-text-color: #ffffff;
+  --navbar-active-text-color: #ffffff;
+  --search-button-bg-color: #3fb618;
+  --search-button-border-color: #3fb618;
+  --search-button-hover-bg-color: #2f8912;
+  --search-button-hover-border-color: #2c8011;
+  --copy-button-bg-color: #3fb618;
+  --copy-button-border-color: #3fb618;
+  --copy-button-hover-bg-color: #2f8912;
+  --copy-button-hover-border-color: #2c8011;
+  --tabbed-info-bg-color: #f5f5f5;
+  --tabbed-info-active-bg-color: #2780e3;
+  --tabbed-info-active-text-color: #ffffff;
+  --tabbed-info-script-bg-color: #1967be;
+  --tabbed-info-script-text-color: #fff;
+  --link-button-color: #2780e3;
+  --package-details-tag-bg-color: #f5f5f5;
+  --package-used-by-border-color: #dddddd;
+  --versions-table-bg-color-current: #f5f5f5;
+  --dropdown-link-color: #333333;
+  --dropdown-link-hover-bg-color: #2780e3;
+  --dropdown-link-hover-color: #ffffff;
+}
+
+:root[data-theme="cyborg"] {
+  color-scheme: dark;
+  --body-bg-color: #060606;
+  --text-color: #888888;
+  --footer-bg-color: #151515;
+  --footer-text-color: #888888;
+  --navbar-bg-color: #222222;
+  --navbar-border-color: #080808;
+  --navbar-text-color: #888888;
+  --navbar-active-text-color: #ffffff;
+  --search-button-bg-color: #2a9fd6;
+  --search-button-border-color: #2a9fd6;
+  --search-button-hover-bg-color: #2180ac;
+  --search-button-hover-border-color: #1f79a3;
+  --copy-button-bg-color: #2a9fd6;
+  --copy-button-border-color: #2a9fd6;
+  --copy-button-hover-bg-color: #2180ac;
+  --copy-button-hover-border-color: #1f79a3;
+  --tabbed-info-bg-color: #151515;
+  --tabbed-info-active-bg-color: #2a9fd6;
+  --tabbed-info-active-text-color: #ffffff;
+  --tabbed-info-script-bg-color: #2180ac;
+  --tabbed-info-script-text-color: #fff;
+  --link-button-color: #2a9fd6;
+  --package-details-tag-bg-color: #151515;
+  --package-used-by-border-color: #282828;
+  --versions-table-bg-color-current: #151515;
+  --dropdown-link-color: #ffffff;
+  --dropdown-link-hover-bg-color: #2a9fd6;
+  --dropdown-link-hover-color: #ffffff;
+}
+
+:root[data-theme="darkly"] {
+  color-scheme: dark;
+  --body-bg-color: #222222;
+  --text-color: #ffffff;
+  --footer-bg-color: #303030;
+  --footer-text-color: #ffffff;
+  --navbar-bg-color: #00bc8c;
+  --navbar-border-color: #00bc8c;
+  --navbar-text-color: #ffffff;
+  --navbar-active-text-color: #ffffff;
+  --search-button-bg-color: #375a7f;
+  --search-button-border-color: #375a7f;
+  --search-button-hover-bg-color: #28415b;
+  --search-button-hover-border-color: #253c54;
+  --copy-button-bg-color: #375a7f;
+  --copy-button-border-color: #375a7f;
+  --copy-button-hover-bg-color: #28415b;
+  --copy-button-hover-border-color: #253c54;
+  --tabbed-info-bg-color: #303030;
+  --tabbed-info-active-bg-color: #375a7f;
+  --tabbed-info-active-text-color: #ffffff;
+  --tabbed-info-script-bg-color: #28415b;
+  --tabbed-info-script-text-color: #fff;
+  --link-button-color: #0ce3ac;
+  --package-details-tag-bg-color: #303030;
+  --package-used-by-border-color: #464545;
+  --versions-table-bg-color-current: #303030;
+  --dropdown-link-color: #ebebeb;
+  --dropdown-link-hover-bg-color: #375a7f;
+  --dropdown-link-hover-color: #ffffff;
+}
+
+:root[data-theme="flatly"] {
+  --body-bg-color: #ffffff;
+  --text-color: #2c3e50;
+  --footer-bg-color: #ecf0f1;
+  --footer-text-color: #2c3e50;
+  --navbar-bg-color: #18bc9c;
+  --navbar-border-color: #18bc9c;
+  --navbar-text-color: #ffffff;
+  --navbar-active-text-color: #ffffff;
+  --search-button-bg-color: #2c3e50;
+  --search-button-border-color: #2c3e50;
+  --search-button-hover-bg-color: #1a242f;
+  --search-button-hover-border-color: #161f29;
+  --copy-button-bg-color: #2c3e50;
+  --copy-button-border-color: #2c3e50;
+  --copy-button-hover-bg-color: #1a242f;
+  --copy-button-hover-border-color: #161f29;
+  --tabbed-info-bg-color: #ecf0f1;
+  --tabbed-info-active-bg-color: #2c3e50;
+  --tabbed-info-active-text-color: #ffffff;
+  --tabbed-info-script-bg-color: #1a242f;
+  --tabbed-info-script-text-color: #fff;
+  --link-button-color: #18bc9c;
+  --package-details-tag-bg-color: #ecf0f1;
+  --package-used-by-border-color: #ecf0f1;
+  --versions-table-bg-color-current: #ecf0f1;
+  --dropdown-link-color: #7b8a8b;
+  --dropdown-link-hover-bg-color: #2c3e50;
+  --dropdown-link-hover-color: #ffffff;
+}
+
+:root[data-theme="journal"] {
+  --body-bg-color: #ffffff;
+  --text-color: #777777;
+  --footer-bg-color: #f5f5f5;
+  --footer-text-color: #777777;
+  --navbar-bg-color: #eb6864;
+  --navbar-border-color: #e53c37;
+  --navbar-text-color: #ffffff;
+  --navbar-active-text-color: #ffffff;
+  --search-button-bg-color: #22b24c;
+  --search-button-border-color: #22b24c;
+  --search-button-hover-bg-color: #1a873a;
+  --search-button-hover-border-color: #187f36;
+  --copy-button-bg-color: #22b24c;
+  --copy-button-border-color: #22b24c;
+  --copy-button-hover-bg-color: #1a873a;
+  --copy-button-hover-border-color: #187f36;
+  --tabbed-info-bg-color: #f5f5f5;
+  --tabbed-info-active-bg-color: #eb6864;
+  --tabbed-info-active-text-color: #ffffff;
+  --tabbed-info-script-bg-color: #e53c37;
+  --tabbed-info-script-text-color: #fff;
+  --link-button-color: #eb6864;
+  --package-details-tag-bg-color: #f5f5f5;
+  --package-used-by-border-color: #dddddd;
+  --versions-table-bg-color-current: #f5f5f5;
+  --dropdown-link-color: #333333;
+  --dropdown-link-hover-bg-color: #eb6864;
+  --dropdown-link-hover-color: #ffffff;
+}
+
+:root[data-theme="lumen"] {
+  --body-bg-color: #ffffff;
+  --text-color: #555555;
+  --footer-bg-color: #fafafa;
+  --footer-text-color: #555555;
+  --navbar-bg-color: #ffffff;
+  --navbar-border-color: #e6e6e6;
+  --navbar-text-color: #999999;
+  --navbar-active-text-color: #333333;
+  --search-button-bg-color: #158cba;
+  --search-button-border-color: #127ba3;
+  --search-button-hover-bg-color: #158cba;
+  --search-button-hover-border-color: #127ba3;
+  --copy-button-bg-color: #158cba;
+  --copy-button-border-color: #127ba3;
+  --copy-button-hover-bg-color: #158cba;
+  --copy-button-hover-border-color: #127ba3;
+  --tabbed-info-bg-color: #fafafa;
+  --tabbed-info-active-bg-color: #158cba;
+  --tabbed-info-active-text-color: #ffffff;
+  --tabbed-info-script-bg-color: #158cba;
+  --tabbed-info-script-text-color: #fff;
+  --link-button-color: #158cba;
+  --package-details-tag-bg-color: #fafafa;
+  --package-used-by-border-color: #eeeeee;
+  --versions-table-bg-color-current: #fafafa;
+  --dropdown-link-color: #999999;
+  --dropdown-link-hover-bg-color: transparent;
+  --dropdown-link-hover-color: #333333;
+}
+
+:root[data-theme="paper"] {
+  --body-bg-color: #ffffff;
+  --text-color: #666666;
+  --footer-bg-color: #f9f9f9;
+  --footer-text-color: #666666;
+  --navbar-bg-color: #2196f3;
+  --navbar-border-color: #2196f3;
+  --navbar-text-color: #b2dbfb;
+  --navbar-active-text-color: #ffffff;
+  --search-button-bg-color: #4caf50;
+  --search-button-border-color: #4caf50;
+  --search-button-hover-bg-color: #439a46;
+  --search-button-hover-border-color: #439a46;
+  --copy-button-bg-color: #4caf50;
+  --copy-button-border-color: #4caf50;
+  --copy-button-hover-bg-color: #439a46;
+  --copy-button-hover-border-color: #439a46;
+  --tabbed-info-bg-color: #f9f9f9;
+  --tabbed-info-active-bg-color: #2196f3;
+  --tabbed-info-active-text-color: #ffffff;
+  --tabbed-info-script-bg-color: #0d87e9;
+  --tabbed-info-script-text-color: #fff;
+  --link-button-color: #2196f3;
+  --package-details-tag-bg-color: #f9f9f9;
+  --package-used-by-border-color: #dddddd;
+  --versions-table-bg-color-current: #f9f9f9;
+  --dropdown-link-color: #666666;
+  --dropdown-link-hover-bg-color: #eeeeee;
+  --dropdown-link-hover-color: #141414;
+}
+
+:root[data-theme="readable"] {
+  --body-bg-color: #ffffff;
+  --text-color: #333333;
+  --footer-bg-color: #f7f7f7;
+  --footer-text-color: #333333;
+  --navbar-bg-color: #ffffff;
+  --navbar-border-color: #dddddd;
+  --navbar-text-color: #333333;
+  --navbar-active-text-color: #333333;
+  --search-button-bg-color: #4582ec;
+  --search-button-border-color: #4582ec;
+  --search-button-hover-bg-color: #1863e6;
+  --search-button-hover-border-color: #175fdd;
+  --copy-button-bg-color: #4582ec;
+  --copy-button-border-color: #4582ec;
+  --copy-button-hover-bg-color: #1863e6;
+  --copy-button-hover-border-color: #175fdd;
+  --tabbed-info-bg-color: #f7f7f7;
+  --tabbed-info-active-bg-color: #4582ec;
+  --tabbed-info-active-text-color: #ffffff;
+  --tabbed-info-script-bg-color: #1863e6;
+  --tabbed-info-script-text-color: #fff;
+  --link-button-color: #4582ec;
+  --package-details-tag-bg-color: #f7f7f7;
+  --package-used-by-border-color: #dddddd;
+  --versions-table-bg-color-current: #f7f7f7;
+  --dropdown-link-color: #333333;
+  --dropdown-link-hover-bg-color: #4582ec;
+  --dropdown-link-hover-color: #ffffff;
+}
+
+:root[data-theme="sandstone"] {
+  --body-bg-color: #ffffff;
+  --text-color: #3e3f3a;
+  --footer-bg-color: #f8f5f0;
+  --footer-text-color: #3e3f3a;
+  --navbar-bg-color: #93c54b;
+  --navbar-border-color: #93c54b;
+  --navbar-text-color: #6b9430;
+  --navbar-active-text-color: #ffffff;
+  --search-button-bg-color: #325d88;
+  --search-button-border-color: #325d88;
+  --search-button-hover-bg-color: #244363;
+  --search-button-hover-border-color: #244363;
+  --copy-button-bg-color: #325d88;
+  --copy-button-border-color: #325d88;
+  --copy-button-hover-bg-color: #244363;
+  --copy-button-hover-border-color: #244363;
+  --tabbed-info-bg-color: #f8f5f0;
+  --tabbed-info-active-bg-color: #325d88;
+  --tabbed-info-active-text-color: #ffffff;
+  --tabbed-info-script-bg-color: #244363;
+  --tabbed-info-script-text-color: #fff;
+  --link-button-color: #93c54b;
+  --package-details-tag-bg-color: #f8f5f0;
+  --package-used-by-border-color: #dfd7ca;
+  --versions-table-bg-color-current: #f8f5f0;
+  --dropdown-link-color: #98978b;
+  --dropdown-link-hover-bg-color: #f8f5f0;
+  --dropdown-link-hover-color: #98978b;
+}
+
+:root[data-theme="simplex"] {
+  --body-bg-color: #fcfcfc;
+  --text-color: #777777;
+  --footer-bg-color: #f4f4f4;
+  --footer-text-color: #777777;
+  --navbar-bg-color: #d9230f;
+  --navbar-border-color: #a91b0c;
+  --navbar-text-color: #fac0ba;
+  --navbar-active-text-color: #ffffff;
+  --search-button-bg-color: #469408;
+  --search-button-border-color: #469408;
+  --search-button-hover-bg-color: #2f6405;
+  --search-button-hover-border-color: #2b5a05;
+  --copy-button-bg-color: #469408;
+  --copy-button-border-color: #469408;
+  --copy-button-hover-bg-color: #2f6405;
+  --copy-button-hover-border-color: #2b5a05;
+  --tabbed-info-bg-color: #f4f4f4;
+  --tabbed-info-active-bg-color: #d9230f;
+  --tabbed-info-active-text-color: #ffffff;
+  --tabbed-info-script-bg-color: #a91b0c;
+  --tabbed-info-script-text-color: #fff;
+  --link-button-color: #d9230f;
+  --package-details-tag-bg-color: #f4f4f4;
+  --package-used-by-border-color: #dddddd;
+  --versions-table-bg-color-current: #f4f4f4;
+  --dropdown-link-color: #444444;
+  --dropdown-link-hover-bg-color: #d9230f;
+  --dropdown-link-hover-color: #ffffff;
+}
+
+:root[data-theme="slate"] {
+  color-scheme: dark;
+  --body-bg-color: #272b30;
+  --text-color: #c8c8c8;
+  --footer-bg-color: #1c1e22;
+  --footer-text-color: #c8c8c8;
+  --navbar-bg-color: #7a8288;
+  --navbar-border-color: #62686d;
+  --navbar-text-color: #cccccc;
+  --navbar-active-text-color: #ffffff;
+  --search-button-bg-color: #62c462;
+  --search-button-border-color: #62c462;
+  --search-button-hover-bg-color: #42b142;
+  --search-button-hover-border-color: #40a940;
+  --copy-button-bg-color: #62c462;
+  --copy-button-border-color: #62c462;
+  --copy-button-hover-bg-color: #42b142;
+  --copy-button-hover-border-color: #40a940;
+  --tabbed-info-bg-color: #1c1e22;
+  --tabbed-info-active-bg-color: #7a8288;
+  --tabbed-info-active-text-color: #ffffff;
+  --tabbed-info-script-bg-color: #62686d;
+  --tabbed-info-script-text-color: #fff;
+  --link-button-color: #ffffff;
+  --package-details-tag-bg-color: #1c1e22;
+  --package-used-by-border-color: #1c1e22;
+  --versions-table-bg-color-current: #1c1e22;
+  --dropdown-link-color: #c8c8c8;
+  --dropdown-link-hover-bg-color: #272b30;
+  --dropdown-link-hover-color: #ffffff;
+}
+
+:root[data-theme="spacelab"] {
+  --body-bg-color: #ffffff;
+  --text-color: #666666;
+  --footer-bg-color: #f5f5f5;
+  --footer-text-color: #666666;
+  --navbar-bg-color: #446e9b;
+  --navbar-border-color: #345578;
+  --navbar-text-color: #dddddd;
+  --navbar-active-text-color: #ffffff;
+  --search-button-bg-color: #3cb521;
+  --search-button-border-color: #3cb521;
+  --search-button-hover-bg-color: #2e8a19;
+  --search-button-hover-border-color: #2b8118;
+  --copy-button-bg-color: #3cb521;
+  --copy-button-border-color: #3cb521;
+  --copy-button-hover-bg-color: #2e8a19;
+  --copy-button-hover-border-color: #2b8118;
+  --tabbed-info-bg-color: #f5f5f5;
+  --tabbed-info-active-bg-color: #446e9b;
+  --tabbed-info-active-text-color: #ffffff;
+  --tabbed-info-script-bg-color: #345578;
+  --tabbed-info-script-text-color: #fff;
+  --link-button-color: #3399f3;
+  --package-details-tag-bg-color: #f5f5f5;
+  --package-used-by-border-color: #dddddd;
+  --versions-table-bg-color-current: #f5f5f5;
+  --dropdown-link-color: #333333;
+  --dropdown-link-hover-bg-color: #446e9b;
+  --dropdown-link-hover-color: #ffffff;
+}
+
+:root[data-theme="superhero"] {
+  color-scheme: dark;
+  --body-bg-color: #2b3e50;
+  --text-color: #ebebeb;
+  --footer-bg-color: #4e5d6c;
+  --footer-text-color: #ebebeb;
+  --navbar-bg-color: #df691a;
+  --navbar-border-color: #df691a;
+  --navbar-text-color: #ebebeb;
+  --navbar-active-text-color: #ebebeb;
+  --search-button-bg-color: #5cb85c;
+  --search-button-border-color: #5cb85c;
+  --search-button-hover-bg-color: #449d44;
+  --search-button-hover-border-color: #449d44;
+  --copy-button-bg-color: #5cb85c;
+  --copy-button-border-color: #5cb85c;
+  --copy-button-hover-bg-color: #449d44;
+  --copy-button-hover-border-color: #449d44;
+  --tabbed-info-bg-color: #4e5d6c;
+  --tabbed-info-active-bg-color: #df691a;
+  --tabbed-info-active-text-color: #ffffff;
+  --tabbed-info-script-bg-color: #b15315;
+  --tabbed-info-script-text-color: #fff;
+  --link-button-color: #df691a;
+  --package-details-tag-bg-color: #4e5d6c;
+  --package-used-by-border-color: #4e5d6c;
+  --versions-table-bg-color-current: #4e5d6c;
+  --dropdown-link-color: #ebebeb;
+  --dropdown-link-hover-bg-color: #485563;
+  --dropdown-link-hover-color: #ebebeb;
+}
+
+:root[data-theme="united"] {
+  --body-bg-color: #ffffff;
+  --text-color: #333333;
+  --footer-bg-color: #f5f5f5;
+  --footer-text-color: #333333;
+  --navbar-bg-color: #772953;
+  --navbar-border-color: #511c39;
+  --navbar-text-color: #ffffff;
+  --navbar-active-text-color: #ffffff;
+  --search-button-bg-color: #e95420;
+  --search-button-border-color: #e95420;
+  --search-button-hover-bg-color: #c34113;
+  --search-button-hover-border-color: #b93e12;
+  --copy-button-bg-color: #e95420;
+  --copy-button-border-color: #e95420;
+  --copy-button-hover-bg-color: #c34113;
+  --copy-button-hover-border-color: #b93e12;
+  --tabbed-info-bg-color: #f5f5f5;
+  --tabbed-info-active-bg-color: #e95420;
+  --tabbed-info-active-text-color: #ffffff;
+  --tabbed-info-script-bg-color: #c34113;
+  --tabbed-info-script-text-color: #fff;
+  --link-button-color: #e95420;
+  --package-details-tag-bg-color: #f5f5f5;
+  --package-used-by-border-color: #dddddd;
+  --versions-table-bg-color-current: #f5f5f5;
+  --dropdown-link-color: #333333;
+  --dropdown-link-hover-bg-color: #e95420;
+  --dropdown-link-hover-color: #ffffff;
+}
+
+:root[data-theme="yeti"] {
+  --body-bg-color: #ffffff;
+  --text-color: #222222;
+  --footer-bg-color: #fafafa;
+  --footer-text-color: #222222;
+  --navbar-bg-color: #008cba;
+  --navbar-border-color: #006687;
+  --navbar-text-color: #ffffff;
+  --navbar-active-text-color: #ffffff;
+  --search-button-bg-color: #43ac6a;
+  --search-button-border-color: #3c9a5f;
+  --search-button-hover-bg-color: #358753;
+  --search-button-hover-border-color: #2b6e44;
+  --copy-button-bg-color: #43ac6a;
+  --copy-button-border-color: #3c9a5f;
+  --copy-button-hover-bg-color: #358753;
+  --copy-button-hover-border-color: #2b6e44;
+  --tabbed-info-bg-color: #fafafa;
+  --tabbed-info-active-bg-color: #008cba;
+  --tabbed-info-active-text-color: #ffffff;
+  --tabbed-info-script-bg-color: #006687;
+  --tabbed-info-script-text-color: #fff;
+  --link-button-color: #008cba;
+  --package-details-tag-bg-color: #fafafa;
+  --package-used-by-border-color: #dddddd;
+  --versions-table-bg-color-current: #fafafa;
+  --dropdown-link-color: #555555;
+  --dropdown-link-hover-bg-color: #eeeeee;
+  --dropdown-link-hover-color: #262626;
+}

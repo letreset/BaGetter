@@ -33,6 +33,9 @@ For every page you open, the browser console should show no errors.
 | N4 | `carol` | Open `/Admin/Feeds` | Redirected to the package list |
 | N5 | `admin` | Open **Statistics** on Internal | 22 packages, 28 versions (including the unlisted one), "28 stable, 0 prerelease (1 unlisted)", 171 total downloads, the stored package size and the services in use. **Most downloaded** starts with Contoso.Core (50), Contoso.Logging (47), Contoso.Testing (22); **Recently published** lists 10 versions, newest first, without Contoso.Logging 1.4.0 |
 | N6 | `admin` | Open `/feeds/nope/` | 404 |
+| N7 | none | Open the theme menu (palette icon) on the sign-in page | BaGetter Light and BaGetter Dark, then the 16 Bootswatch themes (Cerulean to Yeti); the active one is highlighted. Without a saved choice it follows the system light/dark setting |
+| N8 | `admin` | Pick **Flatly**, open Internal > Contoso.Logging, then switch to Experimental and reload | The page reloads in Flatly (green navigation bar, theme font) and keeps it across feeds and reloads; the install tabs, copy button and search button use the theme colors |
+| N9 | `admin` | Pick **Darkly**, then **Superhero**, and open Admin > Feeds and Admin > Accounts | Dark pages with readable tables, forms and user menu; no leftover BaGetter blue or orange. Pick **BaGetter Light** afterwards |
 
 ## Package list, search and filters
 

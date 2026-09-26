@@ -18,10 +18,12 @@
     var requiresAuth = AuthOptions.Value.Mode != AuthenticationMode.Config;
     var isAuthenticated = User.Identity?.IsAuthenticated == true;
     var showContent = !requiresAuth || isAuthenticated;
+    var savedTheme = UiTheme.Resolve(Context.Request.Cookies[UiTheme.CookieName]);
+    var stylesheetTheme = savedTheme ?? UiTheme.Resolve("light");
 }
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="@savedTheme?.Id">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -31,21 +33,28 @@
 
     <link rel="shortcut icon" href="~/_content/BaGetter.Web/favicon.ico">
 
-    @* Applies the saved theme, or the system setting, before the page renders, so it doesn't flash. *@
-    <script>
-        (function () {
-            var theme = null;
-            try { theme = localStorage.getItem('bagetter-theme'); } catch (e) { }
-            if (theme !== 'light' && theme !== 'dark') {
-                theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-            }
-            document.documentElement.setAttribute('data-theme', theme);
-        })();
-    </script>
+    @if (savedTheme == null)
+    {
+        @* No theme cookie yet: use BaGetter light or dark from the system setting before the page renders,
+           so it doesn't flash. A choice saved by the old light/dark switch moves into the cookie. *@
+        <script>
+            (function () {
+                var theme = null;
+                try { theme = localStorage.getItem('bagetter-theme'); } catch (e) { }
+                if (theme === 'light' || theme === 'dark') {
+                    document.cookie = 'bagetter-theme=' + theme + '; path=/; max-age=31536000; SameSite=Lax';
+                } else {
+                    theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                }
+                document.documentElement.setAttribute('data-theme', theme);
+            })();
+        </script>
+    }
 
-    <link rel="stylesheet" href="~/_content/BaGetter.Web/lib/bootstrap/dist/css/bootstrap.min.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/_content/BaGetter.Web/@stylesheetTheme.StylesheetPath" asp-append-version="true" />
     <link rel="stylesheet" href="~/_content/BaGetter.Web/lib/office-ui-fabric-core/dist/css/fabric.min.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/_content/BaGetter.Web/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/_content/BaGetter.Web/css/themes.css" asp-append-version="true" />
 
     <title>@ViewData["Title"] - BaGetter</title>
     @await RenderSectionAsync("Head", required: false)
@@ -119,11 +128,25 @@
                         </ul>
                         @await Html.PartialAsync("_LoginPartial")
                         <ul class="nav navbar-nav navbar-right">
-                            <li>
-                                <button type="button" class="theme-toggle" data-theme-toggle title="Switch to dark mode" aria-label="Switch to dark mode">
-                                    <span class="ms-Icon ms-Icon--ClearNight theme-toggle-dark" aria-hidden="true"></span>
-                                    <span class="ms-Icon ms-Icon--Sunny theme-toggle-light" aria-hidden="true"></span>
-                                </button>
+                            <li class="dropdown">
+                                <a href="#" class="dropdown-toggle theme-menu-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false" title="Theme" aria-label="Theme">
+                                    <span class="ms-Icon ms-Icon--Color" aria-hidden="true"></span>
+                                    <span class="caret"></span>
+                                </a>
+                                <ul class="dropdown-menu theme-menu">
+                                    <li class="dropdown-header">BaGetter</li>
+                                    @foreach (var theme in UiTheme.All)
+                                    {
+                                        if (theme.Id == UiTheme.All.First(t => t.IsBootswatch).Id)
+                                        {
+                                            <li role="separator" class="divider"></li>
+                                            <li class="dropdown-header">Bootswatch</li>
+                                        }
+                                        <li class="@(theme == savedTheme ? "active" : "")">
+                                            <a href="#" data-theme-select="@theme.Id">@theme.Name</a>
+                                        </li>
+                                    }
+                                </ul>
                             </li>
                         </ul>
                     </div>
