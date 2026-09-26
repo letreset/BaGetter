@@ -626,7 +626,7 @@ AUDIT account_disabled target=bob detail= actor=admin ip=10.0.0.12
 | `group_member_added`, `group_member_removed` | Group name | `user=<username>` |
 | `feed_permission_set` | Group name | `feed=<slug> pull=… push=… delete=…` |
 | `feed_permission_revoked` | Group name | `feed=<slug>` |
-| `feed_created`, `feed_updated`, `feed_deleted` | Feed slug | |
+| `feed_created`, `feed_deleted` | Feed slug | |
 | `feeds_reordered` | `feeds` | |
 | `feed_settings_updated` | Feed slug | Number of mirrors |
 | `feed_mirror_credentials_changed` | Feed slug | Mirror source and which secret changed (`password` or `token`), never the value |

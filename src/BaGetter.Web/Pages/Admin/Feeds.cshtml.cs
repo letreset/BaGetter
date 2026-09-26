@@ -52,18 +52,6 @@ public partial class FeedsModel : PageModel
     [MaxLength(4000)]
     public string NewDescription { get; set; }
 
-    // For edit form — slug is read-only after create, so use it as the key
-    [BindProperty]
-    public string EditSlug { get; set; }
-
-    [BindProperty]
-    [MaxLength(256)]
-    public string EditName { get; set; }
-
-    [BindProperty]
-    [MaxLength(4000)]
-    public string EditDescription { get; set; }
-
     public string SuccessMessage { get; set; }
     public string ErrorMessage { get; set; }
 
@@ -140,44 +128,6 @@ public partial class FeedsModel : PageModel
         _audit.Admin(HttpContext, "feed_created", slug);
 
         SuccessMessage = $"Feed '{slug}' created successfully.";
-        Feeds = await _feedService.GetAllFeedsAsync(cancellationToken);
-        return Page();
-    }
-
-    public async Task<IActionResult> OnPostEditAsync(CancellationToken cancellationToken)
-    {
-        if (!await IsCurrentUserAdminAsync(cancellationToken))
-            return RedirectToPage("/Index");
-
-        if (string.IsNullOrWhiteSpace(EditSlug))
-        {
-            ErrorMessage = "Feed slug is required.";
-            Feeds = await _feedService.GetAllFeedsAsync(cancellationToken);
-            return Page();
-        }
-
-        var feed = await _feedService.GetFeedBySlugAsync(EditSlug, cancellationToken);
-        if (feed == null)
-        {
-            ErrorMessage = "Feed not found.";
-            Feeds = await _feedService.GetAllFeedsAsync(cancellationToken);
-            return Page();
-        }
-
-        if (string.IsNullOrWhiteSpace(EditName) || EditName.Length > 256)
-        {
-            ErrorMessage = "Name is required and must be at most 256 characters.";
-            Feeds = await _feedService.GetAllFeedsAsync(cancellationToken);
-            return Page();
-        }
-
-        feed.Name = EditName.Trim();
-        feed.Description = string.IsNullOrWhiteSpace(EditDescription) ? null : EditDescription.Trim();
-
-        await _feedService.UpdateFeedAsync(feed, cancellationToken);
-        _audit.Admin(HttpContext, "feed_updated", feed.Slug);
-
-        SuccessMessage = $"Feed '{feed.Slug}' updated successfully.";
         Feeds = await _feedService.GetAllFeedsAsync(cancellationToken);
         return Page();
     }
