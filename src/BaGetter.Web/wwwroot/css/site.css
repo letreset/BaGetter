@@ -1057,6 +1057,28 @@ h4 {
   border-color: var(--alert-success-border-color);
 }
 
+/* Admin > Accounts: row actions that need input (token, password) */
+.account-action {
+  display: inline-block;
+  vertical-align: top;
+}
+
+.account-action > summary {
+  list-style: none;
+}
+
+.account-action > summary::-webkit-details-marker {
+  display: none;
+}
+
+.account-action[open] > form {
+  margin-top: 6px;
+}
+
+.account-action .form-control {
+  margin-bottom: 4px;
+}
+
 [x-cloak] {
   display: none !important;
 }

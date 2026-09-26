@@ -76,7 +76,8 @@ For every page you open, the browser console should show no errors.
 | # | Account | Steps | Expected |
 |---|---|---|---|
 | C1 | `carol` | Internal > **Connect** | Service index `http://localhost:5000/feeds/internal/v3/index.json`, copy button, tabs for .NET CLI, NuGet, nuget.config, Paket |
-| C2 | `carol` | Read the authentication text | Tells a local user how to authenticate. **Known issue** [#32](https://github.com/letreset/BaGetter/issues/32): points to My Tokens, which local users can't open |
+| C2 | `carol` | Read the authentication text, then open **My Tokens** in the user menu | The text points to My Tokens; the page opens, and a new token is shown once and can be revoked |
+| C2a | `admin` | Admin > Accounts > `build-agent` > **New token** | The token is shown once in the success message |
 | C3 | `carol` | Experimental > **Upload** | Push commands for the Experimental service index |
 
 ## Admin > Feeds

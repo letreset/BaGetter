@@ -6,10 +6,12 @@ using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
 using BaGetter.Core.Authentication;
+using BaGetter.Core.Configuration;
 using BaGetter.Core.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.Extensions.Options;
 
 namespace BaGetter.Web.Pages.Admin;
 
@@ -18,11 +20,19 @@ public class AccountsModel : PageModel
 {
     private readonly IUserService _userService;
     private readonly IGroupService _groupService;
+    private readonly ITokenService _tokenService;
+    private readonly IOptionsSnapshot<NugetAuthenticationOptions> _authOptions;
 
-    public AccountsModel(IUserService userService, IGroupService groupService)
+    public AccountsModel(
+        IUserService userService,
+        IGroupService groupService,
+        ITokenService tokenService,
+        IOptionsSnapshot<NugetAuthenticationOptions> authOptions)
     {
         _userService = userService ?? throw new ArgumentNullException(nameof(userService));
         _groupService = groupService ?? throw new ArgumentNullException(nameof(groupService));
+        _tokenService = tokenService ?? throw new ArgumentNullException(nameof(tokenService));
+        _authOptions = authOptions ?? throw new ArgumentNullException(nameof(authOptions));
     }
 
     public List<User> Users { get; set; } = new();
@@ -53,6 +63,7 @@ public class AccountsModel : PageModel
     public bool NewCanLoginToUI { get; set; }
 
     public string SuccessMessage { get; set; }
+    public string NewTokenPlaintext { get; set; }
     public string ErrorMessage { get; set; }
 
     private Guid GetUserId()
@@ -188,6 +199,48 @@ public class AccountsModel : PageModel
         await _userService.DeleteUserAsync(userId, cancellationToken);
 
         SuccessMessage = $"Account '{username}' has been deleted.";
+        await LoadUsersAndGroupsAsync(cancellationToken);
+        return Page();
+    }
+
+    /// <summary>
+    /// Creates a personal access token for a local account, so that accounts without web sign-in
+    /// (build agents) don't have to put their password into nuget.config.
+    /// </summary>
+    public async Task<IActionResult> OnPostCreateTokenAsync(
+        Guid userId, string tokenName, int expiryDays, CancellationToken cancellationToken)
+    {
+        if (!await IsCurrentUserAdminAsync(cancellationToken))
+            return RedirectToPage("/Index");
+
+        var user = await _userService.FindByIdAsync(userId, cancellationToken);
+        if (user == null || user.AuthProvider != AuthProvider.Local)
+        {
+            ErrorMessage = "Tokens can only be created here for local accounts.";
+            await LoadUsersAndGroupsAsync(cancellationToken);
+            return Page();
+        }
+
+        if (string.IsNullOrWhiteSpace(tokenName))
+        {
+            ErrorMessage = "Token name is required.";
+            await LoadUsersAndGroupsAsync(cancellationToken);
+            return Page();
+        }
+
+        var days = Math.Clamp(expiryDays, 1, _authOptions.Value.MaxTokenExpiryDays);
+        try
+        {
+            var result = await _tokenService.CreateTokenAsync(
+                userId, tokenName.Trim(), DateTime.UtcNow.AddDays(days), cancellationToken);
+            NewTokenPlaintext = result.PlaintextToken;
+            SuccessMessage = $"Token '{result.Token.Name}' created for '{user.Username}'. Copy it now, it is shown only once.";
+        }
+        catch (ArgumentException ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+
         await LoadUsersAndGroupsAsync(cancellationToken);
         return Page();
     }

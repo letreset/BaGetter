@@ -18,7 +18,7 @@ The top bar shows these tabs for the current feed:
 | Upload | The user can push to the feed | Commands to publish packages |
 | Statistics | The page is [enabled](configuration.md#statistics) and the user can pull from the feed | Package and version counts |
 
-Signed-in users also get a user menu. Entra users find **My Tokens** there, and administrators the **Admin** pages.
+Signed-in users also get a user menu with **My Tokens**, and administrators find the **Admin** pages there.
 
 In the `Local`, `Entra` and `Hybrid` modes, a signed-in user who opens the root URL lands on the first feed, in the order set on **Admin > Feeds**, that they can pull from. A user who opens a feed they can't pull from is sent to that feed as well.
 
@@ -75,7 +75,7 @@ The **Statistics** tab shows how many packages and versions the current feed has
 
 ## My Tokens
 
-**My Tokens** in the user menu lists the signed-in user's [personal access tokens](authentication.md#personal-access-tokens-pats), and lets them create and revoke tokens. A new token is shown only once. The page is only available to users who signed in with Microsoft Entra ID.
+**My Tokens** in the user menu lists the signed-in user's [personal access tokens](authentication.md#personal-access-tokens-pats), and lets them create and revoke tokens. A new token is shown only once. The page is available to Entra and local users; administrators create tokens for local accounts without web sign-in on **Admin > Accounts**.
 
 ## Administration
 

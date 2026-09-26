@@ -164,7 +164,7 @@ BAGETTER_TAG=dev docker compose -f testenv/docker-compose.yml up -d   # your own
 - It runs in `Local` auth mode with four feeds (Default mirrors nuget.org, Internal, Experimental, Archive read-only), groups with different permissions and `Contoso.*` test packages. The test accounts and passwords are in `testenv/README.md`; they are test-only.
 - `testenv/data` is the committed snapshot. It's copied into a Docker volume on the first start, so testing never changes the working tree. Don't commit changes to it unless you are regenerating it on purpose.
 - To change the data set, edit `testenv/seed/seed.mjs` and regenerate the snapshot (steps in `testenv/README.md`).
-- Push test packages from `testenv/packages` with Basic auth (username and password); local accounts have no personal access tokens yet (#32).
+- Push test packages from `testenv/packages` with Basic auth (username and password, or username and a personal access token from **My Tokens**).
 
 ### UI testing
 

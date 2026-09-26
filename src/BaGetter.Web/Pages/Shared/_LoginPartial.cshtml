@@ -7,9 +7,6 @@
 @{
     var authMode = AuthOptions.Value.Mode;
     var isAuthenticated = User.Identity?.IsAuthenticated == true;
-    var authProvider = User.FindFirst("auth_provider")?.Value
-                    ?? User.FindFirst("AuthProvider")?.Value;
-    var isEntraUser = string.Equals(authProvider, "Entra", StringComparison.OrdinalIgnoreCase);
     var displayName = User.FindFirst("DisplayName")?.Value
                    ?? User.FindFirst("name")?.Value
                    ?? User.Identity?.Name
@@ -37,10 +34,7 @@
                     <span class="caret"></span>
                 </a>
                 <ul class="dropdown-menu">
-                    @if (isEntraUser)
-                    {
-                        <li><a asp-page="/Account/Tokens"><span class="ms-Icon ms-Icon--Permissions" aria-hidden="true"></span> My Tokens</a></li>
-                    }
+                    <li><a asp-page="/Account/Tokens"><span class="ms-Icon ms-Icon--Permissions" aria-hidden="true"></span> My Tokens</a></li>
                     @if (isAdmin)
                     {
                         <li role="separator" class="divider"></li>

@@ -217,6 +217,8 @@ Administrators have all three on every feed. Feeds a user can't pull from are hi
 Personal access tokens let users authenticate from NuGet clients and CI without their interactive credentials. They are available to Entra and local users.
 
 - Users create tokens on **My Tokens** (in the user menu), with a name and an expiry (90 days by default).
+- Local accounts that can't sign in to the web UI (for example build agents) get their tokens from an administrator: **New token** on **Admin > Accounts**.
+- Users can only revoke their own tokens.
 - The token (it starts with `bg_`) is shown only once, at creation time.
 - Tokens are stored as SHA-256 hashes, and can be revoked at any time.
 - A token acts as its owner: it has exactly the owner's permissions, and stops working when the owner is disabled or deleted.
