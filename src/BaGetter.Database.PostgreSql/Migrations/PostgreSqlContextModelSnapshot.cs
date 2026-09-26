@@ -203,12 +203,16 @@ namespace BaGetter.Database.PostgreSql.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
+                    b.Property<string>("NormalizedName")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AppRoleValue")
                         .IsUnique();
 
-                    b.HasIndex("Name")
+                    b.HasIndex("NormalizedName")
                         .IsUnique();
 
                     b.ToTable("Groups");
@@ -227,6 +231,10 @@ namespace BaGetter.Database.PostgreSql.Migrations
                         .HasColumnType("character varying(4000)");
 
                     b.Property<string>("CachedFrom")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<string>("Copyright")
                         .HasMaxLength(4000)
                         .HasColumnType("character varying(4000)");
 
@@ -261,6 +269,10 @@ namespace BaGetter.Database.PostgreSql.Migrations
                     b.Property<string>("Language")
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
+
+                    b.Property<string>("LicenseExpression")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<string>("LicenseUrl")
                         .HasMaxLength(4000)
@@ -313,6 +325,9 @@ namespace BaGetter.Database.PostgreSql.Migrations
 
                     b.Property<int>("SemVerLevel")
                         .HasColumnType("integer");
+
+                    b.Property<long?>("Size")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Summary")
                         .HasMaxLength(4000)
@@ -524,6 +539,10 @@ namespace BaGetter.Database.PostgreSql.Migrations
                     b.Property<DateTime?>("LockedUntilUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("NormalizedUsername")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
                     b.Property<string>("PasswordHash")
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
@@ -543,7 +562,7 @@ namespace BaGetter.Database.PostgreSql.Migrations
                     b.HasIndex("EntraObjectId")
                         .IsUnique();
 
-                    b.HasIndex("Username")
+                    b.HasIndex("NormalizedUsername")
                         .IsUnique();
 
                     b.ToTable("Users");

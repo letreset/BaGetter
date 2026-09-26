@@ -1,18 +1,15 @@
 using System;
 using Azure.Core;
-using Azure.Data.Tables;
 using Azure.Identity;
 using Azure.Storage;
 using Azure.Storage.Blobs;
 using BaGetter.Azure.Configuration;
 using BaGetter.Azure.Email;
 using BaGetter.Azure.Storage;
-using BaGetter.Azure.Table;
 using BaGetter.Core;
 using BaGetter.Core.Configuration;
 using BaGetter.Core.Email;
 using BaGetter.Core.Extensions;
-using BaGetter.Core.Search;
 using BaGetter.Core.Storage;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -23,60 +20,6 @@ namespace BaGetter.Azure
 {
     public static class AzureApplicationExtensions
     {
-        public static BaGetterApplication AddAzureTableDatabase(this BaGetterApplication app)
-        {
-            app.Services.AddBaGetterOptions<AzureTableOptions>(nameof(BaGetterOptions.Database));
-
-            app.Services.AddTransient<TablePackageDatabase>();
-            app.Services.AddTransient<TableSearchService>();
-            app.Services.TryAddTransient<IPackageDatabase>(provider => provider.GetRequiredService<TablePackageDatabase>());
-            app.Services.TryAddTransient<ISearchService>(provider => provider.GetRequiredService<TableSearchService>());
-            app.Services.TryAddTransient<ISearchIndexer>(provider => provider.GetRequiredService<NullSearchIndexer>());
-
-            app.Services.AddSingleton(provider =>
-            {
-                var options = provider.GetRequiredService<IOptions<AzureTableOptions>>().Value;
-
-                var tableServiceClient = new TableServiceClient(options.ConnectionString);
-                tableServiceClient.CreateTableIfNotExists(options.TableName);
-                return tableServiceClient;
-            });
-
-            app.Services.AddProvider<IPackageDatabase>((provider, config) =>
-            {
-                if (!config.HasDatabaseType("AzureTable")) return null;
-
-                return provider.GetRequiredService<TablePackageDatabase>();
-            });
-
-            app.Services.AddProvider<ISearchService>((provider, config) =>
-            {
-                if (!config.HasSearchType("Database")) return null;
-                if (!config.HasDatabaseType("AzureTable")) return null;
-
-                return provider.GetRequiredService<TableSearchService>();
-            });
-
-            app.Services.AddProvider<ISearchIndexer>((provider, config) =>
-            {
-                if (!config.HasSearchType("Database")) return null;
-                if (!config.HasDatabaseType("AzureTable")) return null;
-
-                return provider.GetRequiredService<NullSearchIndexer>();
-            });
-
-            return app;
-        }
-
-        public static BaGetterApplication AddAzureTableDatabase(
-            this BaGetterApplication app,
-            Action<AzureTableOptions> configure)
-        {
-            app.AddAzureTableDatabase();
-            app.Services.Configure(configure);
-            return app;
-        }
-
         public static BaGetterApplication AddAzureBlobStorage(this BaGetterApplication app)
         {
             app.Services.AddBaGetterOptions<AzureBlobStorageOptions>(nameof(BaGetterOptions.Storage));

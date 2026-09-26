@@ -14,6 +14,14 @@
     var requiresAuth = AuthOptions.Value.Mode != AuthenticationMode.Config;
     var isAuthenticated = User.Identity?.IsAuthenticated == true;
     var fallbackIconUrl = Url.Content("~/_content/BaGetter.Web/images/default-package-icon-256x256.png");
+    var atomFeedUrl = Model.Found ? Url.RouteUrl(Routes.PackageAtomFeedRouteName, new { id = Model.Package.Id }) : null;
+}
+
+@section Head {
+    @if (atomFeedUrl != null)
+    {
+        <link rel="alternate" type="application/atom+xml" title="@Model.Package.Id versions" href="@atomFeedUrl" />
+    }
 }
 
 @if (requiresAuth && !isAuthenticated)
@@ -62,7 +70,23 @@ else
 
                     <small class="text-nowrap">@Model.Package.NormalizedVersionString</small>
                 </h1>
+
+                @if (!string.IsNullOrWhiteSpace(Model.Package.Title)
+                    && !Model.Package.Title.Equals(Model.Package.Id, StringComparison.OrdinalIgnoreCase))
+                {
+                    <p class="package-title-text">@Model.Package.Title</p>
+                }
             </div>
+
+            @if (Model.FrameworkBadges.Any())
+            {
+                <div class="framework-badges">
+                    @foreach (var framework in Model.FrameworkBadges)
+                    {
+                        <span class="framework-badge" title="This package targets @framework. The package is compatible with this framework or higher.">@framework</span>
+                    }
+                </div>
+            }
 
             <div class="tabbed-info" x-data="{ tabs: tabs, active: tabs[0] }">
                 <ul class="nav">
@@ -74,7 +98,11 @@ else
                 </ul>
 
                 <div class="content">
-                    <div class="script" x-text="`${active.prefix} ${active.content}`"></div>
+                    <div class="script">
+                        <template x-for="line in active.content">
+                            <div x-text="active.prefix ? `${active.prefix} ${line}` : line"></div>
+                        </template>
+                    </div>
 
                     <div class="copy-button">
                         <button class="btn btn-default btn-warning"
@@ -88,6 +116,29 @@ else
                     </div>
                 </div>
             </div>
+
+            @if (Model.Package.IsPrerelease || !string.IsNullOrEmpty(Model.Package.MinClientVersion) || Model.Package.RequireLicenseAcceptance)
+            {
+                <ul class="list-unstyled package-notes">
+                    @if (Model.Package.IsPrerelease)
+                    {
+                        <li><i class="ms-Icon ms-Icon--Info" aria-hidden="true"></i> This is a prerelease version of @Model.Package.Id.</li>
+                    }
+                    @if (!string.IsNullOrEmpty(Model.Package.MinClientVersion))
+                    {
+                        <li><i class="ms-Icon ms-Icon--Info" aria-hidden="true"></i> Requires NuGet @Model.Package.MinClientVersion or higher.</li>
+                    }
+                    @if (Model.Package.RequireLicenseAcceptance)
+                    {
+                        <li><i class="ms-Icon ms-Icon--Info" aria-hidden="true"></i> This package requires license acceptance.</li>
+                    }
+                </ul>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(Model.Package.Summary))
+            {
+                <p class="package-summary">@Model.Package.Summary</p>
+            }
 
             @{
                 ExpandableSection("Readme", "ms-Icon--Dictionary", expanded: false,
@@ -189,8 +240,25 @@ else
                 </div>);
             }
 
+            @if (Model.Frameworks.Any())
+            {
+                ExpandableSection("Frameworks", "ms-Icon--Library", expanded: false,
+                    @<ul class="list-unstyled package-frameworks">
+                        @foreach (var framework in Model.Frameworks)
+                        {
+                            <li>@framework</li>
+                        }
+                    </ul>);
+            }
+
             @{ ExpandableSection("Versions", "ms-Icon--Stopwatch", expanded: true,
-                @<div class="version-list" x-data="{ showAll: false }">
+                @<div class="version-list" x-data="{ showAll: false, includePrerelease: true }">
+                    @if (Model.HasPrereleaseVersions)
+                    {
+                        <label class="checkbox-inline version-prerelease-filter">
+                            <input type="checkbox" x-model="includePrerelease" /> Include prerelease
+                        </label>
+                    }
                     <table class="table borderless">
                         <thead>
                             <tr>
@@ -204,8 +272,9 @@ else
                             {
                                 var version = Model.Versions[i];
                                 var alwaysShow = Json.Serialize(i < DefaultVisibleVersions);
+                                var isPrerelease = Json.Serialize(version.IsPrerelease);
 
-                                <tr class="@(version.Selected ? "bg-info" : "")" x-show="showAll || @alwaysShow">
+                                <tr class="@(version.Selected ? "bg-info" : "")" x-show="(includePrerelease || !@isPrerelease) && (showAll || !includePrerelease || @alwaysShow)">
                                     <td>
                                         <a asp-page="Package" asp-route-version="@version.Version"
                                            style="@(version.Listed ? null : "text-decoration: line-through;")">@version.Version.ToNormalizedString()</a>
@@ -237,7 +306,8 @@ else
 
                     @if (Model.Versions.Count > DefaultVisibleVersions)
                     {
-                        <button type="button" class="link-button" @@click="showAll = !showAll">
+                        @* Hiding prereleases lifts the row cap, so the toggle is only needed with them shown. *@
+                        <button type="button" class="link-button" x-show="includePrerelease" @@click="showAll = !showAll">
                             <i class="ms-Icon" x-bind:class="{ 'ms-Icon--CalculatorAddition': !showAll, 'ms-Icon--CalculatorSubtract': showAll }"></i>
                             <span x-text="showAll ? 'Show less' : 'Show more'"></span>
                         </button>
@@ -277,13 +347,22 @@ else
                     {
                         <li>
                             <i class="ms-Icon ms-Icon--Certificate"></i>
-                            <a href="@Model.LicenseUrl">License</a>
+                            <a href="@Model.LicenseUrl">@Model.LicenseText</a>
                         </li>
                     }
 
                     <li>
                         <i class="ms-Icon ms-Icon--CloudDownload"></i>
                         <a href="@Model.PackageDownloadUrl">Download package</a>
+                        @if (Model.PackageSize != null)
+                        {
+                            <span class="text-muted">(@Model.PackageSize)</span>
+                        }
+                    </li>
+
+                    <li>
+                        <i class="ms-Icon ms-Icon--News"></i>
+                        <a href="@atomFeedUrl" title="Subscribe to new versions. Feed readers sign in with a personal access token.">Atom feed</a>
                     </li>
                 </ul>
             </div>
@@ -301,6 +380,14 @@ else
                         <i class="ms-Icon ms-Icon--Giftbox"></i>
                         @Model.Package.Downloads.ToString("N0", CultureInfo.InvariantCulture) downloads of current version
                     </li>
+
+                    @if (Model.DailyDownloadAverage.HasValue)
+                    {
+                        <li>
+                            <i class="ms-Icon ms-Icon--CalendarDay"></i>
+                            @Model.DailyDownloadAverage.Value.ToString("N0", CultureInfo.InvariantCulture) per day average
+                        </li>
+                    }
                 </ul>
             </div>
 
@@ -310,6 +397,15 @@ else
                     <h2>Authors</h2>
 
                     <p>@string.Join(", ", Model.Package.Authors)</p>
+                </div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(Model.Package.Copyright))
+            {
+                <div>
+                    <h2>Copyright</h2>
+
+                    <p class="package-copyright">@Model.Package.Copyright</p>
                 </div>
             }
 
@@ -384,14 +480,21 @@ else
             {
                 <text>
                 {
-                    name: ".NET CLI",
+                    name: ".NET CLI (Global)",
                     prefix: ">",
                     content: ["dotnet tool install --global @Model.Package.Id --version @Model.Package.NormalizedVersionString"],
+                },
+                {
+                    name: ".NET CLI (Local)",
+                    prefix: ">",
+                    content: ["dotnet tool install @Model.Package.Id --version @Model.Package.NormalizedVersionString"],
                 },
                 </text>
             }
             else
             {
+                // A constant, so it is written raw: the encoder would turn '&' into '&amp;' inside the script.
+                var cakePrerelease = Model.Package.IsPrerelease ? Html.Raw("&prerelease") : HtmlString.Empty;
                 <text>
                 {
                     name: ".NET CLI",
@@ -399,9 +502,24 @@ else
                     content: ["dotnet add package @Model.Package.Id --version @Model.Package.NormalizedVersionString"],
                 },
                 {
+                    name: "Package Manager",
+                    prefix: "PM>",
+                    content: ["NuGet\\Install-Package @Model.Package.Id -Version @Model.Package.NormalizedVersionString"]
+                },
+                {
                     name: "PackageReference",
                     prefix: "",
                     content: ["<PackageReference Include=\"@Model.Package.Id\" Version=\"@Model.Package.NormalizedVersionString\" />"]
+                },
+                {
+                    name: "CPM",
+                    prefix: "",
+                    content: [
+                        "<!-- Directory.Packages.props -->",
+                        "<PackageVersion Include=\"@Model.Package.Id\" Version=\"@Model.Package.NormalizedVersionString\" />",
+                        "<!-- Project file -->",
+                        "<PackageReference Include=\"@Model.Package.Id\" />"
+                    ]
                 },
                 {
                     name: "Paket CLI",
@@ -409,9 +527,24 @@ else
                     content: ["paket add @Model.Package.Id --version @Model.Package.NormalizedVersionString"]
                 },
                 {
-                    name: "Package Manager",
-                    prefix: "PM>",
-                    content: ["Install-Package @Model.Package.Id -Version @Model.Package.NormalizedVersionString"]
+                    name: "Script & Interactive",
+                    prefix: "",
+                    content: ["#r \"nuget: @Model.Package.Id, @Model.Package.NormalizedVersionString\""]
+                },
+                {
+                    name: "File-based Apps",
+                    prefix: "",
+                    content: ["#:package @(Model.Package.Id)@@@(Model.Package.NormalizedVersionString)"]
+                },
+                {
+                    name: "Cake",
+                    prefix: "",
+                    content: [
+                        "// Install @Model.Package.Id as a Cake Addin",
+                        "#addin nuget:?package=@Model.Package.Id&version=@(Model.Package.NormalizedVersionString)@(cakePrerelease)",
+                        "// Install @Model.Package.Id as a Cake Tool",
+                        "#tool nuget:?package=@Model.Package.Id&version=@(Model.Package.NormalizedVersionString)@(cakePrerelease)"
+                    ]
                 },
                 </text>
             }

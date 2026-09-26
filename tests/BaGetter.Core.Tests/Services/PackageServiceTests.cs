@@ -261,7 +261,7 @@ public class PackageServiceTests
                 .Setup(u => u.DownloadPackageOrNullAsync(ID, Version, CancellationToken))
                 .ReturnsAsync(new MemoryStream());
             Indexer
-                .Setup(i => i.IndexAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>(), CancellationToken))
+                .Setup(i => i.IndexAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<DateTime?>(), CancellationToken))
                 .ReturnsAsync(PackageIndexingResult.PackageAlreadyExists);
             DB
                 .Setup(p => p.FindOrNullAsync(It.IsAny<Guid>(), ID, Version, /*includeUnlisted:*/ true, CancellationToken))
@@ -311,7 +311,7 @@ public class PackageServiceTests
                 .Setup(u => u.DownloadPackageOrNullAsync(ID, Version, CancellationToken))
                 .ReturnsAsync(new MemoryStream());
             Indexer
-                .Setup(i => i.IndexAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>(), CancellationToken))
+                .Setup(i => i.IndexAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<DateTime?>(), CancellationToken))
                 .ReturnsAsync(PackageIndexingResult.PackageAlreadyExists);
 
             var result = await Target.ExistsAsync(_feedId, FeedSlug, ID, Version, CancellationToken);
@@ -337,7 +337,7 @@ public class PackageServiceTests
                     return (Stream)new MemoryStream();
                 });
             Indexer
-                .Setup(i => i.IndexAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>(), CancellationToken))
+                .Setup(i => i.IndexAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<DateTime?>(), CancellationToken))
                 .Returns(async () =>
                 {
                     await Task.Delay(10);
@@ -356,7 +356,7 @@ public class PackageServiceTests
 
             Assert.All(results, Assert.True);
             Indexer.Verify(
-                i => i.IndexAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>(), CancellationToken),
+                i => i.IndexAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<DateTime?>(), CancellationToken),
                 Times.Once);
         }
     }
@@ -378,7 +378,7 @@ public class PackageServiceTests
             await TargetAsync();
 
             Indexer.Verify(
-                i => i.IndexAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>(), CancellationToken),
+                i => i.IndexAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<DateTime?>(), CancellationToken),
                 Times.Never);
         }
 
@@ -396,7 +396,7 @@ public class PackageServiceTests
             await TargetAsync();
 
             Indexer.Verify(
-                i => i.IndexAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>(), CancellationToken),
+                i => i.IndexAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<DateTime?>(), CancellationToken),
                 Times.Never);
         }
 
@@ -414,7 +414,7 @@ public class PackageServiceTests
             await TargetAsync();
 
             Indexer.Verify(
-                i => i.IndexAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>(), CancellationToken),
+                i => i.IndexAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<DateTime?>(), CancellationToken),
                 Times.Never);
         }
 
@@ -433,7 +433,34 @@ public class PackageServiceTests
             await TargetAsync();
 
             Indexer.Verify(
-                i => i.IndexAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>(), CancellationToken),
+                i => i.IndexAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<DateTime?>(), CancellationToken),
+                Times.Once);
+        }
+
+        [Theory]
+        [InlineData(2024, 2024)]
+        [InlineData(1900, null)]
+        public async Task KeepsTheUpstreamPublishDate(int upstreamYear, int? expectedYear)
+        {
+            DB
+                .Setup(p => p.ExistsAsync(It.IsAny<Guid>(), ID, Version, CancellationToken))
+                .ReturnsAsync(false);
+            Upstream
+                .Setup(u => u.DownloadPackageOrNullAsync(ID, Version, CancellationToken))
+                .ReturnsAsync(new MemoryStream());
+            Upstream
+                .Setup(u => u.ListPackagesAsync(ID, CancellationToken))
+                .ReturnsAsync(new List<Package>
+                {
+                    new() { Id = ID, Version = Version, Published = new DateTime(upstreamYear, 5, 1, 0, 0, 0, DateTimeKind.Utc) },
+                    new() { Id = ID, Version = new NuGetVersion("2.0.0"), Published = new DateTime(2025, 1, 1) },
+                });
+
+            await TargetAsync();
+
+            var expected = expectedYear.HasValue ? new DateTime(expectedYear.Value, 5, 1, 0, 0, 0, DateTimeKind.Utc) : (DateTime?)null;
+            Indexer.Verify(
+                i => i.IndexAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>(), expected, CancellationToken),
                 Times.Once);
         }
     }
@@ -467,6 +494,10 @@ public class PackageServiceTests
         {
             DB = new Mock<IPackageDatabase>();
             Upstream = new Mock<IUpstreamClient>();
+            // Like the real clients, which return an empty list when the upstream has nothing.
+            Upstream
+                .Setup(u => u.ListPackagesAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new List<Package>());
             Indexer = new Mock<IPackageIndexingService>();
 
             var defaultFeed = new Feed { Id = Guid.Empty, Slug = Feed.DefaultSlug };

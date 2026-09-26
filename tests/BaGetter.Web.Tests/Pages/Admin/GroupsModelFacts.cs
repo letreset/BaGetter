@@ -60,6 +60,61 @@ public class GroupsModelFacts
             var redirect = Assert.IsType<RedirectToPageResult>(result);
             Assert.Equal(groupId, redirect.RouteValues["savedGroupId"]);
         }
+
+        [Fact]
+        public async Task LeavesUnchangedRowsAlone()
+        {
+            var groupId = Guid.NewGuid();
+            var feedId = Guid.NewGuid();
+            _permissions
+                .Setup(p => p.GetPermissionAsync(groupId, PrincipalType.Group, feedId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new FeedPermission { Id = Guid.NewGuid(), CanPull = true, CanPush = false, CanDelete = false });
+
+            await _target.OnPostSavePermissionsAsync(
+                groupId,
+                [new() { FeedId = feedId, CanPull = true, CanPush = false, CanDelete = false }],
+                CancellationToken.None);
+
+            _permissions.Verify(p => p.GrantPermissionAsync(
+                It.IsAny<Guid>(), It.IsAny<PrincipalType>(), It.IsAny<Guid>(), It.IsAny<bool>(), It.IsAny<bool>(),
+                It.IsAny<CancellationToken>(), It.IsAny<PermissionSource>(), It.IsAny<bool>()), Times.Never);
+            _permissions.Verify(p => p.RevokePermissionAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        }
+    }
+
+    public class OnPostDeleteGroupAsync : FactsBase
+    {
+        public OnPostDeleteGroupAsync()
+        {
+            _groups.Setup(g => g.GetAllGroupsAsync(It.IsAny<CancellationToken>())).ReturnsAsync(new List<Group>());
+            _users.Setup(u => u.GetAllUsersAsync(It.IsAny<CancellationToken>())).ReturnsAsync(new List<User>());
+            _permissions
+                .Setup(p => p.GetPermissionsByPrincipalTypeAsync(PrincipalType.Group, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new List<FeedPermission>());
+        }
+
+        [Fact]
+        public async Task ReportsSuccess()
+        {
+            var groupId = Guid.NewGuid();
+            _groups.Setup(g => g.DeleteGroupAsync(groupId, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+
+            await _target.OnPostDeleteGroupAsync(groupId, CancellationToken.None);
+
+            Assert.Equal("Group deleted successfully.", _target.SuccessMessage);
+            Assert.Null(_target.ErrorMessage);
+        }
+
+        [Fact]
+        public async Task ReportsAnUnknownGroup()
+        {
+            _groups.Setup(g => g.DeleteGroupAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync(false);
+
+            await _target.OnPostDeleteGroupAsync(Guid.NewGuid(), CancellationToken.None);
+
+            Assert.Equal("Group not found.", _target.ErrorMessage);
+            Assert.Null(_target.SuccessMessage);
+        }
     }
 
     public class FactsBase

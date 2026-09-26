@@ -72,6 +72,12 @@ public class PackageMetadata
     public string LicenseUrl { get; set; }
 
     /// <summary>
+    /// The package's SPDX license expression, if it declares one.
+    /// </summary>
+    [JsonPropertyName("licenseExpression")]
+    public string LicenseExpression { get; set; }
+
+    /// <summary>
     /// Whether the package is listed in search results.
     /// If <see langword="null"/>, the package should be considered as listed.
     /// </summary>

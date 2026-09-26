@@ -43,11 +43,21 @@ Users who can delete from the feed also see unlisted packages in the list, so th
 
 A package page shows:
 
-- The install command for the .NET CLI, `PackageReference`, Paket CLI and the Package Manager console, with a copy button.
+- Badges for the lowest target framework per family (for example ".NET 6.0" and ".NET Standard 2.0"; the package works on that framework or higher), and a **Frameworks** section with every target framework.
+- Install snippets with a copy button: .NET CLI, Package Manager console, `PackageReference`, Central Package Management, Paket CLI, `#r` for scripts and notebooks, `#:package` for file-based apps, and Cake. .NET tools get global and local install commands.
+- Notes for prerelease versions, a minimum NuGet client version and required license acceptance, and the package's title and summary when they differ from the id.
 - The readme and release notes, when the package has them.
 - Dependencies grouped by target framework, and the packages in this feed that depend on it (**Used by**).
-- The version history, with downloads and dates, and the total download count. On a feed with a [mirror](feeds.md#mirror-read-through-cache), versions that are only available from the mirror are marked **mirror**; they are stored in the feed the first time someone downloads them. A link to a version that doesn't exist says so instead of showing another version.
-- Links to the project, source code and license, when the package provides them, and a download link for the `.nupkg`.
+- The version history, with downloads and dates, and an **Include prerelease** filter when there are prereleases. On a feed with a [mirror](feeds.md#mirror-read-through-cache), versions that are only available from the mirror are marked **mirror**; they are stored in the feed the first time someone downloads them. A link to a version that doesn't exist says so instead of showing another version.
+- The total downloads, the downloads of the shown version and the average per day since the first version was stored in the feed.
+- Links to the project, source code and license (named after the license expression, e.g. "MIT license", when the package has one), the copyright, and a download link for the `.nupkg` with its size. Packages stored before BaGetter recorded copyright, license expression and size get them from a one-time background task after the upgrade, which re-reads their stored `.nupkg`.
+- A link to the package's [Atom feed](#atom-feed).
+
+### Atom feed
+
+Every package has an Atom feed of its listed versions, newest first (at most 20), at `/packages/{id}/atom.xml`, or `/feeds/{slug}/packages/{id}/atom.xml` for a named feed. The package page links to it, so feed readers can find it from the page URL. Versions that are only available from a mirror are included, unlisted versions aren't.
+
+Feed readers can't use the web UI's sign-in. In the `Local`, `Entra` and `Hybrid` modes they authenticate with Basic auth: your user name and a [personal access token](#my-tokens) as the password. Users without pull permission on the feed get a 404, as on the package page.
 
 ## Unlist, relist and delete
 

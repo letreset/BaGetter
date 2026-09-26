@@ -30,13 +30,8 @@ public partial class GroupService : IGroupService
         if (name == null) return null;
 
         // Case-insensitive on every database, like usernames (see UserService.FindByUsernameAsync).
-        var lowered = name.ToLowerInvariant();
-        return await _context.Groups
-#pragma warning disable CA1862 // EF Core can't translate string.Equals with a StringComparison to SQL.
-            .Where(g => g.Name == name || g.Name.ToLower() == lowered)
-#pragma warning restore CA1862
-            .OrderByDescending(g => g.Name == name)
-            .FirstOrDefaultAsync(cancellationToken);
+        var normalized = Group.NormalizeName(name);
+        return await _context.Groups.FirstOrDefaultAsync(g => g.NormalizedName == normalized, cancellationToken);
     }
 
     public async Task<Group> FindByAppRoleValueAsync(string appRoleValue, CancellationToken cancellationToken)
@@ -192,11 +187,11 @@ public partial class GroupService : IGroupService
         return user.AuthProvider != AuthProvider.Entra;
     }
 
-    public async Task DeleteGroupAsync(Guid groupId, CancellationToken cancellationToken)
+    public async Task<bool> DeleteGroupAsync(Guid groupId, CancellationToken cancellationToken)
     {
         var group = await _context.Groups
             .FirstOrDefaultAsync(g => g.Id == groupId, cancellationToken);
-        if (group == null) return;
+        if (group == null) return false;
 
         var memberships = await _context.UserGroups
             .Where(ug => ug.GroupId == groupId)
@@ -212,6 +207,8 @@ public partial class GroupService : IGroupService
         await _context.SaveChangesAsync(cancellationToken);
 
         LogGroupDeleted(group.Name, groupId);
+
+        return true;
     }
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Created group {GroupName} with ID {GroupId}")]

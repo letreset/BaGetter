@@ -43,7 +43,9 @@ Upstream is only a source to cherry-pick from. We don't send PRs there.
 
 ## Branches, versions, releases
 
-- `main` is the only long-lived branch. Work happens on `feature/*` branches, which are merged into `main` with `--no-ff`.
+- `main` is the only long-lived branch. Work happens on `feature/*` branches.
+- `main` is protected by a repository ruleset: no direct pushes, no merge commits (linear history), and changes land only through a pull request in letreset/BaGetter. The PR needs the required checks to pass (Build & test on ubuntu and windows, Docker build, Helm lint, CodeQL) and its review threads resolved; no approval is required.
+- To ship a branch: rebase it on `origin/main`, push it, open a PR against `main`, and merge it with **Rebase and merge**, so each Conventional Commit stays separate for the git-cliff changelog. Use squash only for a branch that is really one change. Pushing `main` directly, or a `--no-ff` merge, is rejected.
 - Versioning is independent semver starting at **2.0.0** and is unrelated to upstream's 1.x.
 - Pushing a `vX.Y.Z` tag on `main` runs `.github/workflows/release.yml`. It runs the tests, creates a GitHub release with a zip and a git-cliff changelog, pushes the Docker image `letreset/bagetter` to Docker Hub, and pushes the Helm chart to `oci://ghcr.io/letreset/charts`.
 - A `-` in the tag (e.g. `v2.1.0-rc.1`) marks a prerelease, which does not move the `latest` image tag.
@@ -65,6 +67,16 @@ Upstream is only a source to cherry-pick from. We don't send PRs there.
 | `testenv/` | Docker Compose test environment with a seeded data snapshot, the seed script and the UI test checklist (`UI-TESTS.md`) |
 | `docs/` | Docusaurus site, deployed to GitHub Pages by `docs.yml` |
 | `deployment templates/` | Helm chart (`chart/bagetter`, built on bjw-s app-template) |
+
+## Code navigation (CodeGraph)
+
+The repo is indexed by CodeGraph (`.codegraph/` is local to each machine; only `.codegraph/.gitignore` is committed). When the index exists, use it before grep or reading whole files:
+
+- **MCP tools:** `codegraph_explore` returns the current, line-numbered source of the symbols you name plus the call paths between them, including DI and interface-to-implementation hops that grep can't follow. `codegraph_callers` lists who calls a symbol, `codegraph_impact` what a change affects, `codegraph_files` the indexed file tree.
+- **Always pass `projectPath`** (the repo root, e.g. `C:\Users\<you>\source\repos\BaGetter`). The server has no default project, and calls without it fail with "expected string, received undefined".
+- Name symbols or files in the query, e.g. `"FeedResolutionMiddleware IFeedContext CurrentFeed"`. One call covers about six files; spend a second call on the uncovered area rather than reading files.
+- The index lags behind uncommitted edits: files marked "changed on disk" come back without source, so read those directly, and re-read any file before editing it. Grep is still the tool for string literals, config keys, `.cshtml`, JSON and YAML.
+- If the MCP server doesn't connect, the CLI (`codegraph explore "<symbols or question>"`) prints the same output when it is on the `PATH`; otherwise fall back to grep and reading.
 
 ## Build & test
 

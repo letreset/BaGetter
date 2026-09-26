@@ -54,7 +54,7 @@ public partial class PackageIndexingService : IPackageIndexingService
 #pragma warning restore CS0618 // Type or member is obsolete
     }
 
-    public async Task<PackageIndexingResult> IndexAsync(Guid feedId, string feedSlug, Stream packageStream, string cacheFeedUrl, CancellationToken cancellationToken)
+    public async Task<PackageIndexingResult> IndexAsync(Guid feedId, string feedSlug, Stream packageStream, string cacheFeedUrl, DateTime? published, CancellationToken cancellationToken)
     {
         // Try to extract all the necessary information from the package.
         Package package;
@@ -67,8 +67,9 @@ public partial class PackageIndexingService : IPackageIndexingService
             using var packageReader = new PackageArchiveReader(packageStream, leaveStreamOpen: true);
             package = packageReader.GetPackageMetadata();
             package.CachedFrom = cacheFeedUrl;
-            package.Published = _time.UtcNow;
+            package.Published = published ?? _time.UtcNow;
             package.FeedId = feedId;
+            package.Size = packageStream.Length;
 
             nuspecStream = await packageReader.GetNuspecAsync(cancellationToken);
             nuspecStream = await nuspecStream.AsTemporaryFileStreamAsync(cancellationToken);

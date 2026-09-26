@@ -219,6 +219,8 @@ In the `Local`, `Entra` and `Hybrid` modes every [feed](feeds.md) has its own pe
 
 Administrators have all three on every feed. Feeds a user can't pull from are hidden from them in the UI. Requests without the needed permission get `401 Unauthorized` (not signed in) or `403 Forbidden`.
 
+Feed slugs are not secret. NuGet clients need the service index (`/feeds/{slug}/v3/index.json`) without credentials to discover a feed, so an anonymous request can tell an existing feed (200) from a missing one (404). Pages and package data still need a signed-in user with pull permission, so don't put anything sensitive in a feed's slug.
+
 ## Personal access tokens (PATs)
 
 Personal access tokens let users authenticate from NuGet clients and CI without their interactive credentials. They are available to Entra and local users.

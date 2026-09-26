@@ -52,7 +52,7 @@ For every page you open, the browser console should show no errors.
 
 | # | Account | Steps | Expected |
 |---|---|---|---|
-| P1 | `admin` | Open Internal > Contoso.Logging | Version 2.0.0, install tabs (.NET CLI, PackageReference, Paket CLI, Package Manager), copy button works |
+| P1 | `admin` | Open Internal > Contoso.Logging | Version 2.0.0, install tabs (.NET CLI, Package Manager, PackageReference, CPM, Paket CLI, Script & Interactive, File-based Apps, Cake), copy button works |
 | P2 | `admin` | Expand **Readme** | The Contoso.Logging readme with a code block |
 | P3 | `admin` | Expand **Dependencies** | Contoso.Core (>= 2.0.0), grouped by target framework |
 | P4 | `admin` | Open Contoso.Core, expand **Used By** | Contoso.Logging and Contoso.Configuration |
@@ -60,6 +60,16 @@ For every page you open, the browser console should show no errors.
 | P6 | `carol` | Versions of Contoso.Logging | 2.0.0 and 1.5.0 only, no Manage section |
 | P7 | `admin` | Open `/feeds/internal/packages/Contoso.Logging/99.0.0` | "Version not found" with a link to the latest version (also for `/not-a-version`) |
 | P8 | `admin` | **Download package** | Downloads `contoso.logging.2.0.0.nupkg` |
+| P9 | `admin` | Look under the Contoso.Logging title, hover a badge | Badges `.NET 8.0` and `.NET Standard 2.0`; the tooltip says the package is compatible with that framework or higher |
+| P10 | `admin` | Expand **Frameworks** on Contoso.Logging | `.NET 10.0`, `.NET 8.0`, `.NET Standard 2.0`, in that order |
+| P11 | `admin` | Contoso.Logging > **CPM** and **Cake** tabs, copy each | One line per entry (`PackageVersion` and `PackageReference`; `#addin` and `#tool`), and the copied text has the same lines. **Package Manager** shows `NuGet\Install-Package Contoso.Logging -Version 2.0.0` |
+| P12 | `admin` | Experimental > Contoso.Preview.Ai > **Cake** tab | Both lines end with `&prerelease` (no `&amp;`) |
+| P13 | `admin` | Experimental > Contoso.Preview.Ai, then Internal > Contoso.Logging | "This is a prerelease version of Contoso.Preview.Ai." under the install box; no such note on Contoso.Logging |
+| P14 | `admin` | Statistics of Contoso.Logging | A "per day average" line next to the total downloads |
+| P15 | `admin` | Default > `/packages/Newtonsoft.Json` (needs internet), clear **Include prerelease** | Only the prerelease rows disappear, the remaining stable versions are all shown (no 5-row cap) and **Show more** is hidden; ticking it again restores the list. Contoso.Logging (no prereleases) has no checkbox |
+| P16 | `admin` | Info of Internal > Contoso.Logging (on an image with this change the startup backfill fills the snapshot's packages) | The license link reads "MIT license" and opens `https://licenses.nuget.org/MIT`; **Download package** is followed by the size, e.g. "(8.21 KB)" |
+| P17 | `carol` | Pack a package with `<Copyright>Copyright (c) Contoso</Copyright>` and push it to Experimental, then open it | A **Copyright** section in the sidebar with that text |
+| P18 | `admin` | Contoso.Logging > **Atom feed** in the sidebar; then `curl -u carol:<password> http://localhost:5000/feeds/internal/packages/Contoso.Logging/atom.xml` | The link points to `/feeds/internal/packages/contoso.logging/atom.xml` and the page head has a `<link rel="alternate" type="application/atom+xml">`; curl returns an Atom feed with 2.0.0 and 1.5.0 (not the unlisted 1.4.0), and without `-u` it gets 401 |
 
 ## Package management
 
@@ -123,6 +133,8 @@ For every page you open, the browser console should show no errors.
 | G2 | `admin` | Create a group `Developers`, then `developers` | "already exists" both times |
 | G3 | `admin` | Remove `carol` from Developers, then check `carol` | `carol` sees "No feeds available"; add her back and she sees all four feeds again |
 | G4 | `admin` | Clear Pull on Internal for Developers and **Save all** | `bob` no longer sees Internal; restore it |
+| G5 | `admin` | Do G4, then check the container log | One `AUDIT feed_permission_revoked` line for Internal and one `feed_permission_set` line for the restore, no lines for the unchanged feeds |
+| G6 | `admin` | Create a group, open its delete confirmation in two tabs, confirm in both | The first says "Group deleted successfully.", the second "Group not found." |
 
 ## Access control
 
@@ -138,6 +150,7 @@ For every page you open, the browser console should show no errors.
 |---|---|---|---|
 | R1 | `admin` | Open Default > `/packages/Newtonsoft.Json` (needs internet) | The package page with nuget.org's versions |
 | R2 | `admin` | Look at the versions | Versions not stored in the feed carry a **mirror** label, no downloads, no `1900-01-01` dates and no Relist; upstream-unlisted versions aren't listed; opening a mirror-only version shows no Manage section |
+| R3 | `admin` | Download a mirror-only version, e.g. `curl -u admin:<password> -o NUL http://localhost:5000/v3/package/newtonsoft.json/12.0.1/newtonsoft.json.12.0.1.nupkg`, then reload the Newtonsoft.Json page | 12.0.1 loses the **mirror** label and keeps its publish date from nuget.org (in 2018), not today's |
 
 ## Small screens
 

@@ -204,12 +204,16 @@ namespace BaGetter.Database.MySql.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("varchar(256)");
 
+                    b.Property<string>("NormalizedName")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AppRoleValue")
                         .IsUnique();
 
-                    b.HasIndex("Name")
+                    b.HasIndex("NormalizedName")
                         .IsUnique();
 
                     b.ToTable("Groups");
@@ -228,6 +232,10 @@ namespace BaGetter.Database.MySql.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("CachedFrom")
+                        .HasMaxLength(4000)
+                        .HasColumnType("text");
+
+                    b.Property<string>("Copyright")
                         .HasMaxLength(4000)
                         .HasColumnType("text");
 
@@ -262,6 +270,10 @@ namespace BaGetter.Database.MySql.Migrations
                     b.Property<string>("Language")
                         .HasMaxLength(20)
                         .HasColumnType("varchar(20)");
+
+                    b.Property<string>("LicenseExpression")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
 
                     b.Property<string>("LicenseUrl")
                         .HasMaxLength(4000)
@@ -314,6 +326,9 @@ namespace BaGetter.Database.MySql.Migrations
 
                     b.Property<int>("SemVerLevel")
                         .HasColumnType("int");
+
+                    b.Property<long?>("Size")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Summary")
                         .HasMaxLength(4000)
@@ -525,6 +540,10 @@ namespace BaGetter.Database.MySql.Migrations
                     b.Property<DateTime?>("LockedUntilUtc")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<string>("NormalizedUsername")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
                     b.Property<string>("PasswordHash")
                         .HasMaxLength(256)
                         .HasColumnType("varchar(256)");
@@ -544,7 +563,7 @@ namespace BaGetter.Database.MySql.Migrations
                     b.HasIndex("EntraObjectId")
                         .IsUnique();
 
-                    b.HasIndex("Username")
+                    b.HasIndex("NormalizedUsername")
                         .IsUnique();
 
                     b.ToTable("Users");

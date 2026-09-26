@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -9,6 +10,7 @@ using BaGetter.Core.Authentication;
 using BaGetter.Core.Configuration;
 using BaGetter.Core.Content;
 using BaGetter.Core.Entities;
+using BaGetter.Core.Extensions;
 using BaGetter.Core.Feeds;
 using BaGetter.Core.Indexing;
 using BaGetter.Core.Search;
@@ -40,6 +42,7 @@ public class PackageModel : PageModel
     private readonly IFeedSettingsResolver _feedSettings;
     private readonly WebAuditLog _audit;
     private readonly IOptionsSnapshot<NugetAuthenticationOptions> _authOptions;
+    private readonly SystemTime _time;
 
     static PackageModel()
     {
@@ -58,7 +61,8 @@ public class PackageModel : PageModel
         IPackageDeletionService deletionService,
         IFeedSettingsResolver feedSettings,
         WebAuditLog audit,
-        IOptionsSnapshot<NugetAuthenticationOptions> authOptions)
+        IOptionsSnapshot<NugetAuthenticationOptions> authOptions,
+        SystemTime time)
     {
         _packages = packages ?? throw new ArgumentNullException(nameof(packages));
         _content = content ?? throw new ArgumentNullException(nameof(content));
@@ -70,6 +74,7 @@ public class PackageModel : PageModel
         _feedSettings = feedSettings ?? throw new ArgumentNullException(nameof(feedSettings));
         _audit = audit ?? throw new ArgumentNullException(nameof(audit));
         _authOptions = authOptions ?? throw new ArgumentNullException(nameof(authOptions));
+        _time = time ?? throw new ArgumentNullException(nameof(time));
     }
 
     public bool Found { get; private set; }
@@ -109,9 +114,31 @@ public class PackageModel : PageModel
     public DateTime LastUpdated { get; private set; }
     public long TotalDownloads { get; private set; }
 
+    /// <summary>
+    /// Total downloads divided by the days since the earliest version stored in this feed was
+    /// published (at least one day). Null when no version is stored in this feed.
+    /// </summary>
+    public long? DailyDownloadAverage { get; private set; }
+
+    /// <summary>
+    /// Whether any shown version is a prerelease; the versions table then offers a prerelease filter.
+    /// </summary>
+    public bool HasPrereleaseVersions => Versions?.Any(v => v.IsPrerelease) == true;
+
     public IReadOnlyList<PackageDependent> UsedBy { get; set; }
     public IReadOnlyList<DependencyGroupModel> DependencyGroups { get; private set; }
     public IReadOnlyList<VersionModel> Versions { get; private set; }
+
+    /// <summary>
+    /// The lowest target framework per family (e.g. ".NET 6.0", ".NET Standard 2.0"), shown as badges
+    /// under the title.
+    /// </summary>
+    public IReadOnlyList<string> FrameworkBadges { get; private set; }
+
+    /// <summary>
+    /// Every target framework of the package, as display names, sorted by family and version.
+    /// </summary>
+    public IReadOnlyList<string> Frameworks { get; private set; }
 
     public HtmlString Readme { get; private set; }
 
@@ -119,6 +146,16 @@ public class PackageModel : PageModel
 
     public string IconUrl { get; private set; }
     public string LicenseUrl { get; private set; }
+
+    /// <summary>
+    /// "{expression} license" for packages with a license expression, otherwise "License".
+    /// </summary>
+    public string LicenseText { get; private set; }
+
+    /// <summary>
+    /// The .nupkg size, e.g. "2.43 MB", or null when it isn't known.
+    /// </summary>
+    public string PackageSize { get; private set; }
     public string PackageDownloadUrl { get; private set; }
 
     public async Task<IActionResult> OnGetAsync(string id, string version, CancellationToken cancellationToken)
@@ -172,11 +209,21 @@ public class PackageModel : PageModel
         IsDotnetTool = Package.PackageTypes.Any(t => t.Name.Equals("DotnetTool", StringComparison.OrdinalIgnoreCase));
         LastUpdated = packages.Max(p => p.Published);
         TotalDownloads = packages.Sum(p => p.Downloads);
+        DailyDownloadAverage = GetDailyDownloadAverage(packages, TotalDownloads, _time.UtcNow);
 
         var dependents = await _search.FindDependentsAsync(_feedContext.CurrentFeed.Id, Package.Id, cancellationToken);
 
         UsedBy = dependents.Data;
         DependencyGroups = ToDependencyGroups(Package);
+
+        // Mirrored packages may have no target frameworks.
+        var monikers = (Package.TargetFrameworks ?? [])
+            .Select(f => f.Moniker)
+            .Where(m => !string.IsNullOrEmpty(m) && !m.Equals("any", StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        FrameworkBadges = TargetFrameworkNames.GetLowestPerFamily(monikers);
+        Frameworks = TargetFrameworkNames.Sort(monikers).Select(TargetFrameworkNames.GetDisplayName).ToList();
 
         // Managers (CanDelete) also see unlisted versions of this feed so they can relist them;
         // the versions table strikes those through. Unlisted versions that only exist on a mirror
@@ -196,7 +243,18 @@ public class PackageModel : PageModel
         IconUrl = Package.HasEmbeddedIcon
             ? _url.GetPackageIconDownloadUrl(Package.Id, packageVersion)
             : Package.IconUrlString;
-        LicenseUrl = Package.LicenseUrlString;
+        if (string.IsNullOrEmpty(Package.LicenseExpression))
+        {
+            LicenseUrl = Package.LicenseUrlString;
+            LicenseText = "License";
+        }
+        else
+        {
+            LicenseUrl = "https://licenses.nuget.org/" + Uri.EscapeDataString(Package.LicenseExpression);
+            LicenseText = Package.LicenseExpression + " license";
+        }
+
+        PackageSize = Package.Size.HasValue ? FormatSize(Package.Size.Value) : null;
         PackageDownloadUrl = _url.GetPackageDownloadUrl(Package.Id, packageVersion);
 
         return Page();
@@ -283,6 +341,37 @@ public class PackageModel : PageModel
         return package.Key != 0;
     }
 
+    /// <summary>
+    /// Formats a size with binary units and the invariant culture, e.g. "812 B", "2.43 MB".
+    /// </summary>
+    private static string FormatSize(long bytes)
+    {
+        string[] units = ["B", "KB", "MB", "GB", "TB"];
+
+        double size = bytes;
+        var unit = 0;
+        while (size >= 1024 && unit < units.Length - 1)
+        {
+            size /= 1024;
+            unit++;
+        }
+
+        return size.ToString("0.##", CultureInfo.InvariantCulture) + " " + units[unit];
+    }
+
+    /// <summary>
+    /// Downloads are only counted for versions stored in this feed, so the average starts at the
+    /// earliest of those, not at an upstream publish date.
+    /// </summary>
+    private static long? GetDailyDownloadAverage(IReadOnlyList<Package> packages, long totalDownloads, DateTime utcNow)
+    {
+        var local = packages.Where(IsLocal).ToList();
+        if (local.Count == 0) return null;
+
+        var days = Math.Max(1, (long)(utcNow - local.Min(p => p.Published)).TotalDays);
+        return totalDownloads / days;
+    }
+
     private Task<bool> CanDeleteCurrentFeedAsync(CancellationToken cancellationToken)
         => FeedAccessGuard.CanDeleteFromCurrentFeedAsync(
             HttpContext, _feedContext, _permissions, _authOptions.Value.Mode, cancellationToken);
@@ -323,6 +412,7 @@ public class PackageModel : PageModel
                 // Upstreams report 1900-01-01 for unlisted versions they have no date for.
                 LastUpdated = p.Published.Year > 1900 ? p.Published : null,
                 Listed = p.Listed,
+                IsPrerelease = p.Version.IsPrerelease,
                 IsLocal = IsLocal(p),
             })
             .OrderByDescending(m => m.Version)
@@ -376,6 +466,7 @@ public class PackageModel : PageModel
         public bool Selected { get; set; }
         public DateTime? LastUpdated { get; set; }
         public bool Listed { get; set; }
+        public bool IsPrerelease { get; set; }
         public bool IsLocal { get; set; }
     }
 }

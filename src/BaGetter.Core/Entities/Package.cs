@@ -50,6 +50,20 @@ public class Package
     public string Summary { get; set; }
     public string Title { get; set; }
 
+    public string Copyright { get; set; }
+
+    /// <summary>
+    /// The SPDX license expression (e.g. "MIT") when the nuspec declares one. Null for license URLs
+    /// and license files.
+    /// </summary>
+    public string LicenseExpression { get; set; }
+
+    /// <summary>
+    /// The length of the .nupkg in bytes. Null for versions that are only available from a mirror,
+    /// and for packages stored before this was recorded until the backfill reaches them.
+    /// </summary>
+    public long? Size { get; set; }
+
     public Uri IconUrl { get; set; }
     public Uri LicenseUrl { get; set; }
     public Uri ProjectUrl { get; set; }

@@ -202,14 +202,19 @@ namespace BaGetter.Database.SqlServer.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
+                    b.Property<string>("NormalizedName")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AppRoleValue")
                         .IsUnique()
                         .HasFilter("[AppRoleValue] IS NOT NULL");
 
-                    b.HasIndex("Name")
-                        .IsUnique();
+                    b.HasIndex("NormalizedName")
+                        .IsUnique()
+                        .HasFilter("[NormalizedName] IS NOT NULL");
 
                     b.ToTable("Groups");
                 });
@@ -227,6 +232,10 @@ namespace BaGetter.Database.SqlServer.Migrations
                         .HasColumnType("nvarchar(4000)");
 
                     b.Property<string>("CachedFrom")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<string>("Copyright")
                         .HasMaxLength(4000)
                         .HasColumnType("nvarchar(4000)");
 
@@ -261,6 +270,10 @@ namespace BaGetter.Database.SqlServer.Migrations
                     b.Property<string>("Language")
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("LicenseExpression")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("LicenseUrl")
                         .HasMaxLength(4000)
@@ -313,6 +326,9 @@ namespace BaGetter.Database.SqlServer.Migrations
 
                     b.Property<int>("SemVerLevel")
                         .HasColumnType("int");
+
+                    b.Property<long?>("Size")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Summary")
                         .HasMaxLength(4000)
@@ -524,6 +540,10 @@ namespace BaGetter.Database.SqlServer.Migrations
                     b.Property<DateTime?>("LockedUntilUtc")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("NormalizedUsername")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
                     b.Property<string>("PasswordHash")
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
@@ -544,8 +564,9 @@ namespace BaGetter.Database.SqlServer.Migrations
                         .IsUnique()
                         .HasFilter("[EntraObjectId] IS NOT NULL");
 
-                    b.HasIndex("Username")
-                        .IsUnique();
+                    b.HasIndex("NormalizedUsername")
+                        .IsUnique()
+                        .HasFilter("[NormalizedUsername] IS NOT NULL");
 
                     b.ToTable("Users");
                 });

@@ -182,7 +182,7 @@ internal static class BaGetWebApplicationFactoryExtensions
         var feed = await feedService.GetFeedBySlugAsync(feedSlug, cancellationToken)
             ?? throw new InvalidOperationException($"Feed '{feedSlug}' not found.");
 
-        var result = await indexer.IndexAsync(feed.Id, feed.Slug, package, cacheFeedUrl: null, cancellationToken);
+        var result = await indexer.IndexAsync(feed.Id, feed.Slug, package, cacheFeedUrl: null, published: null, cancellationToken);
         if (result != PackageIndexingResult.Success)
         {
             throw new InvalidOperationException($"Unexpected indexing result {result}");
@@ -201,7 +201,7 @@ internal static class BaGetWebApplicationFactoryExtensions
         var feedService = scope.ServiceProvider.GetRequiredService<IFeedService>();
         var feed = await feedService.GetDefaultFeedAsync(cancellationToken);
 
-        var result = await indexer.IndexAsync(feed.Id, feed.Slug, package, cacheFeedUrl: null, cancellationToken);
+        var result = await indexer.IndexAsync(feed.Id, feed.Slug, package, cacheFeedUrl: null, published: null, cancellationToken);
         if (result != PackageIndexingResult.Success)
         {
             throw new InvalidOperationException($"Unexpected indexing result {result}");

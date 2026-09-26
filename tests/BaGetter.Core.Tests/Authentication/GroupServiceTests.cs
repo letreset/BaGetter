@@ -373,10 +373,9 @@ public class GroupServiceTests
     public class DeleteGroupAsync : FactsBase
     {
         [Fact]
-        public async Task DoesNothingWhenGroupNotFound()
+        public async Task ReturnsFalseWhenGroupNotFound()
         {
-            // Should complete without throwing
-            await Target.DeleteGroupAsync(Guid.NewGuid(), Ct);
+            Assert.False(await Target.DeleteGroupAsync(Guid.NewGuid(), Ct));
         }
 
         [Fact]
@@ -386,7 +385,7 @@ public class GroupServiceTests
             var group = await Target.CreateGroupAsync("ToDelete", null, null, Ct);
             await Target.AddUserToGroupAsync(user.Id, group.Id, Ct);
 
-            await Target.DeleteGroupAsync(group.Id, Ct);
+            Assert.True(await Target.DeleteGroupAsync(group.Id, Ct));
 
             var found = await Target.FindByIdAsync(group.Id, Ct);
             Assert.Null(found);

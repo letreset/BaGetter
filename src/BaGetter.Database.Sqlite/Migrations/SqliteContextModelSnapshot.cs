@@ -195,12 +195,16 @@ namespace BaGetter.Database.Sqlite.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("NormalizedName")
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AppRoleValue")
                         .IsUnique();
 
-                    b.HasIndex("Name")
+                    b.HasIndex("NormalizedName")
                         .IsUnique();
 
                     b.ToTable("Groups");
@@ -217,6 +221,10 @@ namespace BaGetter.Database.Sqlite.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("CachedFrom")
+                        .HasMaxLength(4000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Copyright")
                         .HasMaxLength(4000)
                         .HasColumnType("TEXT");
 
@@ -250,6 +258,10 @@ namespace BaGetter.Database.Sqlite.Migrations
 
                     b.Property<string>("Language")
                         .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LicenseExpression")
+                        .HasMaxLength(500)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("LicenseUrl")
@@ -302,6 +314,9 @@ namespace BaGetter.Database.Sqlite.Migrations
                         .HasColumnType("BLOB");
 
                     b.Property<int>("SemVerLevel")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("Size")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Summary")
@@ -508,6 +523,10 @@ namespace BaGetter.Database.Sqlite.Migrations
                     b.Property<DateTime?>("LockedUntilUtc")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("NormalizedUsername")
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("PasswordHash")
                         .HasMaxLength(256)
                         .HasColumnType("TEXT");
@@ -527,7 +546,7 @@ namespace BaGetter.Database.Sqlite.Migrations
                     b.HasIndex("EntraObjectId")
                         .IsUnique();
 
-                    b.HasIndex("Username")
+                    b.HasIndex("NormalizedUsername")
                         .IsUnique();
 
                     b.ToTable("Users");

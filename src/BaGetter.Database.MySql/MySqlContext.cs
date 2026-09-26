@@ -54,6 +54,7 @@ public class MySqlContext : AbstractContext<MySqlContext>
         {
             package.Property(p => p.Authors).HasColumnType("text");
             package.Property(p => p.CachedFrom).HasColumnType("text");
+            package.Property(p => p.Copyright).HasColumnType("text");
             package.Property(p => p.Description).HasColumnType("text");
             package.Property(p => p.IconUrl).HasColumnType("text");
             package.Property(p => p.LicenseUrl).HasColumnType("text");
