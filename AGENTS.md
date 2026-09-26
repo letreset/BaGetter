@@ -62,6 +62,7 @@ Upstream is only a source to cherry-pick from. We don't send PRs there.
 | `src/BaGetter.Database.{Sqlite,SqlServer,PostgreSql,MySql}/` | EF Core context and migrations per provider |
 | `src/BaGetter.{Aws,Azure,Gcp,Aliyun,Tencent}/` | Cloud storage providers |
 | `tests/` | xUnit projects mirroring `src/` |
+| `testenv/` | Docker Compose test environment with a seeded data snapshot, the seed script and the UI test checklist (`UI-TESTS.md`) |
 | `docs/` | Docusaurus site, deployed to GitHub Pages by `docs.yml` |
 | `deployment templates/` | Helm chart (`chart/bagetter`, built on bjw-s app-template) |
 
@@ -149,6 +150,27 @@ Docker defaults (`Dockerfile`): the `/data` volume holds packages, symbols and t
 - Group each method's tests in a nested class named after the method, sharing a `FactsBase` (e.g. `PermissionServiceTests` → `public class CanPushAsync : FactsBase`). Don't use the old `The<Method>Method` naming.
 - `BaGetterApplication` (`tests/BaGetter.Tests/Support/BaGetApplication.cs`) is the `WebApplicationFactory` host. It pins `SystemTime` to 2020-01-01. Pass `inMemoryConfiguration: dict => …` to override config, and seed data with `AddPackageAsync`/`AddSymbolPackageAsync`.
 - Adding a service index resource changes the expected counts in `BaGetClientIntegrationTests`/`NuGetClientIntegrationTests` and the expected JSON in `TestData.resx`.
+
+### Test environment (`testenv/`)
+
+For manual checks, bug reproduction and UI testing, use the ready-made environment instead of building data by hand. See `testenv/README.md` and `docs/docs/Advanced/test-environment.md`.
+
+```bash
+docker compose -f testenv/docker-compose.yml up -d     # http://localhost:5000, latest image
+docker compose -f testenv/docker-compose.yml down -v   # reset to the snapshot
+BAGETTER_TAG=dev docker compose -f testenv/docker-compose.yml up -d   # your own image (docker build -t letreset/bagetter:dev .)
+```
+
+- It runs in `Local` auth mode with four feeds (Default mirrors nuget.org, Internal, Experimental, Archive read-only), groups with different permissions and `Contoso.*` test packages. The test accounts and passwords are in `testenv/README.md`; they are test-only.
+- `testenv/data` is the committed snapshot. It's copied into a Docker volume on the first start, so testing never changes the working tree. Don't commit changes to it unless you are regenerating it on purpose.
+- To change the data set, edit `testenv/seed/seed.mjs` and regenerate the snapshot (steps in `testenv/README.md`).
+- Push test packages from `testenv/packages` with Basic auth (username and password); local accounts have no personal access tokens yet (#32).
+
+### UI testing
+
+- **Do everything in the web UI through the chrome-devtools MCP server** (`mcp__chrome-devtools__*`): navigating, clicking, filling forms, screenshots, console checks. Don't drive the UI with curl, headless scripts or other browser tools. If chrome-devtools isn't available, say so and stop instead of switching tools.
+- Open one isolated browser context per account (`new_page` with `isolatedContext`), so sessions don't mix, and leave the user's own tabs alone. Close your pages when you are done.
+- `testenv/UI-TESTS.md` is the UI regression checklist. Run it after UI changes and before a release, and report every check that fails and isn't marked **Known issue**. When a known issue is fixed, update its row; when you add or change UI behavior, add a row.
 
 ## Packages
 
