@@ -10,6 +10,7 @@ using BaGetter.Core.Feeds;
 using BaGetter.Core.Search;
 using BaGetter.Protocol.Models;
 using BaGetter.Web.Authentication;
+using BaGetter.Web.Helper;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Options;
@@ -75,7 +76,7 @@ public class IndexModel : PageModel
 
     public IReadOnlyList<string> PackageTypeFacets => Facets?.PackageTypes ?? Array.Empty<string>();
 
-    public IReadOnlyList<string> FrameworkFacets => Facets?.Frameworks ?? Array.Empty<string>();
+    public IReadOnlyList<string> FrameworkFacets => TargetFrameworkNames.Sort(Facets?.Frameworks ?? Array.Empty<string>());
 
     public IReadOnlyList<string> TagFacets => Facets?.Tags ?? Array.Empty<string>();
 

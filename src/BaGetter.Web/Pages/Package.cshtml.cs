@@ -14,6 +14,7 @@ using BaGetter.Core.Indexing;
 using BaGetter.Core.Search;
 using BaGetter.Web.Audit;
 using BaGetter.Web.Authentication;
+using BaGetter.Web.Helper;
 using Markdig;
 using Microsoft.AspNetCore.Html;
 using Microsoft.AspNetCore.Http;
@@ -21,7 +22,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using NuGet.Frameworks;
 using NuGet.Versioning;
 
 namespace BaGetter.Web.Pages;
@@ -294,7 +294,7 @@ public class PackageModel : PageModel
             {
                 return new DependencyGroupModel
                 {
-                    Name = PrettifyTargetFramework(group.Key),
+                    Name = TargetFrameworkNames.GetDisplayName(group.Key),
                     Dependencies = group
                         .Where(d => d.Id != null)
                         .Select(d => new DependencyModel
@@ -308,50 +308,6 @@ public class PackageModel : PageModel
                 };
             })
             .ToList();
-    }
-
-    private static string PrettifyTargetFramework(string targetFramework)
-    {
-        if (targetFramework == null) return "All Frameworks";
-
-        NuGetFramework framework;
-        try
-        {
-            framework = NuGetFramework.Parse(targetFramework);
-        }
-        catch (Exception)
-        {
-            return targetFramework;
-        }
-
-        string frameworkName;
-        if (framework.Framework.Equals(FrameworkConstants.FrameworkIdentifiers.NetCoreApp,
-            StringComparison.OrdinalIgnoreCase))
-        {
-            frameworkName = (framework.Version.Major >= 5)
-                ? ".NET"
-                : ".NET Core";
-        }
-        else if (framework.Framework.Equals(FrameworkConstants.FrameworkIdentifiers.NetStandard,
-            StringComparison.OrdinalIgnoreCase))
-        {
-            frameworkName = ".NET Standard";
-        }
-        else if (framework.Framework.Equals(FrameworkConstants.FrameworkIdentifiers.Net,
-            StringComparison.OrdinalIgnoreCase))
-        {
-            frameworkName = ".NET Framework";
-        }
-        else
-        {
-            frameworkName = framework.Framework;
-        }
-
-        var frameworkVersion = (framework.Version.Build == 0)
-            ? framework.Version.ToString(2)
-            : framework.Version.ToString(3);
-
-        return $"{frameworkName} {frameworkVersion}";
     }
 
     private static List<VersionModel> ToVersions(IReadOnlyList<Package> packages, NuGetVersion selectedVersion)

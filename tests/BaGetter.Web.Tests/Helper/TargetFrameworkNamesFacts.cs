@@ -1,0 +1,42 @@
+using BaGetter.Web.Helper;
+using Xunit;
+
+namespace BaGetter.Web.Tests.Helper;
+
+public class TargetFrameworkNamesFacts
+{
+    public class GetDisplayName
+    {
+        [Theory]
+        [InlineData(null, "All Frameworks")]
+        [InlineData("net10.0", ".NET 10.0")]
+        [InlineData("net11.0", ".NET 11.0")]
+        [InlineData("net8.0-windows", ".NET 8.0 (windows)")]
+        [InlineData("netcoreapp3.1", ".NET Core 3.1")]
+        [InlineData("netstandard2.0", ".NET Standard 2.0")]
+        [InlineData("net20", ".NET Framework 2.0")]
+        [InlineData("net40", ".NET Framework 4.0")]
+        [InlineData("net403", ".NET Framework 4.0.3")]
+        [InlineData("net47", ".NET Framework 4.7")]
+        [InlineData("net472", ".NET Framework 4.7.2")]
+        [InlineData("not a framework", "not a framework")]
+        public void ReturnsReadableName(string moniker, string expected)
+        {
+            Assert.Equal(expected, TargetFrameworkNames.GetDisplayName(moniker));
+        }
+    }
+
+    public class Sort
+    {
+        [Fact]
+        public void OrdersByFamilyThenNewestVersion()
+        {
+            var sorted = TargetFrameworkNames.Sort(
+                ["net20", "net10.0", "netstandard2.0", "net35", "net5.0", "netcoreapp3.1", "net48", "netstandard1.3", "garbage", "net8.0"]);
+
+            Assert.Equal(
+                ["net10.0", "net8.0", "net5.0", "netcoreapp3.1", "netstandard2.0", "netstandard1.3", "net48", "net35", "net20", "garbage"],
+                sorted);
+        }
+    }
+}

@@ -44,9 +44,9 @@ For every page you open, the browser console should show no errors.
 | L4 | `admin` | Search `observability` | Contoso.Logging and Contoso.Metrics (tag and description matches) |
 | L5 | `admin` | Tag filter: type `obs` in the dropdown and pick `observability` | Contoso.Logging and Contoso.Metrics |
 | L6 | `admin` | Framework filter: `.NET Standard 2.0` | All Contoso packages |
-| L7 | `admin` | Framework dropdown on Internal | `.NET 10.0`, `.NET 8.0`, `.NET Standard 2.0`, in that order. Older frameworks from real packages show raw monikers: [#45](https://github.com/letreset/BaGetter/issues/45) |
+| L7 | `admin` | Framework dropdown on Internal | `.NET 10.0`, `.NET 8.0`, `.NET Standard 2.0`, in that order. On Default (with mirrored packages) every entry has a readable name, grouped by family, newest first |
 | L8 | `admin` | Experimental, clear **Include prerelease** | No packages left (all of them are prereleases) |
-| L9 | `admin` | Open `/feeds/internal?p=99` | An empty page with a message. **Known issue** [#45](https://github.com/letreset/BaGetter/issues/45) |
+| L9 | `admin` | Open `/feeds/internal?p=99` | "No packages found" with a link to the first page |
 
 ## Package page
 
