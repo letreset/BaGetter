@@ -8,8 +8,10 @@ using System.Threading.Tasks;
 using BaGetter.Core.Authentication;
 using BaGetter.Core.Entities;
 using BaGetter.Core.Feeds;
+using BaGetter.Web.Audit;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -24,12 +26,14 @@ public partial class FeedsModel : PageModel
     private readonly IFeedService _feedService;
     private readonly IUserService _userService;
     private readonly ILogger<FeedsModel> _logger;
+    private readonly WebAuditLog _audit;
 
-    public FeedsModel(IFeedService feedService, IUserService userService, ILogger<FeedsModel> logger)
+    public FeedsModel(IFeedService feedService, IUserService userService, ILogger<FeedsModel> logger, WebAuditLog audit)
     {
         _feedService = feedService ?? throw new ArgumentNullException(nameof(feedService));
         _userService = userService ?? throw new ArgumentNullException(nameof(userService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _audit = audit ?? throw new ArgumentNullException(nameof(audit));
     }
 
     public List<Feed> Feeds { get; set; } = new();
@@ -62,6 +66,18 @@ public partial class FeedsModel : PageModel
 
     public string SuccessMessage { get; set; }
     public string ErrorMessage { get; set; }
+
+    /// <summary>
+    /// The create form's properties are bound (and validated) for every POST. Only the Create handler
+    /// uses them, so other handlers drop their errors instead of showing "Slug is required." under the form.
+    /// </summary>
+    public override void OnPageHandlerExecuting(PageHandlerExecutingContext context)
+    {
+        if (context.HandlerMethod?.MethodInfo.Name != nameof(OnPostCreateAsync))
+        {
+            ModelState.Clear();
+        }
+    }
 
     private Guid GetUserId()
     {
@@ -121,6 +137,7 @@ public partial class FeedsModel : PageModel
         };
 
         await _feedService.CreateFeedAsync(feed, cancellationToken);
+        _audit.Admin(HttpContext, "feed_created", slug);
 
         SuccessMessage = $"Feed '{slug}' created successfully.";
         Feeds = await _feedService.GetAllFeedsAsync(cancellationToken);
@@ -158,6 +175,7 @@ public partial class FeedsModel : PageModel
         feed.Description = string.IsNullOrWhiteSpace(EditDescription) ? null : EditDescription.Trim();
 
         await _feedService.UpdateFeedAsync(feed, cancellationToken);
+        _audit.Admin(HttpContext, "feed_updated", feed.Slug);
 
         SuccessMessage = $"Feed '{feed.Slug}' updated successfully.";
         Feeds = await _feedService.GetAllFeedsAsync(cancellationToken);
@@ -171,6 +189,7 @@ public partial class FeedsModel : PageModel
 
         try
         {
+            var slug = (await _feedService.GetFeedByIdAsync(feedId, cancellationToken))?.Slug;
             var deleted = await _feedService.DeleteFeedAsync(feedId, cancellationToken);
             if (!deleted)
             {
@@ -178,6 +197,7 @@ public partial class FeedsModel : PageModel
             }
             else
             {
+                _audit.Admin(HttpContext, "feed_deleted", slug ?? feedId.ToString());
                 SuccessMessage = "Feed deleted successfully.";
             }
         }
@@ -209,6 +229,7 @@ public partial class FeedsModel : PageModel
             return BadRequest();
 
         await _feedService.ReorderFeedsAsync(orderedFeedIds, cancellationToken);
+        _audit.Admin(HttpContext, "feeds_reordered", "feeds");
         return new OkResult();
     }
 

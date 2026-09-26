@@ -10,6 +10,7 @@ using BaGetter.Core.Feeds;
 using BaGetter.Core.Search;
 using BaGetter.Protocol.Models;
 using BaGetter.Web.Authentication;
+using BaGetter.Web.Helper;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Options;
@@ -75,7 +76,7 @@ public class IndexModel : PageModel
 
     public IReadOnlyList<string> PackageTypeFacets => Facets?.PackageTypes ?? Array.Empty<string>();
 
-    public IReadOnlyList<string> FrameworkFacets => Facets?.Frameworks ?? Array.Empty<string>();
+    public IReadOnlyList<string> FrameworkFacets => TargetFrameworkNames.Sort(Facets?.Frameworks ?? Array.Empty<string>());
 
     public IReadOnlyList<string> TagFacets => Facets?.Tags ?? Array.Empty<string>();
 
@@ -84,15 +85,17 @@ public class IndexModel : PageModel
         if (!ModelState.IsValid) return BadRequest();
 
         var authMode = _authOptions.Value.Mode;
+        if (FeedAccessGuard.RequiresSignIn(HttpContext, authMode)) return Page();
+
         var currentFeed = _feedContext.CurrentFeed;
 
         // For Local/Entra/Hybrid modes, decide which feed the signed-in user lands on.
         // On the root route, feed ordering always wins: redirect to the first feed (by
         // SortOrder) the user can pull, even when they could access the default-slug feed.
         // On an explicit /feeds/{slug} route, only redirect away when the user can't pull
-        // the requested feed. Unauthenticated visitors are handled by the view/layout which
-        // renders a "Sign in required" prompt.
-        if (authMode != AuthenticationMode.Config && User.Identity?.IsAuthenticated == true)
+        // the requested feed. Unauthenticated visitors returned above; the view renders a
+        // "Sign in required" prompt for them.
+        if (authMode != AuthenticationMode.Config)
         {
             var mustSelectLandingFeed = _feedContext.IsDefaultRoute
                 || currentFeed == null

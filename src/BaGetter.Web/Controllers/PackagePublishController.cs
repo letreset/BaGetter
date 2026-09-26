@@ -21,6 +21,8 @@ namespace BaGetter.Web.Controllers;
 
 public partial class PackagePublishController : Controller
 {
+    private const long BytesPerGiB = 1024L * 1024 * 1024;
+
     private readonly IAuthenticationService _authentication;
     private readonly IFeedAuthenticationService _feedAuthentication;
     private readonly IPermissionService _permissionService;
@@ -67,11 +69,11 @@ public partial class PackagePublishController : Controller
         }
 
         // The package is only read after authorization, so denied uploads are logged without its id and version.
-        var (authorized, actor) = await AuthorizePushAsync(cancellationToken);
+        var (authorized, authenticated, actor) = await AuthorizePushAsync(cancellationToken);
         if (!authorized)
         {
             LogAudit(LogLevel.Warning, "package_upload_unauthorized", null, null, actor);
-            HttpContext.Response.StatusCode = 401;
+            HttpContext.Response.StatusCode = authenticated ? 403 : 401;
             return;
         }
 
@@ -88,6 +90,15 @@ public partial class PackagePublishController : Controller
             var identity = TryReadPackageIdentity(uploadStream);
             var packageId = identity?.Id;
             var packageVersion = identity?.Version?.ToNormalizedString();
+
+            // The server-wide request limit applies before the feed is known; a feed can only lower it.
+            var maxBytes = (long)_feedSettings.GetMaxPackageSizeGiB(_feedContext.CurrentFeed) * BytesPerGiB;
+            if (uploadStream.Length > maxBytes)
+            {
+                LogAudit(LogLevel.Warning, "package_upload_too_large", packageId, packageVersion, actor);
+                HttpContext.Response.StatusCode = 413;
+                return;
+            }
 
             var result = await _indexer.IndexAsync(_feedContext.CurrentFeed.Id, _feedContext.CurrentFeed.Slug, uploadStream, cacheFeedUrl: null, cancellationToken);
 
@@ -132,11 +143,11 @@ public partial class PackagePublishController : Controller
             return NotFound();
         }
 
-        var (authorized, actor) = await AuthorizeDeleteAsync(cancellationToken);
+        var (authorized, authenticated, actor) = await AuthorizeDeleteAsync(cancellationToken);
         if (!authorized)
         {
             LogAudit(LogLevel.Warning, "package_delete_unauthorized", id, version, actor);
-            return Unauthorized();
+            return DeniedResult(authenticated);
         }
 
         if (await _deleteService.TryDeletePackageAsync(_feedContext.CurrentFeed.Id, _feedContext.CurrentFeed.Slug, id, nugetVersion, cancellationToken))
@@ -166,11 +177,11 @@ public partial class PackagePublishController : Controller
             return NotFound();
         }
 
-        var (authorized, actor) = await AuthorizePushAsync(cancellationToken);
+        var (authorized, authenticated, actor) = await AuthorizePushAsync(cancellationToken);
         if (!authorized)
         {
             LogAudit(LogLevel.Warning, "package_relist_unauthorized", id, version, actor);
-            return Unauthorized();
+            return DeniedResult(authenticated);
         }
 
         if (await _packages.RelistPackageAsync(_feedContext.CurrentFeed.Id, id, nugetVersion, cancellationToken))
@@ -185,14 +196,19 @@ public partial class PackagePublishController : Controller
         }
     }
 
-    private async Task<(bool Authorized, string Actor)> AuthorizePushAsync(CancellationToken cancellationToken)
+    /// <summary>
+    /// Checks the push permission. <c>Authenticated</c> tells a known user without the permission
+    /// (403) apart from missing or wrong credentials (401), so NuGet clients don't ask for new
+    /// credentials when the real problem is a missing permission.
+    /// </summary>
+    private async Task<(bool Authorized, bool Authenticated, string Actor)> AuthorizePushAsync(CancellationToken cancellationToken)
     {
         var authMode = _options.Value.Authentication?.Mode ?? AuthenticationMode.Config;
 
         if (authMode == AuthenticationMode.Config)
         {
             // Static auth mode: use configured API key
-            return (await _authentication.AuthenticateAsync(Request.GetApiKey(), cancellationToken), GetActor());
+            return (await _authentication.AuthenticateAsync(Request.GetApiKey(), cancellationToken), false, GetActor());
         }
 
         var feedId = _feedContext.CurrentFeed.Id;
@@ -204,17 +220,17 @@ public partial class PackagePublishController : Controller
         {
             var authResult = await _feedAuthentication.AuthenticateByTokenAsync(apiKey, cancellationToken);
             if (authResult.IsAuthenticated && authResult.UserId.HasValue)
-                return (await _permissionService.CanPushAsync(authResult.UserId.Value, feedId, cancellationToken), authResult.Username);
+                return (await _permissionService.CanPushAsync(authResult.UserId.Value, feedId, cancellationToken), true, authResult.Username);
         }
 
         var userIdClaim = HttpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (!string.IsNullOrEmpty(userIdClaim) && Guid.TryParse(userIdClaim, out var userId))
-            return (await _permissionService.CanPushAsync(userId, feedId, cancellationToken), GetActor());
+            return (await _permissionService.CanPushAsync(userId, feedId, cancellationToken), true, GetActor());
 
-        return (false, GetActor());
+        return (false, false, GetActor());
     }
 
-    private async Task<(bool Authorized, string Actor)> AuthorizeDeleteAsync(CancellationToken cancellationToken)
+    private async Task<(bool Authorized, bool Authenticated, string Actor)> AuthorizeDeleteAsync(CancellationToken cancellationToken)
     {
         var authMode = _options.Value.Authentication?.Mode ?? AuthenticationMode.Config;
 
@@ -222,7 +238,7 @@ public partial class PackagePublishController : Controller
         {
             // Static auth mode has no per-user delete permission; the configured API key
             // governs deletion exactly as it governs push.
-            return (await _authentication.AuthenticateAsync(Request.GetApiKey(), cancellationToken), GetActor());
+            return (await _authentication.AuthenticateAsync(Request.GetApiKey(), cancellationToken), false, GetActor());
         }
 
         var feedId = _feedContext.CurrentFeed.Id;
@@ -232,14 +248,19 @@ public partial class PackagePublishController : Controller
         {
             var authResult = await _feedAuthentication.AuthenticateByTokenAsync(apiKey, cancellationToken);
             if (authResult.IsAuthenticated && authResult.UserId.HasValue)
-                return (await _permissionService.CanDeleteAsync(authResult.UserId.Value, feedId, cancellationToken), authResult.Username);
+                return (await _permissionService.CanDeleteAsync(authResult.UserId.Value, feedId, cancellationToken), true, authResult.Username);
         }
 
         var userIdClaim = HttpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (!string.IsNullOrEmpty(userIdClaim) && Guid.TryParse(userIdClaim, out var userId))
-            return (await _permissionService.CanDeleteAsync(userId, feedId, cancellationToken), GetActor());
+            return (await _permissionService.CanDeleteAsync(userId, feedId, cancellationToken), true, GetActor());
 
-        return (false, GetActor());
+        return (false, false, GetActor());
+    }
+
+    private StatusCodeResult DeniedResult(bool authenticated)
+    {
+        return authenticated ? StatusCode(403) : Unauthorized();
     }
 
     private string GetActor()

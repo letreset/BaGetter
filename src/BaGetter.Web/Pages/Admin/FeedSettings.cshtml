@@ -44,6 +44,7 @@
                 <div class="form-group">
                     <label for="@(idPrefix)DownloadTimeoutSeconds">Download timeout (seconds)</label>
                     <input id="@(idPrefix)DownloadTimeoutSeconds" name="@(prefix).DownloadTimeoutSeconds" value="@mirror.DownloadTimeoutSeconds" type="number" min="1" class="form-control" style="max-width:160px" />
+                    @Html.ValidationMessage(prefix + ".DownloadTimeoutSeconds", new { @class = "text-danger" })
                 </div>
                 <div class="form-group">
                     <label for="@(idPrefix)AuthType">Authentication type</label>
@@ -174,6 +175,7 @@
                 </div>
                 <label asp-for="MaxPackageSizeGiB">Max package size (GiB)</label>
                 <input asp-for="MaxPackageSizeGiB" type="number" min="1" class="form-control" style="max-width:160px" placeholder="@Model.GlobalOptions.MaxPackageSizeGiB" />
+                <span asp-validation-for="MaxPackageSizeGiB" class="text-danger"></span>
                 <small class="text-muted">Global default: @Model.GlobalOptions.MaxPackageSizeGiB GiB</small>
             </div>
 
@@ -184,6 +186,7 @@
                 </div>
                 <label asp-for="RetentionMaxMajorVersions">Max major versions to keep</label>
                 <input asp-for="RetentionMaxMajorVersions" type="number" min="0" class="form-control" style="max-width:160px" placeholder="@(Model.GlobalOptions.Retention?.MaxMajorVersions?.ToString() ?? "Unlimited")" />
+                <span asp-validation-for="RetentionMaxMajorVersions" class="text-danger"></span>
                 <small class="text-muted">Global default: @(Model.GlobalOptions.Retention?.MaxMajorVersions?.ToString() ?? "Unlimited")</small>
             </div>
             <div class="form-group">
@@ -192,6 +195,7 @@
                 </div>
                 <label asp-for="RetentionMaxMinorVersions">Max minor versions per major</label>
                 <input asp-for="RetentionMaxMinorVersions" type="number" min="0" class="form-control" style="max-width:160px" placeholder="@(Model.GlobalOptions.Retention?.MaxMinorVersions?.ToString() ?? "Unlimited")" />
+                <span asp-validation-for="RetentionMaxMinorVersions" class="text-danger"></span>
                 <small class="text-muted">Global default: @(Model.GlobalOptions.Retention?.MaxMinorVersions?.ToString() ?? "Unlimited")</small>
             </div>
             <div class="form-group">
@@ -200,6 +204,7 @@
                 </div>
                 <label asp-for="RetentionMaxPatchVersions">Max patch versions per minor</label>
                 <input asp-for="RetentionMaxPatchVersions" type="number" min="0" class="form-control" style="max-width:160px" placeholder="@(Model.GlobalOptions.Retention?.MaxPatchVersions?.ToString() ?? "Unlimited")" />
+                <span asp-validation-for="RetentionMaxPatchVersions" class="text-danger"></span>
                 <small class="text-muted">Global default: @(Model.GlobalOptions.Retention?.MaxPatchVersions?.ToString() ?? "Unlimited")</small>
             </div>
             <div class="form-group">
@@ -208,6 +213,7 @@
                 </div>
                 <label asp-for="RetentionMaxPrereleaseVersions">Max prerelease versions per patch</label>
                 <input asp-for="RetentionMaxPrereleaseVersions" type="number" min="0" class="form-control" style="max-width:160px" placeholder="@(Model.GlobalOptions.Retention?.MaxPrereleaseVersions?.ToString() ?? "Unlimited")" />
+                <span asp-validation-for="RetentionMaxPrereleaseVersions" class="text-danger"></span>
                 <small class="text-muted">Global default: @(Model.GlobalOptions.Retention?.MaxPrereleaseVersions?.ToString() ?? "Unlimited")</small>
             </div>
 
@@ -236,6 +242,7 @@
                 </div>
                 <label asp-for="UpstreamListingCacheSeconds">Upstream listing cache (seconds)</label>
                 <input asp-for="UpstreamListingCacheSeconds" type="number" min="0" class="form-control" style="max-width:160px" placeholder="@Model.GlobalOptions.UpstreamListingCacheSeconds" />
+                <span asp-validation-for="UpstreamListingCacheSeconds" class="text-danger"></span>
                 <small class="text-muted">
                     How long the mirrors' version lists are reused before asking the upstreams again.
                     New upstream versions show up after at most this delay. 0 turns the cache off.
@@ -262,8 +269,10 @@
         if (checkbox.checked) {
             target.dataset.savedValue = target.value;
             target.value = '';
-        } else {
-            target.value = target.dataset.savedValue || '';
+        } else if ('savedValue' in target.dataset) {
+            // Only restore a value stashed by an earlier toggle. On page load the field already
+            // holds the feed's stored override, and clearing it would save the feed without it.
+            target.value = target.dataset.savedValue;
         }
     }
 

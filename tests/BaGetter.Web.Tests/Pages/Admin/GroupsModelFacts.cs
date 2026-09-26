@@ -6,11 +6,13 @@ using System.Threading.Tasks;
 using BaGetter.Core.Authentication;
 using BaGetter.Core.Entities;
 using BaGetter.Core.Feeds;
+using BaGetter.Web.Audit;
 using BaGetter.Web.Pages.Admin;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Xunit;
 
@@ -72,11 +74,12 @@ public class GroupsModelFacts
         {
             var adminId = Guid.NewGuid();
             _users.Setup(u => u.IsAdminAsync(adminId, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+            _feeds.Setup(f => f.GetAllFeedsAsync(It.IsAny<CancellationToken>())).ReturnsAsync(new List<Feed>());
 
             var principal = new ClaimsPrincipal(new ClaimsIdentity(
                 new[] { new Claim(ClaimTypes.NameIdentifier, adminId.ToString()) }, "TestAuth"));
 
-            _target = new GroupsModel(_groups.Object, _users.Object, _permissions.Object, _feeds.Object)
+            _target = new GroupsModel(_groups.Object, _users.Object, _permissions.Object, _feeds.Object, new WebAuditLog(NullLogger<WebAuditLog>.Instance))
             {
                 PageContext = new PageContext(new ActionContext(
                     new DefaultHttpContext { User = principal },

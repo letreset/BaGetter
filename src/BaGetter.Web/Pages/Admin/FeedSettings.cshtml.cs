@@ -9,6 +9,7 @@ using BaGetter.Core.Authentication;
 using BaGetter.Core.Configuration;
 using BaGetter.Core.Entities;
 using BaGetter.Core.Feeds;
+using BaGetter.Web.Audit;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -21,11 +22,13 @@ public class FeedSettingsModel : PageModel
 {
     private readonly IFeedService _feedService;
     private readonly IUserService _userService;
+    private readonly WebAuditLog _audit;
 
-    public FeedSettingsModel(IFeedService feedService, IUserService userService, IOptions<BaGetterOptions> options)
+    public FeedSettingsModel(IFeedService feedService, IUserService userService, IOptions<BaGetterOptions> options, WebAuditLog audit)
     {
         _feedService = feedService ?? throw new ArgumentNullException(nameof(feedService));
         _userService = userService ?? throw new ArgumentNullException(nameof(userService));
+        _audit = audit ?? throw new ArgumentNullException(nameof(audit));
         GlobalOptions = options?.Value ?? throw new ArgumentNullException(nameof(options));
     }
 
@@ -59,8 +62,9 @@ public class FeedSettingsModel : PageModel
     [BindProperty]
     public bool UseGlobalDeletion { get; set; }
 
+    // Signed so that a negative value gets the range message instead of a binding error.
     [BindProperty]
-    public uint? MaxPackageSizeGiB { get; set; }
+    public int? MaxPackageSizeGiB { get; set; }
 
     [BindProperty]
     public bool UseGlobalMaxSize { get; set; }
@@ -131,7 +135,7 @@ public class FeedSettingsModel : PageModel
         PackageDeletionBehavior = feed.PackageDeletionBehavior;
 
         UseGlobalMaxSize = !feed.MaxPackageSizeGiB.HasValue;
-        MaxPackageSizeGiB = feed.MaxPackageSizeGiB;
+        MaxPackageSizeGiB = (int?)feed.MaxPackageSizeGiB;
 
         UseGlobalRetentionMajor = !feed.RetentionMaxMajorVersions.HasValue;
         RetentionMaxMajorVersions = feed.RetentionMaxMajorVersions;
@@ -228,10 +232,16 @@ public class FeedSettingsModel : PageModel
 
             // Only overwrite secrets if a new value was provided; leave blank to keep existing
             if (!string.IsNullOrEmpty(input.AuthPasswordNew))
+            {
                 mirror.AuthPassword = input.AuthPasswordNew;
+                _audit.Admin(HttpContext, "feed_mirror_credentials_changed", Feed.Slug, $"source={mirror.PackageSource} secret=password");
+            }
 
             if (!string.IsNullOrEmpty(input.AuthTokenNew))
+            {
                 mirror.AuthToken = input.AuthTokenNew;
+                _audit.Admin(HttpContext, "feed_mirror_credentials_changed", Feed.Slug, $"source={mirror.PackageSource} secret=token");
+            }
 
             mirrors.Add(mirror);
         }
@@ -308,9 +318,10 @@ public class FeedSettingsModel : PageModel
             return Page();
         }
 
-        if (!UseGlobalListingCache && UpstreamListingCacheSeconds is < 0)
+        ValidateNumbers();
+        if (!ModelState.IsValid)
         {
-            ErrorMessage = "The upstream listing cache duration must be 0 or more seconds.";
+            ErrorMessage = "Some settings are invalid, nothing was saved. See the messages next to the fields.";
             SetSecretIndicators(Feed);
             return Page();
         }
@@ -333,7 +344,7 @@ public class FeedSettingsModel : PageModel
         Feed.IsReadOnlyMode = UseGlobalReadOnly ? null : IsReadOnlyMode;
         Feed.AllowPackageOverwrites = UseGlobalOverwrite ? null : AllowPackageOverwrites;
         Feed.PackageDeletionBehavior = UseGlobalDeletion ? null : PackageDeletionBehavior;
-        Feed.MaxPackageSizeGiB = UseGlobalMaxSize ? null : MaxPackageSizeGiB;
+        Feed.MaxPackageSizeGiB = UseGlobalMaxSize ? null : (uint?)MaxPackageSizeGiB;
 
         Feed.RetentionMaxMajorVersions = UseGlobalRetentionMajor ? null : RetentionMaxMajorVersions;
         Feed.RetentionMaxMinorVersions = UseGlobalRetentionMinor ? null : RetentionMaxMinorVersions;
@@ -345,10 +356,52 @@ public class FeedSettingsModel : PageModel
         ApplyMirrors();
 
         await _feedService.UpdateFeedAsync(Feed, cancellationToken);
+        _audit.Admin(HttpContext, "feed_settings_updated", Feed.Slug, $"mirrors={Feed.Mirrors.Count}");
 
         SuccessMessage = "Settings saved.";
         PopulateFromFeed(Feed);
         return Page();
+    }
+
+    /// <summary>
+    /// Checks the numeric settings that override a global default. Values that failed to bind
+    /// (for example text in a number field) are already in <see cref="PageModel.ModelState"/>;
+    /// errors of fields that use the global default are dropped, since those values are ignored.
+    /// </summary>
+    private void ValidateNumbers()
+    {
+        ValidateOverride(UseGlobalMaxSize, nameof(MaxPackageSizeGiB), MaxPackageSizeGiB, 1,
+            "The max package size must be at least 1 GiB.");
+        ValidateOverride(UseGlobalRetentionMajor, nameof(RetentionMaxMajorVersions), RetentionMaxMajorVersions, 0,
+            "The number of major versions to keep must be 0 or more.");
+        ValidateOverride(UseGlobalRetentionMinor, nameof(RetentionMaxMinorVersions), RetentionMaxMinorVersions, 0,
+            "The number of minor versions to keep must be 0 or more.");
+        ValidateOverride(UseGlobalRetentionPatch, nameof(RetentionMaxPatchVersions), RetentionMaxPatchVersions, 0,
+            "The number of patch versions to keep must be 0 or more.");
+        ValidateOverride(UseGlobalRetentionPrerelease, nameof(RetentionMaxPrereleaseVersions), RetentionMaxPrereleaseVersions, 0,
+            "The number of prerelease versions to keep must be 0 or more.");
+        ValidateOverride(UseGlobalListingCache, nameof(UpstreamListingCacheSeconds), UpstreamListingCacheSeconds, 0,
+            "The upstream listing cache duration must be 0 or more seconds.");
+
+        for (var i = 0; i < Mirrors.Count; i++)
+        {
+            ValidateOverride(false, $"{nameof(Mirrors)}[{i}].{nameof(MirrorInput.DownloadTimeoutSeconds)}", Mirrors[i].DownloadTimeoutSeconds, 1,
+                $"Mirror {i + 1}: the download timeout must be at least 1 second, or empty for the default.");
+        }
+    }
+
+    private void ValidateOverride(bool useGlobal, string key, int? value, int min, string message)
+    {
+        if (useGlobal)
+        {
+            ModelState.Remove(key);
+            return;
+        }
+
+        if (value < min)
+        {
+            ModelState.AddModelError(key, message);
+        }
     }
 
     public class MirrorInput

@@ -56,6 +56,16 @@ public class GroupServiceTests
             Assert.NotNull(result);
             Assert.Equal("MyGroup", result.Name);
         }
+
+        [Fact]
+        public async Task IgnoresCase()
+        {
+            await Target.CreateGroupAsync("Developers", null, "desc", Ct);
+
+            var result = await Target.FindByNameAsync("developers", Ct);
+
+            Assert.Equal("Developers", result?.Name);
+        }
     }
 
     public class FindByAppRoleValueAsync : FactsBase

@@ -315,7 +315,6 @@ BaGetter supports multiple database engines for storing package information:
 - SQLite: `Sqlite`
 - SQL Server: `SqlServer`
 - PostgreSQL: `PostgreSql`
-- Azure Table Storage: `AzureTable`
 
 Each database engine requires a connection string to configure the connection. Please refer to [ConnectionStrings.com](https://www.connectionstrings.com/) to learn how to create the proper connection string for each database engine.
 
@@ -480,6 +479,8 @@ This can be useful if you are hosting a private feed and need to host large pack
 }
 ```
 
+A [feed](feeds.md#feed-settings) can set its own, lower limit. The server-wide value still caps every request, because it applies before BaGetter knows which feed a push is for, so a feed can't raise it. Pushes over a feed's limit are rejected with `413 Payload Too Large`.
+
 ## Registration page size
 
 Packages with many versions are served as a paged [registration index](https://learn.microsoft.com/nuget/api/registration-base-url-resource).
@@ -591,7 +592,9 @@ HTML pages aren't compressed on purpose: compressing pages that carry anti-forge
 
 ## Audit log
 
-BaGetter writes one log line for every package upload, delete and relist, including denied attempts. There is no separate audit store: the lines go to the normal logs, so you can collect them with whatever already reads BaGetter's output.
+BaGetter writes one log line for every package upload, unlist, delete and relist, from NuGet clients and from the web UI, including denied attempts, and one for every change on the **Admin** pages. There is no separate audit store: the lines go to the normal logs, so you can collect them with whatever already reads BaGetter's output.
+
+### Package events
 
 ```
 AUDIT package_upload_succeeded feed=default package_id=Contoso.Utils package_version=1.2.0 actor=alice ip=10.0.0.12
@@ -599,13 +602,40 @@ AUDIT package_upload_succeeded feed=default package_id=Contoso.Utils package_ver
 
 | Field | Value |
 |---|---|
-| Event | `package_{upload,delete,relist}_{succeeded,unauthorized,read_only,not_found}`, plus `package_upload_already_exists` and `package_upload_invalid_package` |
+| Event | NuGet API: `package_{upload,delete,relist}_{succeeded,unauthorized,read_only,not_found}`, plus `package_upload_already_exists`, `package_upload_invalid_package` and `package_upload_too_large`. A symbol package over the feed's size limit logs `symbol_upload_too_large` (with `feed`, `actor` and `ip` only). Web UI (the package page's **Manage** section and **Relist** links): `package_{unlist,relist,delete}_{succeeded,unauthorized,read_only,not_found}`, where `package_delete_*` is a hard delete |
 | `feed` | The feed slug |
 | `package_id`, `package_version` | Empty for uploads that are denied before the package is read |
 | `actor` | The user name (the token owner for personal access tokens), `api-key` for the shared API key in `Config` mode, or `anonymous` |
 | `ip` | The client IP address. Behind a reverse proxy it comes from `X-Forwarded-For`, with the same caveat as [rate limiting](#request-rate-limiting). |
 
-Successful operations are logged at `Information`, denials and failures at `Warning`. The lines use the `BaGetter.Web.Controllers.PackagePublishController` log category, which the default `appsettings.json` logs at `Information`. If you override the `Logging` section, keep that category at `Information` or the successful operations won't be logged:
+### Administration events
+
+```
+AUDIT account_disabled target=bob detail= actor=admin ip=10.0.0.12
+```
+
+| Event | `target` | `detail` |
+|---|---|---|
+| `account_created` | Username | `web_sign_in=True` or `False` |
+| `account_enabled`, `account_disabled` | Username | |
+| `account_web_access_granted`, `account_web_access_revoked` | Username | |
+| `account_admin_granted`, `account_admin_revoked` | Username | |
+| `account_unlocked`, `account_password_reset`, `account_deleted` | Username | |
+| `account_token_created` | Username | Token prefix and expiry date |
+| `group_created`, `group_deleted` | Group name | |
+| `group_member_added`, `group_member_removed` | Group name | `user=<username>` |
+| `feed_permission_set` | Group name | `feed=<slug> pull=… push=… delete=…` |
+| `feed_permission_revoked` | Group name | `feed=<slug>` |
+| `feed_created`, `feed_updated`, `feed_deleted` | Feed slug | |
+| `feeds_reordered` | `feeds` | |
+| `feed_settings_updated` | Feed slug | Number of mirrors |
+| `feed_mirror_credentials_changed` | Feed slug | Mirror source and which secret changed (`password` or `token`), never the value |
+
+`actor` and `ip` are the same as for package events.
+
+### Log categories
+
+Successful operations are logged at `Information`, denials and failures at `Warning`. NuGet API lines use the `BaGetter.Web.Controllers.PackagePublishController` log category, web UI lines use `BaGetter.Web.Audit.WebAuditLog`. The default `appsettings.json` logs both at `Information`. If you override the `Logging` section, keep them at `Information` or the successful operations won't be logged:
 
 ```json
 {
@@ -615,6 +645,7 @@ Successful operations are logged at `Information`, denials and failures at `Warn
         "Console": {
             "LogLevel": {
                 "BaGetter.Web.Controllers.PackagePublishController": "Information",
+                "BaGetter.Web.Audit.WebAuditLog": "Information",
                 "Default": "Warning"
             }
         }

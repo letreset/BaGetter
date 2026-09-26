@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using BaGetter.Core.Configuration;
 using Xunit;
@@ -237,6 +238,38 @@ public class ValidateBaGetterOptionsTests
         public void IgnoresSettingsInModesWithoutLocalAccounts(AuthenticationMode mode)
         {
             Assert.False(HasFailure(mode, "root", "short"));
+        }
+    }
+
+    public class ValidateDatabaseType
+    {
+        private static IEnumerable<string> DatabaseTypeFailures(string type)
+        {
+            var options = new BaGetterOptions { Database = new DatabaseOptions { Type = type } };
+            var result = new ValidateBaGetterOptions().Validate(null, options);
+            return result.Failed
+                ? result.Failures.Where(f => f.Contains($"{nameof(BaGetterOptions.Database)}:{nameof(DatabaseOptions.Type)}"))
+                : [];
+        }
+
+        [Theory]
+        [InlineData("Sqlite")]
+        [InlineData("SqlServer")]
+        [InlineData("PostgreSql")]
+        [InlineData("MySql")]
+        public void AcceptsSqlDatabases(string type)
+        {
+            Assert.Empty(DatabaseTypeFailures(type));
+        }
+
+        [Theory]
+        [InlineData("AzureTable")]
+        [InlineData("azuretable")]
+        public void RejectsAzureTableAndNamesTheAlternatives(string type)
+        {
+            var failure = Assert.Single(DatabaseTypeFailures(type));
+            Assert.Contains("no longer supported", failure);
+            Assert.Contains("Sqlite", failure);
         }
     }
 

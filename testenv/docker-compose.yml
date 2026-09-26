@@ -33,6 +33,9 @@ services:
     ports:
       - "${BAGETTER_PORT:-5000}:8080"
     environment:
+      # Development: detailed error pages, sign-in cookies that also work over plain HTTP on any
+      # host name, and no HSTS. Never use this for a real server.
+      ASPNETCORE_ENVIRONMENT: Development
       Authentication__Mode: Local
       # Only used when the database has no administrator (TESTENV_EMPTY=1).
       Authentication__InitialAdmin__Username: admin

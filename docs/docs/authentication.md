@@ -52,8 +52,9 @@ Keep the password out of `appsettings.json`: pass it as the `Authentication__Ini
 
 The initial admin settings only ever create an account:
 
-- Once any administrator exists, they are ignored. You can remove them after the first start.
-- An existing user is never changed and a password is never reset. If a user with the configured username already exists but isn't an administrator, BaGetter logs a warning and leaves it alone; pick a different username.
+- Once an enabled administrator with web sign-in exists, they are ignored. You can remove them after the first start.
+- An existing user is never changed and a password is never reset. If a user with the configured username already exists, BaGetter logs a warning and leaves it alone; pick a different username.
+- **Recovery:** if no administrator can sign in any more (every administrator is disabled or has lost web sign-in), set a username that doesn't exist yet and restart. BaGetter creates that account as a new administrator.
 - The password must be at least 12 characters, the same rule as **Admin > Accounts**. Startup fails if only one of the two settings is set.
 - Several replicas can start at once: only one creates the account, the others skip it.
 
@@ -165,10 +166,16 @@ When a user signs in via Entra ID:
 
 When `Mode` is `Local` or `Hybrid`, administrators manage local accounts on **Admin > Accounts**:
 
-- **Create** an account with a username, an optional display name, an optional email address (used for [token expiry notifications](#expiry-notifications)) and a password of at least 12 characters. Passwords are stored as bcrypt hashes.
+- **Create** an account with a username (case-insensitive: `alice` and `ALICE` are the same account, on every database), an optional display name, an optional email address (used for [token expiry notifications](#expiry-notifications)) and a password of at least 12 characters. Passwords are stored as bcrypt hashes.
 - **Enable or disable** an account. Disabled accounts can't sign in or use their tokens.
 - **Allow or block web sign-in** ("can log in to UI"). Turn it off for build agents that should only use NuGet clients.
-- **Reset** the password, or **delete** the account.
+- **Make admin** or **Remove admin** for a local account. Entra accounts are administrators through the `Admin` app role instead. An **Admin** label marks administrators.
+- **Unlock** an account that is [locked](#account-lockout) after too many failed sign-ins; a **Locked until** label shows when the lock ends.
+- **Reset password**: set a new password (at least 12 characters). This also ends a [lockout](#account-lockout).
+- **New token**: create a [personal access token](#personal-access-tokens-pats) for the account.
+- **Delete** the account. The button only appears after the account has been disabled.
+
+Your own row has no **Disable**, **Revoke Web Access** or **Remove admin** button, and BaGetter refuses to take those away from the last enabled administrator with web sign-in, so administration can't be locked out by accident.
 
 ### Account lockout
 
@@ -193,7 +200,7 @@ After `MaxFailedAttempts` consecutive failed logins, the account is locked for `
 
 ## Groups
 
-Groups are managed on **Admin > Groups & Permissions**. A user inherits the permissions of every group they belong to. Groups come in two flavors:
+Groups are managed on **Admin > Groups & Permissions**. A user inherits the permissions of every group they belong to. Group names are case-insensitive, like usernames. Groups come in two flavors:
 
 - **Role-linked groups** have an `AppRoleValue` set (e.g., `TeamFrontend`). Membership for Entra users is synchronized from the token's `roles` claim on each sign-in and can't be changed by hand: it is controlled by the App Role assignments in Entra ID. Local users can still be added manually.
 - **Manually-managed groups** have no `AppRoleValue`. Membership is managed entirely in the BaGetter admin UI, for all user types.
@@ -217,6 +224,8 @@ Administrators have all three on every feed. Feeds a user can't pull from are hi
 Personal access tokens let users authenticate from NuGet clients and CI without their interactive credentials. They are available to Entra and local users.
 
 - Users create tokens on **My Tokens** (in the user menu), with a name and an expiry (90 days by default).
+- Local accounts that can't sign in to the web UI (for example build agents) get their tokens from an administrator: **New token** on **Admin > Accounts**.
+- Users can only revoke their own tokens.
 - The token (it starts with `bg_`) is shown only once, at creation time.
 - Tokens are stored as SHA-256 hashes, and can be revoked at any time.
 - A token acts as its owner: it has exactly the owner's permissions, and stops working when the owner is disabled or deleted.
@@ -440,7 +449,7 @@ The admin role value is hardcoded as `Admin` (case-sensitive). Verify your App R
 
 ### Local account is locked out
 
-If a local account is locked after too many failed attempts, wait for the lockout period to expire (`LockoutMinutes`, default 15 minutes). Resetting the password doesn't end the lockout early. Personal access tokens keep working while the account is locked.
+If a local account is locked after too many failed attempts, wait for the lockout period to expire (`LockoutMinutes`, default 15 minutes), or have an administrator reset the password on **Admin > Accounts**, which ends the lockout. Personal access tokens keep working while the account is locked.
 
 ### NuGet client returns 401 Unauthorized
 

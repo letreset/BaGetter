@@ -13,11 +13,13 @@ using BaGetter.Core.Entities;
 using BaGetter.Core.Feeds;
 using BaGetter.Core.Indexing;
 using BaGetter.Core.Search;
+using BaGetter.Web.Audit;
 using BaGetter.Web.Pages;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
 using NuGet.Versioning;
@@ -32,6 +34,8 @@ public class PackageModelFacts
     private readonly Mock<ISearchService> _search;
     private readonly Mock<IUrlGenerator> _url;
     private readonly Mock<IFeedContext> _feedContext;
+    private readonly Mock<IFeedSettingsResolver> _feedSettings = new();
+    private readonly Mock<ILogger<WebAuditLog>> _auditLogger = new();
     private readonly PackageModel _target;
 
     private readonly CancellationToken _cancellation = CancellationToken.None;
@@ -63,6 +67,8 @@ public class PackageModelFacts
             _feedContext.Object,
             permissions.Object,
             deletionService.Object,
+            _feedSettings.Object,
+            new WebAuditLog(_auditLogger.Object),
             authOptions.Object);
 
         _search
@@ -155,6 +161,22 @@ public class PackageModelFacts
         Assert.False(_target.Versions[1].Selected);
     }
 
+    [Theory]
+    [InlineData("4.0.0")]
+    [InlineData("not-a-version")]
+    public async Task ReportsMissingRequestedVersion(string version)
+    {
+        _packages
+            .Setup(m => m.FindPackagesAsync(It.IsAny<Guid>(), "testpackage", _cancellation))
+            .ReturnsAsync(new List<Package> { CreatePackage("1.0.0"), CreatePackage("2.0.0") });
+
+        await _target.OnGetAsync("testpackage", version, _cancellation);
+
+        Assert.False(_target.Found);
+        Assert.Equal(version, _target.VersionNotFound);
+        Assert.Equal("testpackage", _target.Package.Id);
+    }
+
     [Fact]
     public async Task FallsBackToLatestListedVersion()
     {
@@ -167,7 +189,7 @@ public class PackageModelFacts
                 CreatePackage("3.0.0", listed: false),
             });
 
-        await _target.OnGetAsync("testpackage", "4.0.0", _cancellation);
+        await _target.OnGetAsync("testpackage", null, _cancellation);
 
         Assert.True(_target.Found);
         Assert.Equal("testpackage", _target.Package.Id);
@@ -406,7 +428,7 @@ public class PackageModelFacts
 
         var target = new PackageModel(
             _packages.Object, _content.Object, _search.Object, _url.Object,
-            _feedContext.Object, permissions.Object, new Mock<IPackageDeletionService>().Object, authOptions.Object);
+            _feedContext.Object, permissions.Object, new Mock<IPackageDeletionService>().Object, _feedSettings.Object, new WebAuditLog(_auditLogger.Object), authOptions.Object);
 
         var principal = new ClaimsPrincipal(new ClaimsIdentity(
             new[] { new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()) }, "TestAuth"));
@@ -421,6 +443,157 @@ public class PackageModelFacts
         Assert.Equal("2.0.0", unlisted.Version.OriginalVersion);
     }
 
+    [Fact]
+    public async Task HidesManageActionsOnReadOnlyFeed()
+    {
+        _packages
+            .Setup(m => m.FindPackagesAsync(It.IsAny<Guid>(), "testpackage", _cancellation))
+            .ReturnsAsync(new List<Package> { CreatePackage("1.0.0"), CreatePackage("2.0.0", listed: false) });
+        _feedSettings.Setup(s => s.GetIsReadOnlyMode(It.IsAny<Feed>())).Returns(true);
+        var (target, _) = CreateManagerTarget();
+
+        await target.OnGetAsync("testpackage", "1.0.0", _cancellation);
+
+        Assert.True(target.CanDelete);
+        Assert.True(target.IsReadOnly);
+        Assert.False(target.CanManage);
+    }
+
+    [Theory]
+    [InlineData("Unlist")]
+    [InlineData("Relist")]
+    [InlineData("Delete")]
+    public async Task RefusesManageActionsOnReadOnlyFeed(string handler)
+    {
+        _feedSettings.Setup(s => s.GetIsReadOnlyMode(It.IsAny<Feed>())).Returns(true);
+        var (target, deletion) = CreateManagerTarget();
+
+        var result = handler switch
+        {
+            "Unlist" => await target.OnPostUnlistAsync("testpackage", "1.0.0", _cancellation),
+            "Relist" => await target.OnPostRelistAsync("testpackage", "1.0.0", _cancellation),
+            _ => await target.OnPostDeleteAsync("testpackage", "1.0.0", _cancellation),
+        };
+
+        Assert.Equal(403, Assert.IsType<StatusCodeResult>(result).StatusCode);
+        Assert.Empty(deletion.Invocations);
+    }
+
+    [Theory]
+    [InlineData("Unlist", true, LogLevel.Information, "package_unlist_succeeded")]
+    [InlineData("Relist", true, LogLevel.Information, "package_relist_succeeded")]
+    [InlineData("Delete", true, LogLevel.Information, "package_delete_succeeded")]
+    [InlineData("Unlist", false, LogLevel.Warning, "package_unlist_not_found")]
+    public async Task AuditsManageActions(string handler, bool found, LogLevel level, string eventName)
+    {
+        _auditLogger.Setup(l => l.IsEnabled(It.IsAny<LogLevel>())).Returns(true);
+        var (target, deletion) = CreateManagerTarget();
+        var version = NuGetVersion.Parse("1.0.0");
+        deletion.Setup(d => d.TryUnlistPackageAsync(_defaultFeedId, "testpackage", version, _cancellation)).ReturnsAsync(found);
+        deletion.Setup(d => d.TryRelistPackageAsync(_defaultFeedId, "testpackage", version, _cancellation)).ReturnsAsync(found);
+        deletion.Setup(d => d.TryHardDeletePackageAsync(_defaultFeedId, DefaultFeedSlug, "testpackage", version, _cancellation)).ReturnsAsync(found);
+
+        _ = handler switch
+        {
+            "Unlist" => await target.OnPostUnlistAsync("testpackage", "1.0.0", _cancellation),
+            "Relist" => await target.OnPostRelistAsync("testpackage", "1.0.0", _cancellation),
+            _ => await target.OnPostDeleteAsync("testpackage", "1.0.0", _cancellation),
+        };
+
+        VerifyAudit(level, $"AUDIT {eventName} feed=default package_id=testpackage package_version=1.0.0 actor=");
+    }
+
+    [Fact]
+    public async Task AuditsRefusedManageActionOnReadOnlyFeed()
+    {
+        _auditLogger.Setup(l => l.IsEnabled(It.IsAny<LogLevel>())).Returns(true);
+        _feedSettings.Setup(s => s.GetIsReadOnlyMode(It.IsAny<Feed>())).Returns(true);
+        var (target, _) = CreateManagerTarget();
+
+        await target.OnPostDeleteAsync("testpackage", "1.0.0", _cancellation);
+
+        VerifyAudit(LogLevel.Warning, "AUDIT package_delete_read_only feed=default package_id=testpackage package_version=1.0.0 actor=");
+    }
+
+    private void VerifyAudit(LogLevel level, string expectedPrefix)
+    {
+        _auditLogger.Verify(
+            l => l.Log(
+                level,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((state, _) => state.ToString().StartsWith(expectedPrefix)),
+                null,
+                It.IsAny<Func<It.IsAnyType, Exception, string>>()),
+            Times.Once);
+    }
+
+    /// <summary>
+    /// A page model for a signed-in user with pull and delete permission in Entra mode.
+    /// </summary>
+    private (PackageModel Target, Mock<IPackageDeletionService> Deletion) CreateManagerTarget()
+    {
+        var permissions = new Mock<IPermissionService>();
+        permissions.Setup(p => p.CanPullAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), _cancellation)).ReturnsAsync(true);
+        permissions.Setup(p => p.CanDeleteAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), _cancellation)).ReturnsAsync(true);
+
+        var authOptions = new Mock<IOptionsSnapshot<NugetAuthenticationOptions>>();
+        authOptions.Setup(o => o.Value).Returns(new NugetAuthenticationOptions { Mode = AuthenticationMode.Entra });
+
+        var deletion = new Mock<IPackageDeletionService>();
+        var target = new PackageModel(
+            _packages.Object, _content.Object, _search.Object, _url.Object,
+            _feedContext.Object, permissions.Object, deletion.Object, _feedSettings.Object, new WebAuditLog(_auditLogger.Object), authOptions.Object);
+
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(
+            new[] { new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()) }, "TestAuth"));
+        target.PageContext = new PageContext(new ActionContext(
+            new DefaultHttpContext { User = principal }, new RouteData(), new PageActionDescriptor()));
+
+        return (target, deletion);
+    }
+
+    [Fact]
+    public async Task MarksMirrorOnlyVersionsAndHidesTheirManageActions()
+    {
+        _packages
+            .Setup(m => m.FindPackagesAsync(It.IsAny<Guid>(), "testpackage", _cancellation))
+            .ReturnsAsync(new List<Package>
+            {
+                CreatePackage("1.0.0"),
+                CreatePackage("2.0.0", local: false, published: new DateTime(2024, 5, 1)),
+                CreatePackage("3.0.0-beta", listed: false, local: false, published: new DateTime(1900, 1, 1)),
+            });
+        var (target, _) = CreateManagerTarget();
+
+        await target.OnGetAsync("testpackage", "2.0.0", _cancellation);
+
+        Assert.True(target.CanManage);
+        Assert.False(target.IsStoredLocally);
+        Assert.Collection(
+            target.Versions,
+            v => Assert.False(v.IsLocal),
+            v => Assert.True(v.IsLocal));
+        Assert.DoesNotContain(target.Versions, v => v.Version.OriginalVersion == "3.0.0-beta");
+    }
+
+    [Fact]
+    public async Task HidesMissingUpstreamDates()
+    {
+        _packages
+            .Setup(m => m.FindPackagesAsync(It.IsAny<Guid>(), "testpackage", _cancellation))
+            .ReturnsAsync(new List<Package>
+            {
+                CreatePackage("1.0.0"),
+                CreatePackage("2.0.0", local: false, published: new DateTime(1900, 1, 1)),
+            });
+
+        await _target.OnGetAsync("testpackage", "1.0.0", _cancellation);
+
+        Assert.Null(Assert.Single(_target.Versions, v => !v.IsLocal).LastUpdated);
+    }
+
+    private int _nextKey = 1;
+
     private Package CreatePackage(
         string version,
         long downloads = 0,
@@ -428,7 +601,8 @@ public class PackageModelFacts
         bool listed = true,
         DateTime? published = null,
         IEnumerable<PackageDependency> dependencies = null,
-        IEnumerable<string> packageTypes = null)
+        IEnumerable<string> packageTypes = null,
+        bool local = true)
     {
         published ??= DateTime.Now;
         dependencies ??= Array.Empty<PackageDependency>();
@@ -436,6 +610,8 @@ public class PackageModelFacts
 
         return new Package
         {
+            // Packages read from the database have a key, mirror-only ones don't.
+            Key = local ? _nextKey++ : 0,
             Id = "testpackage",
             Downloads = downloads,
             HasReadme = hasReadme,

@@ -6,10 +6,14 @@ using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
 using BaGetter.Core.Authentication;
+using BaGetter.Core.Configuration;
 using BaGetter.Core.Entities;
+using BaGetter.Web.Audit;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.Extensions.Options;
 
 namespace BaGetter.Web.Pages.Admin;
 
@@ -18,11 +22,22 @@ public class AccountsModel : PageModel
 {
     private readonly IUserService _userService;
     private readonly IGroupService _groupService;
+    private readonly ITokenService _tokenService;
+    private readonly IOptionsSnapshot<NugetAuthenticationOptions> _authOptions;
+    private readonly WebAuditLog _audit;
 
-    public AccountsModel(IUserService userService, IGroupService groupService)
+    public AccountsModel(
+        IUserService userService,
+        IGroupService groupService,
+        ITokenService tokenService,
+        IOptionsSnapshot<NugetAuthenticationOptions> authOptions,
+        WebAuditLog audit)
     {
         _userService = userService ?? throw new ArgumentNullException(nameof(userService));
         _groupService = groupService ?? throw new ArgumentNullException(nameof(groupService));
+        _tokenService = tokenService ?? throw new ArgumentNullException(nameof(tokenService));
+        _authOptions = authOptions ?? throw new ArgumentNullException(nameof(authOptions));
+        _audit = audit ?? throw new ArgumentNullException(nameof(audit));
     }
 
     public List<User> Users { get; set; } = new();
@@ -53,7 +68,60 @@ public class AccountsModel : PageModel
     public bool NewCanLoginToUI { get; set; }
 
     public string SuccessMessage { get; set; }
+    public string NewTokenPlaintext { get; set; }
     public string ErrorMessage { get; set; }
+
+    /// <summary>The signed-in administrator. Their own row doesn't offer actions that lock them out.</summary>
+    public Guid CurrentUserId => GetUserId();
+
+    /// <summary>
+    /// An administrator who can manage the server: enabled and allowed to sign in to the web UI.
+    /// </summary>
+    public static bool IsActiveAdmin(User user)
+    {
+        return user.IsAdmin && user.IsEnabled && user.CanLoginToUI;
+    }
+
+    public static bool IsLocked(User user)
+    {
+        return user.LockedUntilUtc > DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Returns an error when taking <paramref name="userId"/>'s admin access away (disable, revoke
+    /// web sign-in, remove admin) would lock the current user or everybody out of administration.
+    /// </summary>
+    private async Task<string> CheckKeepsAdminAccessAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        if (userId == GetUserId())
+            return "You can't take away your own administrator access. Ask another administrator.";
+
+        var users = await _userService.GetAllUsersAsync(cancellationToken);
+        var target = users.FirstOrDefault(u => u.Id == userId);
+        if (target != null && IsActiveAdmin(target) && users.Count(IsActiveAdmin) == 1)
+            return $"'{target.Username}' is the last enabled administrator.";
+
+        return null;
+    }
+
+    /// <summary>
+    /// The create form's properties are bound (and validated) for every POST. Only the Create
+    /// handler uses them, so other handlers drop their errors instead of showing
+    /// "Username is required." under the create form.
+    /// </summary>
+    public override void OnPageHandlerExecuting(PageHandlerExecutingContext context)
+    {
+        if (context.HandlerMethod?.MethodInfo.Name != nameof(OnPostCreateAsync))
+        {
+            ModelState.Clear();
+        }
+    }
+
+    private async Task AuditAsync(string eventName, Guid userId, CancellationToken cancellationToken, string detail = null)
+    {
+        var user = await _userService.FindByIdAsync(userId, cancellationToken);
+        _audit.Admin(HttpContext, eventName, user?.Username ?? userId.ToString(), detail);
+    }
 
     private Guid GetUserId()
     {
@@ -116,6 +184,7 @@ public class AccountsModel : PageModel
             GetUserId(),
             cancellationToken);
 
+        _audit.Admin(HttpContext, "account_created", NewUsername, $"web_sign_in={NewCanLoginToUI}");
         SuccessMessage = $"Account '{NewUsername}' created successfully.";
         await LoadUsersAndGroupsAsync(cancellationToken);
         return Page();
@@ -127,7 +196,15 @@ public class AccountsModel : PageModel
         if (!await IsCurrentUserAdminAsync(cancellationToken))
             return RedirectToPage("/Index");
 
+        if (isEnabled && await CheckKeepsAdminAccessAsync(userId, cancellationToken) is { } error)
+        {
+            ErrorMessage = error;
+            await LoadUsersAndGroupsAsync(cancellationToken);
+            return Page();
+        }
+
         await _userService.SetEnabledAsync(userId, !isEnabled, cancellationToken);
+        await AuditAsync(isEnabled ? "account_disabled" : "account_enabled", userId, cancellationToken);
 
         return RedirectToPage();
     }
@@ -138,7 +215,57 @@ public class AccountsModel : PageModel
         if (!await IsCurrentUserAdminAsync(cancellationToken))
             return RedirectToPage("/Index");
 
+        if (canLoginToUI && await CheckKeepsAdminAccessAsync(userId, cancellationToken) is { } error)
+        {
+            ErrorMessage = error;
+            await LoadUsersAndGroupsAsync(cancellationToken);
+            return Page();
+        }
+
         await _userService.SetCanLoginToUIAsync(userId, !canLoginToUI, cancellationToken);
+        await AuditAsync(canLoginToUI ? "account_web_access_revoked" : "account_web_access_granted", userId, cancellationToken);
+
+        return RedirectToPage();
+    }
+
+    /// <summary>
+    /// Makes a local account an administrator or removes its admin rights. Entra accounts follow
+    /// the Admin app role on every sign-in, so they can't be changed here.
+    /// </summary>
+    public async Task<IActionResult> OnPostToggleAdminAsync(
+        Guid userId, bool isAdmin, CancellationToken cancellationToken)
+    {
+        if (!await IsCurrentUserAdminAsync(cancellationToken))
+            return RedirectToPage("/Index");
+
+        var user = await _userService.FindByIdAsync(userId, cancellationToken);
+        if (user == null || user.AuthProvider != AuthProvider.Local)
+        {
+            ErrorMessage = "Administrator rights can only be changed here for local accounts.";
+            await LoadUsersAndGroupsAsync(cancellationToken);
+            return Page();
+        }
+
+        if (isAdmin && await CheckKeepsAdminAccessAsync(userId, cancellationToken) is { } error)
+        {
+            ErrorMessage = error;
+            await LoadUsersAndGroupsAsync(cancellationToken);
+            return Page();
+        }
+
+        await _userService.SetAdminAsync(userId, !isAdmin, cancellationToken);
+        _audit.Admin(HttpContext, isAdmin ? "account_admin_revoked" : "account_admin_granted", user.Username);
+
+        return RedirectToPage();
+    }
+
+    public async Task<IActionResult> OnPostUnlockAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        if (!await IsCurrentUserAdminAsync(cancellationToken))
+            return RedirectToPage("/Index");
+
+        await _userService.ResetFailedLoginCountAsync(userId, cancellationToken);
+        await AuditAsync("account_unlocked", userId, cancellationToken);
 
         return RedirectToPage();
     }
@@ -156,9 +283,21 @@ public class AccountsModel : PageModel
             return Page();
         }
 
+        var user = await _userService.FindByIdAsync(userId, cancellationToken);
+        if (user == null || user.AuthProvider != AuthProvider.Local)
+        {
+            ErrorMessage = "Passwords can only be reset for local accounts.";
+            await LoadUsersAndGroupsAsync(cancellationToken);
+            return Page();
+        }
+
         await _userService.SetPasswordAsync(userId, newPassword, cancellationToken);
 
-        SuccessMessage = "Password reset successfully.";
+        // A new password from an administrator also ends a lockout from earlier failed attempts.
+        await _userService.ResetFailedLoginCountAsync(userId, cancellationToken);
+        _audit.Admin(HttpContext, "account_password_reset", user.Username);
+
+        SuccessMessage = $"Password of '{user.Username}' reset successfully.";
         await LoadUsersAndGroupsAsync(cancellationToken);
         return Page();
     }
@@ -186,8 +325,52 @@ public class AccountsModel : PageModel
 
         var username = user.Username;
         await _userService.DeleteUserAsync(userId, cancellationToken);
+        _audit.Admin(HttpContext, "account_deleted", username);
 
         SuccessMessage = $"Account '{username}' has been deleted.";
+        await LoadUsersAndGroupsAsync(cancellationToken);
+        return Page();
+    }
+
+    /// <summary>
+    /// Creates a personal access token for a local account, so that accounts without web sign-in
+    /// (build agents) don't have to put their password into nuget.config.
+    /// </summary>
+    public async Task<IActionResult> OnPostCreateTokenAsync(
+        Guid userId, string tokenName, int expiryDays, CancellationToken cancellationToken)
+    {
+        if (!await IsCurrentUserAdminAsync(cancellationToken))
+            return RedirectToPage("/Index");
+
+        var user = await _userService.FindByIdAsync(userId, cancellationToken);
+        if (user == null || user.AuthProvider != AuthProvider.Local)
+        {
+            ErrorMessage = "Tokens can only be created here for local accounts.";
+            await LoadUsersAndGroupsAsync(cancellationToken);
+            return Page();
+        }
+
+        if (string.IsNullOrWhiteSpace(tokenName))
+        {
+            ErrorMessage = "Token name is required.";
+            await LoadUsersAndGroupsAsync(cancellationToken);
+            return Page();
+        }
+
+        var days = Math.Clamp(expiryDays, 1, _authOptions.Value.MaxTokenExpiryDays);
+        try
+        {
+            var result = await _tokenService.CreateTokenAsync(
+                userId, tokenName.Trim(), DateTime.UtcNow.AddDays(days), cancellationToken);
+            NewTokenPlaintext = result.PlaintextToken;
+            _audit.Admin(HttpContext, "account_token_created", user.Username, $"token={result.Token.TokenPrefix} expires={result.Token.ExpiresAtUtc:yyyy-MM-dd}");
+            SuccessMessage = $"Token '{result.Token.Name}' created for '{user.Username}'. Copy it now, it is shown only once.";
+        }
+        catch (ArgumentException ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+
         await LoadUsersAndGroupsAsync(cancellationToken);
         return Page();
     }

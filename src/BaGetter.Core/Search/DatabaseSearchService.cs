@@ -32,8 +32,10 @@ public class DatabaseSearchService : ISearchService
     {
         var frameworks = GetCompatibleFrameworksOrNull(request.Framework);
 
+        var query = string.IsNullOrEmpty(request.Query) ? null : request.Query.ToLowerInvariant();
+
         var search = _context.Packages.Where(p => p.FeedId == request.FeedId);
-        search = ApplySearchQuery(search, request.Query);
+        search = await ApplyFullTextQueryAsync(search, request.FeedId, query, cancellationToken);
         search = ApplySearchFilters(
             search,
             request.IncludePrerelease,
@@ -54,10 +56,18 @@ public class DatabaseSearchService : ISearchService
             .Distinct()
             .CountAsync(cancellationToken);
 
-        var packageIds = search
-            .Select(p => p.Id)
-            .Distinct()
-            .OrderBy(id => id)
+        // Id matches come first (exact, then prefix, then contains), then packages that only match
+        // in their title, description, tags or authors. GROUP BY rather than DISTINCT, so the
+        // ORDER BY expression is valid on every database.
+        var distinctIds = search.GroupBy(p => p.Id).Select(g => g.Key);
+        var orderedIds = query == null
+            ? distinctIds.OrderBy(id => id)
+            : distinctIds
+#pragma warning disable CA1862 // Not for EF queries: StringComparison overloads aren't translated to SQL.
+                .OrderBy(id => id.ToLower() == query ? 0 : id.ToLower().StartsWith(query) ? 1 : id.ToLower().Contains(query) ? 2 : 3)
+#pragma warning restore CA1862
+                .ThenBy(id => id);
+        var packageIds = orderedIds
             .Skip(request.Skip)
             .Take(request.Take);
 
@@ -90,6 +100,8 @@ public class DatabaseSearchService : ISearchService
         var groupedResults = results
             .GroupBy(p => p.Id, StringComparer.OrdinalIgnoreCase)
             .Select(group => new PackageRegistration(group.Key, group.ToList()))
+            .OrderBy(r => Rank(r.PackageId, query))
+            .ThenBy(r => r.PackageId, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         var response = _searchBuilder.BuildSearch(groupedResults, request.IncludeUnlisted);
@@ -165,6 +177,57 @@ public class DatabaseSearchService : ISearchService
             .ToListAsync(cancellationToken);
 
         return _searchBuilder.BuildDependents(dependents);
+    }
+
+    /// <summary>
+    /// The in-memory counterpart of the ORDER BY in <see cref="SearchAsync"/>.
+    /// </summary>
+    private static int Rank(string packageId, string query)
+    {
+        if (query == null) return 0;
+
+        var id = packageId.ToLowerInvariant();
+        if (id == query) return 0;
+        if (id.StartsWith(query, StringComparison.Ordinal)) return 1;
+        return id.Contains(query, StringComparison.Ordinal) ? 2 : 3;
+    }
+
+    /// <summary>
+    /// Matches the (lowercased) query against the id, title, description, tags and authors.
+    /// Tags and authors are stored as JSON strings (value converter), so they can't be searched in
+    /// SQL; they are matched in memory, like the tag filter. A tag matches when it starts with the
+    /// query, so <c>orm</c> finds the <c>orm</c> tag but not <c>platform</c>.
+    /// </summary>
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1862:Use the 'StringComparison' method overloads to perform case-insensitive string comparisons", Justification = "Not for EF queries")]
+    private async Task<IQueryable<Package>> ApplyFullTextQueryAsync(
+        IQueryable<Package> query,
+        Guid feedId,
+        string search,
+        CancellationToken cancellationToken)
+    {
+        if (search == null)
+        {
+            return query;
+        }
+
+        var rows = await _context.Packages
+            .Where(p => p.FeedId == feedId)
+            .Select(p => new { p.Id, p.Tags, p.Authors })
+            .ToListAsync(cancellationToken);
+
+        var tagOrAuthorMatches = rows
+            .Where(r =>
+                (r.Tags != null && r.Tags.Any(t => t != null && t.StartsWith(search, StringComparison.OrdinalIgnoreCase))) ||
+                (r.Authors != null && r.Authors.Any(a => a != null && a.Contains(search, StringComparison.OrdinalIgnoreCase))))
+            .Select(r => r.Id)
+            .Distinct()
+            .ToList();
+
+        return query.Where(p =>
+            p.Id.ToLower().Contains(search) ||
+            (p.Title != null && p.Title.ToLower().Contains(search)) ||
+            (p.Description != null && p.Description.ToLower().Contains(search)) ||
+            tagOrAuthorMatches.Contains(p.Id));
     }
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1862:Use the 'StringComparison' method overloads to perform case-insensitive string comparisons", Justification = "Not for EF queries")]

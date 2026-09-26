@@ -65,6 +65,21 @@ public class PackagePublishControllerFacts
         }
 
         [Fact]
+        public async Task LogsTooLargeForFeed()
+        {
+            FeedSettings.Setup(s => s.GetMaxPackageSizeGiB(Feed)).Returns(0);
+            var controller = Build(apiKey: ValidApiKey, body: CreatePackage("Foo", "1.0.0"));
+
+            await controller.Upload(CancellationToken.None);
+
+            Assert.Equal(413, controller.Response.StatusCode);
+            VerifyAudit(LogLevel.Warning, "package_upload_too_large", "Foo", "1.0.0", "api-key");
+            Indexer.Verify(
+                i => i.IndexAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        [Fact]
         public async Task LogsAlreadyExists()
         {
             Indexer
@@ -234,6 +249,7 @@ public class PackagePublishControllerFacts
         protected FactsBase()
         {
             FeedContext.Setup(f => f.CurrentFeed).Returns(Feed);
+            FeedSettings.Setup(s => s.GetMaxPackageSizeGiB(Feed)).Returns(8);
             Logger.Setup(l => l.IsEnabled(It.IsAny<LogLevel>())).Returns(true);
             Authentication
                 .Setup(a => a.AuthenticateAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))

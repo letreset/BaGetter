@@ -18,8 +18,8 @@ using Xunit.Abstractions;
 namespace BaGetter.Tests;
 
 /// <summary>
-/// Verifies the mirror list on Admin > Feeds > Settings: posted rows are saved in list order,
-/// missing rows are removed, blank secrets are kept, and invalid mirrors are rejected.
+/// Verifies Admin > Feeds > Settings: posted mirror rows are saved in list order,
+/// missing rows are removed, blank secrets are kept, and invalid mirrors and numbers are rejected.
 /// </summary>
 public class FeedSettingsMirrorTests : IDisposable
 {
@@ -167,6 +167,69 @@ public class FeedSettingsMirrorTests : IDisposable
 
         Assert.Contains("The upstream listing cache duration must be 0 or more seconds.", body);
         Assert.Null((await GetDefaultFeedAsync()).UpstreamListingCacheSeconds);
+    }
+
+    [Theory]
+    [InlineData("UseGlobalMaxSize", "MaxPackageSizeGiB", "-1", "The max package size must be at least 1 GiB.")]
+    [InlineData("UseGlobalMaxSize", "MaxPackageSizeGiB", "0", "The max package size must be at least 1 GiB.")]
+    [InlineData("UseGlobalMaxSize", "MaxPackageSizeGiB", "abc", "The value &#x27;abc&#x27; is not valid")]
+    [InlineData("UseGlobalRetentionMajor", "RetentionMaxMajorVersions", "-3", "The number of major versions to keep must be 0 or more.")]
+    [InlineData("UseGlobalRetentionPrerelease", "RetentionMaxPrereleaseVersions", "x", "The value &#x27;x&#x27; is not valid")]
+    public async Task PostWithInvalidNumberIsRejectedAndNothingIsSaved(
+        string useGlobalKey, string key, string value, string message)
+    {
+        using var client = await SignInAsAdminAsync();
+
+        var form = await BaseFormAsync(client);
+        form.RemoveAll(f => f.Key == useGlobalKey);
+        form.Add(new(key, value));
+        form.RemoveAll(f => f.Key == "Name");
+        form.Add(new("Name", "Renamed"));
+
+        using var response = await client.PostAsync(SettingsUrl, new FormUrlEncodedContent(form));
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Contains(message, body);
+        Assert.DoesNotContain("Settings saved.", body);
+        var feed = await GetDefaultFeedAsync();
+        Assert.NotEqual("Renamed", feed.Name);
+        Assert.Null(feed.MaxPackageSizeGiB);
+        Assert.Null(feed.RetentionMaxMajorVersions);
+    }
+
+    [Fact]
+    public async Task PostWithNegativeMirrorTimeoutIsRejected()
+    {
+        using var client = await SignInAsAdminAsync();
+
+        var form = await BaseFormAsync(client);
+        form.Add(new("Mirrors[0].Id", ""));
+        form.Add(new("Mirrors[0].PackageSource", "https://other.test/v3/index.json"));
+        form.Add(new("Mirrors[0].DownloadTimeoutSeconds", "-5"));
+
+        using var response = await client.PostAsync(SettingsUrl, new FormUrlEncodedContent(form));
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Contains("Mirror 1: the download timeout must be at least 1 second", body);
+        Assert.Empty(await GetMirrorsAsync());
+    }
+
+    [Fact]
+    public async Task PostWithValidNumbersSavesThem()
+    {
+        using var client = await SignInAsAdminAsync();
+
+        var form = await BaseFormAsync(client);
+        form.RemoveAll(f => f.Key is "UseGlobalMaxSize" or "UseGlobalRetentionMajor");
+        form.Add(new("MaxPackageSizeGiB", "2"));
+        form.Add(new("RetentionMaxMajorVersions", "3"));
+
+        using var response = await client.PostAsync(SettingsUrl, new FormUrlEncodedContent(form));
+
+        Assert.Contains("Settings saved.", await response.Content.ReadAsStringAsync());
+        var feed = await GetDefaultFeedAsync();
+        Assert.Equal(2u, feed.MaxPackageSizeGiB);
+        Assert.Equal(3, feed.RetentionMaxMajorVersions);
     }
 
     private async Task<Feed> GetDefaultFeedAsync()

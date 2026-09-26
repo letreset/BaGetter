@@ -53,20 +53,8 @@ public class TokensModel : PageModel
         return claim != null && Guid.TryParse(claim.Value, out var id) ? id : Guid.Empty;
     }
 
-    private bool IsEntraUser()
-    {
-        var authProvider = User.FindFirst("auth_provider")?.Value
-                        ?? User.FindFirst("AuthProvider")?.Value;
-        return string.Equals(authProvider, "Entra", StringComparison.OrdinalIgnoreCase);
-    }
-
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
-        if (!IsEntraUser())
-        {
-            return RedirectToPage("/Index");
-        }
-
         var userId = GetUserId();
         if (userId == Guid.Empty) return RedirectToPage("/Login");
 
@@ -76,11 +64,6 @@ public class TokensModel : PageModel
 
     public async Task<IActionResult> OnPostCreateAsync(CancellationToken cancellationToken)
     {
-        if (!IsEntraUser())
-        {
-            return RedirectToPage("/Index");
-        }
-
         var userId = GetUserId();
         if (userId == Guid.Empty) return RedirectToPage("/Login");
 
@@ -116,15 +99,15 @@ public class TokensModel : PageModel
 
     public async Task<IActionResult> OnPostRevokeAsync(Guid tokenId, CancellationToken cancellationToken)
     {
-        if (!IsEntraUser())
-        {
-            return RedirectToPage("/Index");
-        }
-
         var userId = GetUserId();
         if (userId == Guid.Empty) return RedirectToPage("/Login");
 
-        await _tokenService.RevokeTokenAsync(tokenId, cancellationToken);
+        // Only revoke the signed-in user's own tokens.
+        var ownTokens = await _tokenService.GetUserTokensAsync(userId, cancellationToken);
+        if (ownTokens.Exists(t => t.Id == tokenId))
+        {
+            await _tokenService.RevokeTokenAsync(tokenId, cancellationToken);
+        }
 
         return RedirectToPage();
     }

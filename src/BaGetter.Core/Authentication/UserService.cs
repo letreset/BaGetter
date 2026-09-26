@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using BaGetter.Core.Configuration;
@@ -35,8 +36,19 @@ public partial class UserService : IUserService
 
     public async Task<User> FindByUsernameAsync(string username, CancellationToken cancellationToken)
     {
-        return await _context.Users.FirstOrDefaultAsync(
-            u => u.Username == username, cancellationToken);
+        if (username == null) return null;
+
+        // Usernames are case-insensitive whatever the column collation is (SQLite and PostgreSQL
+        // compare case-sensitively). LOWER() runs in the database; the exact comparison keeps
+        // non-ASCII names findable where LOWER() only folds ASCII (SQLite). An exact match wins
+        // when older data has names that differ only in case.
+        var lowered = username.ToLowerInvariant();
+        return await _context.Users
+#pragma warning disable CA1862 // EF Core can't translate string.Equals with a StringComparison to SQL.
+            .Where(u => u.Username == username || u.Username.ToLower() == lowered)
+#pragma warning restore CA1862
+            .OrderByDescending(u => u.Username == username)
+            .FirstOrDefaultAsync(cancellationToken);
     }
 
     public async Task<User> FindByEntraObjectIdAsync(string entraObjectId, CancellationToken cancellationToken)

@@ -41,6 +41,7 @@ public class StatisticsModel : PageModel
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
         if (!_options.Value.EnableStatisticsPage) return NotFound();
+        if (FeedAccessGuard.RequiresSignIn(HttpContext, _authOptions.Value.Mode)) return Page();
 
         var denied = await FeedAccessGuard.CheckReadAccessAsync(
             HttpContext, _feedContext, _permissions, _authOptions.Value.Mode, cancellationToken);

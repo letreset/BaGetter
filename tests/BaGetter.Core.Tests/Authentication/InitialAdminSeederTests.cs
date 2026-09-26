@@ -46,6 +46,19 @@ public class InitialAdminSeederTests
             Assert.Equal("existing-admin", user.Username);
         }
 
+        [Theory]
+        [InlineData(false, true)]
+        [InlineData(true, false)]
+        public async Task CreatesAdminWhenNoAdminCanSignIn(bool isEnabled, bool canLoginToUI)
+        {
+            AddUser("locked-out-admin", isAdmin: true, isEnabled, canLoginToUI);
+
+            await CreateTarget(AuthenticationMode.Local, "root", Password).SeedAsync(Ct);
+
+            var created = Assert.Single(Context.Users.AsNoTracking().ToList(), u => u.Username == "root");
+            Assert.True(created.IsAdmin);
+        }
+
         [Fact]
         public async Task DoesNotPromoteAnExistingNonAdminUser()
         {
@@ -154,7 +167,7 @@ public class InitialAdminSeederTests
             return new InitialAdminSeeder(Context, userService ?? Users, Snapshot(options), Logger.Object);
         }
 
-        protected User AddUser(string username, bool isAdmin)
+        protected User AddUser(string username, bool isAdmin, bool isEnabled = true, bool canLoginToUI = true)
         {
             var user = new User
             {
@@ -163,8 +176,8 @@ public class InitialAdminSeederTests
                 DisplayName = username,
                 AuthProvider = AuthProvider.Entra,
                 EntraObjectId = $"oid-{username}",
-                IsEnabled = true,
-                CanLoginToUI = true,
+                IsEnabled = isEnabled,
+                CanLoginToUI = canLoginToUI,
                 IsAdmin = isAdmin,
                 CreatedAtUtc = DateTime.UtcNow,
                 UpdatedAtUtc = DateTime.UtcNow

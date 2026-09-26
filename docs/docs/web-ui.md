@@ -18,13 +18,13 @@ The top bar shows these tabs for the current feed:
 | Upload | The user can push to the feed | Commands to publish packages |
 | Statistics | The page is [enabled](configuration.md#statistics) and the user can pull from the feed | Package and version counts |
 
-Signed-in users also get a user menu. Entra users find **My Tokens** there, and administrators the **Admin** pages.
+Signed-in users also get a user menu with **My Tokens**, and administrators find the **Admin** pages there.
 
 In the `Local`, `Entra` and `Hybrid` modes, a signed-in user who opens the root URL lands on the first feed, in the order set on **Admin > Feeds**, that they can pull from. A user who opens a feed they can't pull from is sent to that feed as well.
 
 ## Search and filters
 
-The **Packages** tab lists the feed's packages, 20 per page, with numbered pages at the bottom. Type in the search box to search the feed, and narrow the list with the filters next to it:
+The **Packages** tab lists the feed's packages, 20 per page, with numbered pages at the bottom. Type in the search box to search the feed, and narrow the list with the filters next to it. The search is case-insensitive and matches the package id, title, description, authors and tags (a tag matches when it starts with the search term). Id matches are listed first: exact, then prefix, then anywhere in the id. NuGet clients (`dotnet package search`, the Visual Studio browse tab) get the same results.
 
 | Filter | Effect |
 |---|---|
@@ -46,7 +46,7 @@ A package page shows:
 - The install command for the .NET CLI, `PackageReference`, Paket CLI and the Package Manager console, with a copy button.
 - The readme and release notes, when the package has them.
 - Dependencies grouped by target framework, and the packages in this feed that depend on it (**Used by**).
-- The version history, with downloads and dates, and the total download count.
+- The version history, with downloads and dates, and the total download count. On a feed with a [mirror](feeds.md#mirror-read-through-cache), versions that are only available from the mirror are marked **mirror**; they are stored in the feed the first time someone downloads them. A link to a version that doesn't exist says so instead of showing another version.
 - Links to the project, source code and license, when the package provides them, and a download link for the `.nupkg`.
 
 ## Unlist, relist and delete
@@ -57,7 +57,9 @@ Users with the **Delete** permission on the feed can manage versions on the pack
 - **Relist** makes an unlisted version visible again. Unlisted versions are struck through in the version history, with a **Relist** link.
 - **Delete** permanently removes the version and its files, whatever the feed's [deletion behavior](feeds.md#feed-settings) is. It can't be undone.
 
-The feed's deletion behavior only applies to deletes from NuGet clients (`dotnet nuget delete`). Unlike those, the actions on the package page aren't written to the [audit log](configuration.md#audit-log) yet ([#39](https://github.com/letreset/BaGetter/issues/39)).
+On a feed in [read-only mode](feeds.md#feed-settings) the **Manage** section and the **Relist** links are hidden, and the actions are refused. The same goes for versions that are only available from a mirror.
+
+The feed's deletion behavior only applies to deletes from NuGet clients (`dotnet nuget delete`). The actions on the package page are written to the [audit log](configuration.md#audit-log) as `package_unlist_*`, `package_relist_*` and `package_delete_*` lines, and so are all changes on the **Admin** pages.
 
 ## Connect
 
@@ -75,7 +77,7 @@ The **Statistics** tab shows how many packages and versions the current feed has
 
 ## My Tokens
 
-**My Tokens** in the user menu lists the signed-in user's [personal access tokens](authentication.md#personal-access-tokens-pats), and lets them create and revoke tokens. A new token is shown only once. The page is only available to users who signed in with Microsoft Entra ID.
+**My Tokens** in the user menu lists the signed-in user's [personal access tokens](authentication.md#personal-access-tokens-pats), and lets them create and revoke tokens. A new token is shown only once. The page is available to Entra and local users; administrators create tokens for local accounts without web sign-in on **Admin > Accounts**.
 
 ## Administration
 
@@ -84,7 +86,7 @@ Administrators get these pages under **Admin**:
 | Page | Contents |
 |---|---|
 | Feeds | Create, edit, reorder and delete [feeds](feeds.md#managing-feeds), and open each feed's [settings](feeds.md#feed-settings) and mirrors |
-| Accounts | Create, enable and disable [local accounts](authentication.md#local-accounts), allow or block web sign-in, and see Entra users who have signed in. A disabled account can be deleted |
+| Accounts | Create, enable and disable [local accounts](authentication.md#local-accounts), allow or block web sign-in, make or remove administrators, unlock locked accounts, reset passwords, create tokens, and see Entra users who have signed in. A disabled account can be deleted |
 | Groups & Permissions | Manage [groups](authentication.md#groups), their members, and their [permissions](authentication.md#feed-permissions) on each feed |
 
 ### Feeds

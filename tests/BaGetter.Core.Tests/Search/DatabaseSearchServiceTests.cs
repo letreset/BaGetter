@@ -158,6 +158,62 @@ public class DatabaseSearchServiceTests
         }
 
         [Fact]
+        public async Task MatchesDescriptionTitleTagsAndAuthors()
+        {
+            Seed("Serilog", "3.0.0", prerelease: false, types: ["Dependency"], frameworks: ["net8.0"], tags: ["serilog"],
+                description: "Simple .NET logging with fully-structured events");
+            Seed("Dapper", "2.1.0", prerelease: false, types: ["Dependency"], frameworks: ["net8.0"], tags: ["orm", "sql"]);
+            Seed("Contoso.Mail", "1.0.0", prerelease: false, types: ["Dependency"], frameworks: ["net8.0"], tags: [],
+                title: "Contoso Mailer", authors: ["Jane Doe"]);
+            Seed("Contoso.Base", "1.0.0", prerelease: false, types: ["Dependency"], frameworks: ["net8.0"], tags: ["platform"]);
+            _context.SaveChanges();
+
+            Assert.Contains("Serilog", await SearchIdsAsync("LOGGING"));
+            Assert.Equal(["Dapper"], await SearchIdsAsync("orm"));
+            Assert.Equal(["Contoso.Mail"], await SearchIdsAsync("mailer"));
+            Assert.Equal(["Contoso.Mail"], await SearchIdsAsync("jane"));
+        }
+
+        [Fact]
+        public async Task ListsIdMatchesBeforeOtherMatches()
+        {
+            Seed("Contoso.Logging", "1.0.0", prerelease: false, types: ["Dependency"], frameworks: ["net8.0"], tags: []);
+            Seed("Logging", "1.0.0", prerelease: false, types: ["Dependency"], frameworks: ["net8.0"], tags: []);
+            Seed("Logging.Extensions", "1.0.0", prerelease: false, types: ["Dependency"], frameworks: ["net8.0"], tags: []);
+            Seed("Aaa.Described", "1.0.0", prerelease: false, types: ["Dependency"], frameworks: ["net8.0"], tags: [],
+                description: "Adds logging to anything");
+            _context.SaveChanges();
+
+            var ids = await SearchIdsAsync("logging");
+
+            // Exact, prefix and contains id matches, then description and tag matches (Alpha and
+            // Beta carry the "logging" tag), each group alphabetical.
+            Assert.Equal(["Logging", "Logging.Extensions", "Contoso.Logging", "Aaa.Described", "Alpha", "Beta"], ids);
+        }
+
+        [Fact]
+        public async Task PagesInRankOrder()
+        {
+            Seed("Zz.Logging", "1.0.0", prerelease: false, types: ["Dependency"], frameworks: ["net8.0"], tags: []);
+            _context.SaveChanges();
+
+            var request = Request(take: 1);
+            request.Query = "logging";
+            await _target.SearchAsync(request, CancellationToken.None);
+
+            // Alpha and Beta come first alphabetically, but only match by tag.
+            Assert.Equal(["Zz.Logging"], _capturedRegistrations.Select(r => r.PackageId).ToArray());
+        }
+
+        private async Task<string[]> SearchIdsAsync(string query)
+        {
+            var request = Request();
+            request.Query = query;
+            await _target.SearchAsync(request, CancellationToken.None);
+            return _capturedRegistrations.Select(r => r.PackageId).ToArray();
+        }
+
+        [Fact]
         public async Task ReportsTotalHits_DisregardingTake()
         {
             var response = await _target.SearchAsync(Request(take: 1), CancellationToken.None);
@@ -195,7 +251,10 @@ public class DatabaseSearchServiceTests
             string[] frameworks,
             string[] tags,
             Guid? feedId = null,
-            bool listed = true)
+            bool listed = true,
+            string description = null,
+            string title = null,
+            string[] authors = null)
         {
             _context.Packages.Add(new Package
             {
@@ -205,7 +264,9 @@ public class DatabaseSearchServiceTests
                 Listed = listed,
                 IsPrerelease = prerelease,
                 SemVerLevel = SemVerLevel.Unknown,
-                Authors = [],
+                Authors = authors ?? [],
+                Description = description,
+                Title = title,
                 PackageTypes = types.Select(t => new PackageType { Name = t }).ToList(),
                 TargetFrameworks = frameworks.Select(f => new TargetFramework { Moniker = f }).ToList(),
                 Tags = tags,

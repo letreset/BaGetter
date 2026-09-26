@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using BaGetter.Core.Authentication;
 using BaGetter.Core.Feeds;
+using BaGetter.Web.Audit;
 using BaGetter.Web.Pages.Admin;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -75,7 +76,7 @@ public class FeedsModelFacts
             var principal = new ClaimsPrincipal(new ClaimsIdentity(
                 new[] { new Claim(ClaimTypes.NameIdentifier, adminId.ToString()) }, "TestAuth"));
 
-            _target = new FeedsModel(_feeds.Object, _users.Object, NullLogger<FeedsModel>.Instance)
+            _target = new FeedsModel(_feeds.Object, _users.Object, NullLogger<FeedsModel>.Instance, new WebAuditLog(NullLogger<WebAuditLog>.Instance))
             {
                 PageContext = new PageContext(new ActionContext(
                     new DefaultHttpContext { User = principal },

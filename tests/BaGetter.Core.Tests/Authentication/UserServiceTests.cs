@@ -35,6 +35,40 @@ public class UserServiceTests
             Assert.Equal(user.Id, result.Id);
             Assert.Equal("testuser", result.Username);
         }
+
+        [Theory]
+        [InlineData("ALICE")]
+        [InlineData("Alice")]
+        [InlineData("alice")]
+        public async Task IgnoresCase(string username)
+        {
+            var user = await CreateLocalUser("alice");
+
+            var result = await Target.FindByUsernameAsync(username, Ct);
+
+            Assert.Equal(user.Id, result?.Id);
+        }
+
+        [Fact]
+        public async Task FindsNonAsciiNameExactly()
+        {
+            var user = await CreateLocalUser("Müller");
+
+            var result = await Target.FindByUsernameAsync("Müller", Ct);
+
+            Assert.Equal(user.Id, result?.Id);
+        }
+
+        [Fact]
+        public async Task PrefersExactMatchWhenNamesDifferOnlyInCase()
+        {
+            await CreateLocalUser("alice");
+            var upper = await CreateLocalUser("ALICE");
+
+            var result = await Target.FindByUsernameAsync("ALICE", Ct);
+
+            Assert.Equal(upper.Id, result?.Id);
+        }
     }
 
     public class FindByIdAsync : FactsBase

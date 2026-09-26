@@ -1,4 +1,5 @@
 using System;
+using System.Net;
 using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
@@ -18,6 +19,8 @@ namespace BaGetter.Web.Controllers;
 [Authorize(AuthenticationSchemes = AuthenticationConstants.NugetBasicAuthenticationScheme, Policy = AuthenticationConstants.NugetUserPolicy)]
 public partial class SymbolController : Controller
 {
+    private const long BytesPerGiB = 1024L * 1024 * 1024;
+
     private readonly IAuthenticationService _authentication;
     private readonly IFeedAuthenticationService _feedAuthentication;
     private readonly IPermissionService _permissionService;
@@ -59,9 +62,11 @@ public partial class SymbolController : Controller
             return;
         }
 
-        if (!await AuthorizePushAsync(cancellationToken))
+        var (authorized, authenticated) = await AuthorizePushAsync(cancellationToken);
+        if (!authorized)
         {
-            HttpContext.Response.StatusCode = 401;
+            // 403 for a known user without the push permission, 401 for missing or wrong credentials.
+            HttpContext.Response.StatusCode = authenticated ? 403 : 401;
             return;
         }
 
@@ -71,6 +76,15 @@ public partial class SymbolController : Controller
             if (uploadStream == null)
             {
                 HttpContext.Response.StatusCode = 400;
+                return;
+            }
+
+            // The server-wide request limit applies before the feed is known; a feed can only lower it.
+            var maxBytes = (long)_feedSettings.GetMaxPackageSizeGiB(_feedContext.CurrentFeed) * BytesPerGiB;
+            if (uploadStream.Length > maxBytes)
+            {
+                LogSymbolUploadTooLarge("symbol_upload_too_large", _feedContext.CurrentFeed.Slug, HttpContext.User.Identity?.Name ?? "anonymous", HttpContext.Connection.RemoteIpAddress);
+                HttpContext.Response.StatusCode = 413;
                 return;
             }
 
@@ -110,14 +124,14 @@ public partial class SymbolController : Controller
         return File(pdbStream, "application/octet-stream");
     }
 
-    private async Task<bool> AuthorizePushAsync(CancellationToken cancellationToken)
+    private async Task<(bool Authorized, bool Authenticated)> AuthorizePushAsync(CancellationToken cancellationToken)
     {
         var authMode = _options.Value.Authentication?.Mode ?? AuthenticationMode.Config;
 
         if (authMode == AuthenticationMode.Config)
         {
             // Static auth mode: use configured API key
-            return await _authentication.AuthenticateAsync(Request.GetApiKey(), cancellationToken);
+            return (await _authentication.AuthenticateAsync(Request.GetApiKey(), cancellationToken), false);
         }
 
         var feedId = _feedContext.CurrentFeed.Id;
@@ -129,16 +143,19 @@ public partial class SymbolController : Controller
         {
             var authResult = await _feedAuthentication.AuthenticateByTokenAsync(apiKey, cancellationToken);
             if (authResult.IsAuthenticated && authResult.UserId.HasValue)
-                return await _permissionService.CanPushAsync(authResult.UserId.Value, feedId, cancellationToken);
+                return (await _permissionService.CanPushAsync(authResult.UserId.Value, feedId, cancellationToken), true);
         }
 
         var userIdClaim = HttpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (!string.IsNullOrEmpty(userIdClaim) && Guid.TryParse(userIdClaim, out var userId))
-            return await _permissionService.CanPushAsync(userId, feedId, cancellationToken);
+            return (await _permissionService.CanPushAsync(userId, feedId, cancellationToken), true);
 
-        return false;
+        return (false, false);
     }
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Exception thrown during symbol upload")]
     private partial void LogUploadException(Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "AUDIT {Event} feed={Feed} actor={Actor} ip={Ip}")]
+    private partial void LogSymbolUploadTooLarge(string @event, string feed, string actor, IPAddress ip);
 }

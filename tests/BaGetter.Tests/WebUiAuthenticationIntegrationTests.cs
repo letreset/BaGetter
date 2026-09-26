@@ -374,7 +374,7 @@ public class WebUiLocalLoginTests : IDisposable
 
 /// <summary>
 /// Tests for page access control: admin pages require admin permissions,
-/// PAT page requires Entra authentication, unauthenticated users are redirected.
+/// unauthenticated users are redirected.
 /// Uses a CookieContainer-based HttpClient to properly handle authentication cookies.
 /// </summary>
 public class WebUiAccessControlTests : IDisposable
@@ -529,7 +529,7 @@ public class WebUiAccessControlTests : IDisposable
     }
 
     [Fact]
-    public async Task TokensPage_NonEntraUser_RedirectsToIndex()
+    public async Task TokensPage_LocalUser_ReturnsOk()
     {
         // Arrange - create a local user
         using (var scope = _app.Services.CreateScope())
@@ -557,15 +557,8 @@ public class WebUiAccessControlTests : IDisposable
         // Act
         using var response = await client.GetAsync("/Account/Tokens");
 
-        // Assert - local user should be redirected away from Tokens page
-        Assert.True(
-            response.StatusCode is HttpStatusCode.Redirect or HttpStatusCode.OK,
-            $"Expected redirect or OK but got {response.StatusCode}");
-
-        if (response.StatusCode == HttpStatusCode.Redirect)
-        {
-            Assert.Equal("/", response.Headers.Location?.ToString());
-        }
+        // Assert - local users manage their own tokens too
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
     [Fact]

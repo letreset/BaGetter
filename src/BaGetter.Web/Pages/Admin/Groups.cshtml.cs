@@ -1,14 +1,17 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.Linq;
 using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
 using BaGetter.Core.Authentication;
 using BaGetter.Core.Entities;
 using BaGetter.Core.Feeds;
+using BaGetter.Web.Audit;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace BaGetter.Web.Pages.Admin;
@@ -20,17 +23,20 @@ public class GroupsModel : PageModel
     private readonly IUserService _userService;
     private readonly IPermissionService _permissionService;
     private readonly IFeedService _feedService;
+    private readonly WebAuditLog _audit;
 
     public GroupsModel(
         IGroupService groupService,
         IUserService userService,
         IPermissionService permissionService,
-        IFeedService feedService)
+        IFeedService feedService,
+        WebAuditLog audit)
     {
         _groupService = groupService ?? throw new ArgumentNullException(nameof(groupService));
         _userService = userService ?? throw new ArgumentNullException(nameof(userService));
         _permissionService = permissionService ?? throw new ArgumentNullException(nameof(permissionService));
         _feedService = feedService ?? throw new ArgumentNullException(nameof(feedService));
+        _audit = audit ?? throw new ArgumentNullException(nameof(audit));
     }
 
     public List<Group> Groups { get; set; } = new();
@@ -56,6 +62,18 @@ public class GroupsModel : PageModel
 
     public string SuccessMessage { get; set; }
     public string ErrorMessage { get; set; }
+
+    /// <summary>
+    /// The create form's properties are bound (and validated) for every POST. Only the CreateGroup handler
+    /// uses them, so other handlers drop their errors instead of showing "Group name is required." under the form.
+    /// </summary>
+    public override void OnPageHandlerExecuting(PageHandlerExecutingContext context)
+    {
+        if (context.HandlerMethod?.MethodInfo.Name != nameof(OnPostCreateGroupAsync))
+        {
+            ModelState.Clear();
+        }
+    }
 
     private Guid GetUserId()
     {
@@ -103,6 +121,18 @@ public class GroupsModel : PageModel
         return Page();
     }
 
+    private async Task<string> GetGroupNameAsync(Guid groupId, CancellationToken cancellationToken)
+    {
+        var group = await _groupService.FindByIdAsync(groupId, cancellationToken);
+        return group?.Name ?? groupId.ToString();
+    }
+
+    private async Task AuditMembershipAsync(string eventName, Guid groupId, Guid userId, CancellationToken cancellationToken)
+    {
+        var user = await _userService.FindByIdAsync(userId, cancellationToken);
+        _audit.Admin(HttpContext, eventName, await GetGroupNameAsync(groupId, cancellationToken), $"user={user?.Username ?? userId.ToString()}");
+    }
+
     public async Task<IActionResult> OnPostCreateGroupAsync(CancellationToken cancellationToken)
     {
         if (!await IsCurrentUserAdminAsync(cancellationToken))
@@ -132,6 +162,7 @@ public class GroupsModel : PageModel
             NewDescription,
             cancellationToken);
 
+        _audit.Admin(HttpContext, "group_created", NewGroupName);
         SuccessMessage = $"Group '{NewGroupName}' created successfully.";
         Groups = await _groupService.GetAllGroupsAsync(cancellationToken);
         AllUsers = await _userService.GetAllUsersAsync(cancellationToken);
@@ -155,6 +186,7 @@ public class GroupsModel : PageModel
         }
 
         await _groupService.AddUserToGroupAsync(userId, groupId, cancellationToken);
+        await AuditMembershipAsync("group_member_added", groupId, userId, cancellationToken);
 
         return RedirectToPage();
     }
@@ -175,6 +207,7 @@ public class GroupsModel : PageModel
         }
 
         await _groupService.RemoveUserFromGroupAsync(userId, groupId, cancellationToken);
+        await AuditMembershipAsync("group_member_removed", groupId, userId, cancellationToken);
 
         return RedirectToPage();
     }
@@ -188,6 +221,8 @@ public class GroupsModel : PageModel
             return RedirectToPage("/Index");
 
         permissions ??= new List<FeedPermissionInput>();
+        var groupName = await GetGroupNameAsync(groupId, cancellationToken);
+        var feedSlugs = (await _feedService.GetAllFeedsAsync(cancellationToken)).ToDictionary(f => f.Id, f => f.Slug);
         foreach (var permission in permissions)
         {
             if (permission.FeedId == Guid.Empty)
@@ -202,6 +237,8 @@ public class GroupsModel : PageModel
                 if (existing != null)
                 {
                     await _permissionService.RevokePermissionAsync(existing.Id, cancellationToken);
+                    _audit.Admin(HttpContext, "feed_permission_revoked", groupName,
+                        $"feed={feedSlugs.GetValueOrDefault(permission.FeedId)}");
                 }
             }
             else
@@ -210,6 +247,8 @@ public class GroupsModel : PageModel
                     groupId, PrincipalType.Group, permission.FeedId,
                     permission.CanPush, permission.CanPull, cancellationToken,
                     canDelete: permission.CanDelete);
+                _audit.Admin(HttpContext, "feed_permission_set", groupName,
+                    $"feed={feedSlugs.GetValueOrDefault(permission.FeedId)} pull={permission.CanPull} push={permission.CanPush} delete={permission.CanDelete}");
             }
         }
 
@@ -223,6 +262,7 @@ public class GroupsModel : PageModel
             return RedirectToPage("/Index");
 
         await _permissionService.RevokePermissionAsync(permissionId, cancellationToken);
+        _audit.Admin(HttpContext, "feed_permission_revoked", permissionId.ToString());
 
         return RedirectToPage();
     }
@@ -233,7 +273,9 @@ public class GroupsModel : PageModel
         if (!await IsCurrentUserAdminAsync(cancellationToken))
             return RedirectToPage("/Index");
 
+        var deletedName = await GetGroupNameAsync(groupId, cancellationToken);
         await _groupService.DeleteGroupAsync(groupId, cancellationToken);
+        _audit.Admin(HttpContext, "group_deleted", deletedName);
         SuccessMessage = "Group deleted successfully.";
 
         Groups = await _groupService.GetAllGroupsAsync(cancellationToken);

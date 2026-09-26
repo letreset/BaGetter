@@ -12,7 +12,8 @@ namespace BaGetter.Core.Authentication;
 /// <summary>
 /// Creates the local administrator from <c>Authentication:InitialAdmin</c> on startup, so a fresh
 /// Local or Hybrid install has a way into Admin &gt; Accounts. It only acts while no administrator
-/// exists, and never changes an existing user.
+/// can manage the server (no enabled administrator with web sign-in), and never changes an existing
+/// user: to recover from a disabled last administrator, configure a new username.
 /// </summary>
 public partial class InitialAdminSeeder
 {
@@ -39,7 +40,7 @@ public partial class InitialAdminSeeder
         if (mode is not (AuthenticationMode.Local or AuthenticationMode.Hybrid))
             return;
 
-        if (await _context.Users.AnyAsync(u => u.IsAdmin, cancellationToken))
+        if (await _context.Users.AnyAsync(u => u.IsAdmin && u.IsEnabled && u.CanLoginToUI, cancellationToken))
             return;
 
         var username = _authOptions.InitialAdmin?.Username;
@@ -78,7 +79,7 @@ public partial class InitialAdminSeeder
     [LoggerMessage(Level = LogLevel.Warning, Message = "No administrator exists and Authentication:InitialAdmin is not configured, so nobody can manage accounts. Set Authentication:InitialAdmin:Username and Authentication:InitialAdmin:Password to create one on startup.")]
     private partial void LogInitialAdminNotConfigured();
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "No administrator exists, but the configured initial administrator {Username} already exists as a non-admin user. The user was left unchanged; choose a different Authentication:InitialAdmin:Username.")]
+    [LoggerMessage(Level = LogLevel.Warning, Message = "No enabled administrator with web sign-in exists, but the configured initial administrator {Username} already exists. The user was left unchanged; choose a different Authentication:InitialAdmin:Username to create a new administrator.")]
     private partial void LogInitialAdminExistsAsNonAdmin(string username);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Audit: {EventType} - Created initial administrator {Username} with ID {UserId} from configuration")]

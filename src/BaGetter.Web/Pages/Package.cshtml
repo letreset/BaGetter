@@ -10,7 +10,7 @@
 @{
     ViewData["Title"] = Model.Found
         ? Model.Package.Id + " " + Model.Package.NormalizedVersionString
-        : Model.Package.Id;
+        : Model.Package?.Id;
     var requiresAuth = AuthOptions.Value.Mode != AuthenticationMode.Config;
     var isAuthenticated = User.Identity?.IsAuthenticated == true;
     var fallbackIconUrl = Url.Content("~/_content/BaGetter.Web/images/default-package-icon-256x256.png");
@@ -18,6 +18,8 @@
 
 @if (requiresAuth && !isAuthenticated)
 {
+    // Generic on purpose: anonymous visitors must not learn feed or package names.
+    ViewData["Title"] = "Sign in required";
     <div class="text-center" style="margin-top: 60px;">
         <h2>Sign in required</h2>
         <p>You need to sign in to view package details.</p>
@@ -26,7 +28,15 @@
     return;
 }
 
-@if (!Model.Found)
+@if (Model.VersionNotFound != null)
+{
+    <div>
+        <h2>Version not found</h2>
+        <p>Package '@Model.Package.Id' has no version '@Model.VersionNotFound' in this feed.</p>
+        <p><a asp-page="Package" asp-route-id="@Model.Package.Id" asp-route-version="">Show the latest version</a></p>
+    </div>
+}
+else if (!Model.Found)
 {
     <div>
         <h2>Oops, package not found...</h2>
@@ -202,7 +212,7 @@ else
                                         @if (!version.Listed)
                                         {
                                             <span class="text-muted" style="margin-left:6px;">(unlisted)</span>
-                                            @if (Model.CanDelete)
+                                            @if (Model.CanManage && version.IsLocal)
                                             {
                                                 <form method="post" asp-page-handler="Relist"
                                                       asp-route-id="@Model.Package.Id"
@@ -213,9 +223,13 @@ else
                                                 </form>
                                             }
                                         }
+                                        @if (!version.IsLocal)
+                                        {
+                                            <span class="label label-default" style="margin-left:6px;" title="Available from a mirror, not stored in this feed yet">mirror</span>
+                                        }
                                     </td>
-                                    <td>@version.Downloads.ToString("N0", CultureInfo.InvariantCulture)</td>
-                                    <td>@Html.DisplayDate(version.LastUpdated)</td>
+                                    <td>@(version.IsLocal ? version.Downloads.ToString("N0", CultureInfo.InvariantCulture) : "")</td>
+                                    <td>@if (version.LastUpdated.HasValue) { @Html.DisplayDate(version.LastUpdated.Value) }</td>
                                 </tr>
                             }
                         </tbody>
@@ -313,7 +327,7 @@ else
                 </div>
             }
 
-            @if (Model.CanDelete)
+            @if (Model.CanManage && Model.IsStoredLocally)
             {
                 <div>
                     <h2>Manage</h2>
@@ -327,7 +341,7 @@ else
                           asp-route-id="@Model.Package.Id"
                           asp-route-version="@Model.Package.NormalizedVersionString"
                           style="display:inline"
-                          onsubmit="return confirm('Unlist @Model.Package.Id @Model.Package.NormalizedVersionString? It will be hidden from search and listings. You can relist it later.');">
+                          data-confirm="@($"Unlist {Model.Package.Id} {Model.Package.NormalizedVersionString}? It will be hidden from search and listings. You can relist it later.")">
                         @Html.AntiForgeryToken()
                         <button type="submit" class="btn btn-default">
                             <i class="ms-Icon ms-Icon--Hide" aria-hidden="true"></i>
@@ -339,7 +353,7 @@ else
                           asp-route-id="@Model.Package.Id"
                           asp-route-version="@Model.Package.NormalizedVersionString"
                           style="display:inline"
-                          onsubmit="return confirm('Permanently delete @Model.Package.Id @Model.Package.NormalizedVersionString? This removes the package and its files and cannot be undone.');">
+                          data-confirm="@($"Permanently delete {Model.Package.Id} {Model.Package.NormalizedVersionString}? This removes the package and its files and cannot be undone.")">
                         @Html.AntiForgeryToken()
                         <button type="submit" class="btn btn-danger">
                             <i class="ms-Icon ms-Icon--Delete" aria-hidden="true"></i>
