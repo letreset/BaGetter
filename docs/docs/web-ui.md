@@ -24,7 +24,7 @@ In the `Local`, `Entra` and `Hybrid` modes, a signed-in user who opens the root 
 
 ## Search and filters
 
-The **Packages** tab lists the feed's packages, 20 per page, with numbered pages at the bottom. Type in the search box to search the feed, and narrow the list with the filters next to it:
+The **Packages** tab lists the feed's packages, 20 per page, with numbered pages at the bottom. Type in the search box to search the feed, and narrow the list with the filters next to it. The search is case-insensitive and matches the package id, title, description, authors and tags (a tag matches when it starts with the search term). Id matches are listed first: exact, then prefix, then anywhere in the id. NuGet clients (`dotnet package search`, the Visual Studio browse tab) get the same results.
 
 | Filter | Effect |
 |---|---|

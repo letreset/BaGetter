@@ -41,7 +41,7 @@ For every page you open, the browser console should show no errors.
 | L1 | `admin` | Open Internal | 20 packages and a page link **2**; page 2 lists the remaining 2 |
 | L2 | `admin` | Search `logging` | Contoso.Logging |
 | L3 | `admin` | Search `LOGGING` | Same result (case-insensitive) |
-| L4 | `admin` | Search `observability` | Contoso.Logging and Contoso.Metrics. **Known issue** [#44](https://github.com/letreset/BaGetter/issues/44): search only matches ids |
+| L4 | `admin` | Search `observability` | Contoso.Logging and Contoso.Metrics (tag and description matches) |
 | L5 | `admin` | Tag filter: type `obs` in the dropdown and pick `observability` | Contoso.Logging and Contoso.Metrics |
 | L6 | `admin` | Framework filter: `.NET Standard 2.0` | All Contoso packages |
 | L7 | `admin` | Framework dropdown on Internal | `.NET 10.0`, `.NET 8.0`, `.NET Standard 2.0`, in that order. Older frameworks from real packages show raw monikers: [#45](https://github.com/letreset/BaGetter/issues/45) |
