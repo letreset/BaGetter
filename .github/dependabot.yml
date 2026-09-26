@@ -35,6 +35,10 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "Microsoft.AspNetCore.*"
         update-types: ["version-update:semver-major"]
+      # NuGet client 7.x drops netstandard2.0, which BaGetter.Protocol targets, and all three
+      # NuGet.* packages must share one version now that transitive pinning is on.
+      - dependency-name: "NuGet.*"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
