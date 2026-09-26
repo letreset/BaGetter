@@ -57,7 +57,7 @@ Users with the **Delete** permission on the feed can manage versions on the pack
 - **Relist** makes an unlisted version visible again. Unlisted versions are struck through in the version history, with a **Relist** link.
 - **Delete** permanently removes the version and its files, whatever the feed's [deletion behavior](feeds.md#feed-settings) is. It can't be undone.
 
-The feed's deletion behavior only applies to deletes from NuGet clients (`dotnet nuget delete`). Every action is written to the [audit log](configuration.md#audit-log).
+The feed's deletion behavior only applies to deletes from NuGet clients (`dotnet nuget delete`). Unlike those, the actions on the package page aren't written to the [audit log](configuration.md#audit-log) yet ([#39](https://github.com/letreset/BaGetter/issues/39)).
 
 ## Connect
 
