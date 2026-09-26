@@ -85,6 +85,18 @@ public class PackageModel : PageModel
     /// </summary>
     public bool CanManage => CanDelete && !IsReadOnly;
 
+    /// <summary>
+    /// Whether the shown version is stored in this feed. Versions that are only available from a
+    /// mirror can't be unlisted or deleted here.
+    /// </summary>
+    public bool IsStoredLocally { get; private set; }
+
+    /// <summary>
+    /// The requested version when it doesn't exist; the page then says so instead of showing
+    /// another version.
+    /// </summary>
+    public string VersionNotFound { get; private set; }
+
     public Package Package { get; private set; }
 
     public bool IsDotnetTemplate { get; private set; }
@@ -119,17 +131,25 @@ public class PackageModel : PageModel
         var packages = await _packages.FindPackagesAsync(_feedContext.CurrentFeed.Id, id, cancellationToken);
         var listedPackages = packages.Where(p => p.Listed).ToList();
 
-        // Try to find the requested version.
-        if (NuGetVersion.TryParse(version, out var requestedVersion))
+        if (!string.IsNullOrEmpty(version))
         {
-            Package = packages.SingleOrDefault(p => p.Version == requestedVersion);
+            // A requested version that doesn't exist is reported, not replaced by the latest one.
+            if (NuGetVersion.TryParse(version, out var requestedVersion))
+            {
+                Package = packages.SingleOrDefault(p => p.Version == requestedVersion);
+            }
+
+            if (Package == null && packages.Count > 0)
+            {
+                Package = new Package { Id = packages[0].Id };
+                VersionNotFound = version;
+                Found = false;
+                return Page();
+            }
         }
 
-        // Otherwise try to display the latest version.
-        if (Package == null)
-        {
-            Package = listedPackages.OrderByDescending(p => p.Version).FirstOrDefault();
-        }
+        // Otherwise display the latest version.
+        Package ??= listedPackages.OrderByDescending(p => p.Version).FirstOrDefault();
 
         if (Package == null)
         {
@@ -137,6 +157,8 @@ public class PackageModel : PageModel
             Found = false;
             return Page();
         }
+
+        IsStoredLocally = IsLocal(Package);
 
         var packageVersion = Package.Version;
 
@@ -151,9 +173,12 @@ public class PackageModel : PageModel
         UsedBy = dependents.Data;
         DependencyGroups = ToDependencyGroups(Package);
 
-        // Managers (CanDelete) also see unlisted versions so they can relist them; the
-        // versions table strikes those through. Everyone else only sees listed versions.
-        var versionsToShow = CanDelete ? packages : listedPackages;
+        // Managers (CanDelete) also see unlisted versions of this feed so they can relist them;
+        // the versions table strikes those through. Unlisted versions that only exist on a mirror
+        // can't be relisted, so they stay hidden. Everyone else only sees listed versions.
+        var versionsToShow = CanDelete
+            ? packages.Where(p => p.Listed || IsLocal(p)).ToList()
+            : listedPackages;
         Versions = ToVersions(versionsToShow, packageVersion);
 
         if (Package.HasReadme)
@@ -217,6 +242,15 @@ public class PackageModel : PageModel
 
         // The version is gone; land on the package's default view (latest remaining or not-found).
         return RedirectToPage(new { id });
+    }
+
+    /// <summary>
+    /// Packages read from the database have a key; packages that only exist on a mirror come
+    /// from the upstream client and don't.
+    /// </summary>
+    private static bool IsLocal(Package package)
+    {
+        return package.Key != 0;
     }
 
     private Task<bool> CanDeleteCurrentFeedAsync(CancellationToken cancellationToken)
@@ -300,8 +334,10 @@ public class PackageModel : PageModel
                 Version = p.Version,
                 Downloads = p.Downloads,
                 Selected = p.Version == selectedVersion,
-                LastUpdated = p.Published,
+                // Upstreams report 1900-01-01 for unlisted versions they have no date for.
+                LastUpdated = p.Published.Year > 1900 ? p.Published : null,
                 Listed = p.Listed,
+                IsLocal = IsLocal(p),
             })
             .OrderByDescending(m => m.Version)
             .ToList();
@@ -352,7 +388,8 @@ public class PackageModel : PageModel
         public NuGetVersion Version { get; set; }
         public long Downloads { get; set; }
         public bool Selected { get; set; }
-        public DateTime LastUpdated { get; set; }
+        public DateTime? LastUpdated { get; set; }
         public bool Listed { get; set; }
+        public bool IsLocal { get; set; }
     }
 }

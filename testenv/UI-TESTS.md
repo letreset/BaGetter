@@ -58,7 +58,7 @@ For every page you open, the browser console should show no errors.
 | P4 | `admin` | Open Contoso.Core, expand **Used By** | Contoso.Logging and Contoso.Configuration |
 | P5 | `admin` | Versions of Contoso.Logging | 2.0.0, 1.5.0, and 1.4.0 struck through as "(unlisted)" with **Relist** |
 | P6 | `carol` | Versions of Contoso.Logging | 2.0.0 and 1.5.0 only, no Manage section |
-| P7 | `admin` | Open `/feeds/internal/packages/Contoso.Logging/99.0.0` | "Version not found". **Known issue** [#40](https://github.com/letreset/BaGetter/issues/40): shows 2.0.0 |
+| P7 | `admin` | Open `/feeds/internal/packages/Contoso.Logging/99.0.0` | "Version not found" with a link to the latest version (also for `/not-a-version`) |
 | P8 | `admin` | **Download package** | Downloads `contoso.logging.2.0.0.nupkg` |
 
 ## Package management
@@ -134,7 +134,7 @@ For every page you open, the browser console should show no errors.
 | # | Account | Steps | Expected |
 |---|---|---|---|
 | R1 | `admin` | Open Default > `/packages/Newtonsoft.Json` (needs internet) | The package page with nuget.org's versions |
-| R2 | `admin` | Look at the versions | Upstream-only versions are marked and have no Relist. **Known issue** [#40](https://github.com/letreset/BaGetter/issues/40) |
+| R2 | `admin` | Look at the versions | Versions not stored in the feed carry a **mirror** label, no downloads, no `1900-01-01` dates and no Relist; upstream-unlisted versions aren't listed; opening a mirror-only version shows no Manage section |
 
 ## Small screens
 

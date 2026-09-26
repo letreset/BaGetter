@@ -157,6 +157,22 @@ public class PackageModelFacts
         Assert.False(_target.Versions[1].Selected);
     }
 
+    [Theory]
+    [InlineData("4.0.0")]
+    [InlineData("not-a-version")]
+    public async Task ReportsMissingRequestedVersion(string version)
+    {
+        _packages
+            .Setup(m => m.FindPackagesAsync(It.IsAny<Guid>(), "testpackage", _cancellation))
+            .ReturnsAsync(new List<Package> { CreatePackage("1.0.0"), CreatePackage("2.0.0") });
+
+        await _target.OnGetAsync("testpackage", version, _cancellation);
+
+        Assert.False(_target.Found);
+        Assert.Equal(version, _target.VersionNotFound);
+        Assert.Equal("testpackage", _target.Package.Id);
+    }
+
     [Fact]
     public async Task FallsBackToLatestListedVersion()
     {
@@ -169,7 +185,7 @@ public class PackageModelFacts
                 CreatePackage("3.0.0", listed: false),
             });
 
-        await _target.OnGetAsync("testpackage", "4.0.0", _cancellation);
+        await _target.OnGetAsync("testpackage", null, _cancellation);
 
         Assert.True(_target.Found);
         Assert.Equal("testpackage", _target.Package.Id);
@@ -484,6 +500,48 @@ public class PackageModelFacts
         return (target, deletion);
     }
 
+    [Fact]
+    public async Task MarksMirrorOnlyVersionsAndHidesTheirManageActions()
+    {
+        _packages
+            .Setup(m => m.FindPackagesAsync(It.IsAny<Guid>(), "testpackage", _cancellation))
+            .ReturnsAsync(new List<Package>
+            {
+                CreatePackage("1.0.0"),
+                CreatePackage("2.0.0", local: false, published: new DateTime(2024, 5, 1)),
+                CreatePackage("3.0.0-beta", listed: false, local: false, published: new DateTime(1900, 1, 1)),
+            });
+        var (target, _) = CreateManagerTarget();
+
+        await target.OnGetAsync("testpackage", "2.0.0", _cancellation);
+
+        Assert.True(target.CanManage);
+        Assert.False(target.IsStoredLocally);
+        Assert.Collection(
+            target.Versions,
+            v => Assert.False(v.IsLocal),
+            v => Assert.True(v.IsLocal));
+        Assert.DoesNotContain(target.Versions, v => v.Version.OriginalVersion == "3.0.0-beta");
+    }
+
+    [Fact]
+    public async Task HidesMissingUpstreamDates()
+    {
+        _packages
+            .Setup(m => m.FindPackagesAsync(It.IsAny<Guid>(), "testpackage", _cancellation))
+            .ReturnsAsync(new List<Package>
+            {
+                CreatePackage("1.0.0"),
+                CreatePackage("2.0.0", local: false, published: new DateTime(1900, 1, 1)),
+            });
+
+        await _target.OnGetAsync("testpackage", "1.0.0", _cancellation);
+
+        Assert.Null(Assert.Single(_target.Versions, v => !v.IsLocal).LastUpdated);
+    }
+
+    private int _nextKey = 1;
+
     private Package CreatePackage(
         string version,
         long downloads = 0,
@@ -491,7 +549,8 @@ public class PackageModelFacts
         bool listed = true,
         DateTime? published = null,
         IEnumerable<PackageDependency> dependencies = null,
-        IEnumerable<string> packageTypes = null)
+        IEnumerable<string> packageTypes = null,
+        bool local = true)
     {
         published ??= DateTime.Now;
         dependencies ??= Array.Empty<PackageDependency>();
@@ -499,6 +558,8 @@ public class PackageModelFacts
 
         return new Package
         {
+            // Packages read from the database have a key, mirror-only ones don't.
+            Key = local ? _nextKey++ : 0,
             Id = "testpackage",
             Downloads = downloads,
             HasReadme = hasReadme,
