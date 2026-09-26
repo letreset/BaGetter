@@ -333,6 +333,37 @@ public class PackageModelFacts
     }
 
     [Fact]
+    public async Task ShowsTheLowestFrameworkPerFamilyAsBadges()
+    {
+        _packages
+            .Setup(m => m.FindPackagesAsync(It.IsAny<Guid>(), "testpackage", _cancellation))
+            .ReturnsAsync(new List<Package>
+            {
+                CreatePackage("1.0.0", targetFrameworks: ["net6.0", "net8.0", "netstandard2.0", "net20"]),
+            });
+
+        await _target.OnGetAsync("testpackage", "1.0.0", _cancellation);
+
+        Assert.Equal([".NET 6.0", ".NET Standard 2.0", ".NET Framework 2.0"], _target.FrameworkBadges);
+        Assert.Equal([".NET 8.0", ".NET 6.0", ".NET Standard 2.0", ".NET Framework 2.0"], _target.Frameworks);
+    }
+
+    [Fact]
+    public async Task HasNoFrameworksWhenThePackageHasNone()
+    {
+        var package = CreatePackage("1.0.0");
+        package.TargetFrameworks = null;
+        _packages
+            .Setup(m => m.FindPackagesAsync(It.IsAny<Guid>(), "testpackage", _cancellation))
+            .ReturnsAsync(new List<Package> { package });
+
+        await _target.OnGetAsync("testpackage", "1.0.0", _cancellation);
+
+        Assert.Empty(_target.FrameworkBadges);
+        Assert.Empty(_target.Frameworks);
+    }
+
+    [Fact]
     public async Task StatisticsIncludeUnlistedPackages()
     {
         var now = DateTime.Now;
@@ -602,11 +633,13 @@ public class PackageModelFacts
         DateTime? published = null,
         IEnumerable<PackageDependency> dependencies = null,
         IEnumerable<string> packageTypes = null,
-        bool local = true)
+        bool local = true,
+        IEnumerable<string> targetFrameworks = null)
     {
         published ??= DateTime.Now;
         dependencies ??= Array.Empty<PackageDependency>();
         packageTypes ??= Array.Empty<string>();
+        targetFrameworks ??= Array.Empty<string>();
 
         return new Package
         {
@@ -622,6 +655,9 @@ public class PackageModelFacts
             Dependencies = dependencies.ToList(),
             PackageTypes = packageTypes
                 .Select(name => new PackageType { Name = name })
+                .ToList(),
+            TargetFrameworks = targetFrameworks
+                .Select(moniker => new TargetFramework { Moniker = moniker })
                 .ToList(),
         };
     }

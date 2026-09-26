@@ -64,6 +64,16 @@ else
                 </h1>
             </div>
 
+            @if (Model.FrameworkBadges.Any())
+            {
+                <div class="framework-badges">
+                    @foreach (var framework in Model.FrameworkBadges)
+                    {
+                        <span class="framework-badge" title="This package targets @framework. The package is compatible with this framework or higher.">@framework</span>
+                    }
+                </div>
+            }
+
             <div class="tabbed-info" x-data="{ tabs: tabs, active: tabs[0] }">
                 <ul class="nav">
                     <template x-for="tab in tabs" :key="tab.name">
@@ -187,6 +197,17 @@ else
                         }
                     }
                 </div>);
+            }
+
+            @if (Model.Frameworks.Any())
+            {
+                ExpandableSection("Frameworks", "ms-Icon--Library", expanded: false,
+                    @<ul class="list-unstyled package-frameworks">
+                        @foreach (var framework in Model.Frameworks)
+                        {
+                            <li>@framework</li>
+                        }
+                    </ul>);
             }
 
             @{ ExpandableSection("Versions", "ms-Icon--Stopwatch", expanded: true,

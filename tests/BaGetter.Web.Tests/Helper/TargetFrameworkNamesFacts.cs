@@ -39,4 +39,37 @@ public class TargetFrameworkNamesFacts
                 sorted);
         }
     }
+
+    public class GetLowestPerFamily
+    {
+        [Fact]
+        public void KeepsTheLowestVersionPerFamilyInFamilyOrder()
+        {
+            var badges = TargetFrameworkNames.GetLowestPerFamily(["net8.0", "net20", "netstandard2.0", "net6.0"]);
+
+            Assert.Equal([".NET 6.0", ".NET Standard 2.0", ".NET Framework 2.0"], badges);
+        }
+
+        [Fact]
+        public void KeepsDotNetAndDotNetCoreApart()
+        {
+            var badges = TargetFrameworkNames.GetLowestPerFamily(["net8.0", "netcoreapp3.1"]);
+
+            Assert.Equal([".NET 8.0", ".NET Core 3.1"], badges);
+        }
+
+        [Fact]
+        public void PrefersTheFrameworkWithoutPlatform()
+        {
+            var badges = TargetFrameworkNames.GetLowestPerFamily(["net8.0-windows", "net8.0"]);
+
+            Assert.Equal([".NET 8.0"], badges);
+        }
+
+        [Fact]
+        public void SkipsAnyAndUnparseableMonikers()
+        {
+            Assert.Empty(TargetFrameworkNames.GetLowestPerFamily(["any", "not a framework"]));
+        }
+    }
 }

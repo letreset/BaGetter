@@ -44,6 +44,27 @@ public static class TargetFrameworkNames
             .ToList();
     }
 
+    /// <summary>
+    /// Returns the lowest framework per family as display names (e.g. ".NET 6.0", ".NET Standard 2.0"),
+    /// in family order. A package targeting a framework is compatible with that framework or higher,
+    /// so these are the package's badges. <c>any</c> and monikers that can't be parsed are skipped.
+    /// </summary>
+    public static IReadOnlyList<string> GetLowestPerFamily(IEnumerable<string> monikers)
+    {
+        return monikers
+            .Select(TryParse)
+            .Where(f => f != null && !f.IsAny && !f.IsAgnostic)
+            .GroupBy(GetFamilyName)
+            .Select(group => group
+                .OrderBy(f => f.Version)
+                .ThenBy(f => f.HasPlatform)
+                .First())
+            .OrderBy(GetFamilyRank)
+            .ThenBy(f => f.Framework, StringComparer.OrdinalIgnoreCase)
+            .Select(f => GetDisplayName(f.GetShortFolderName()))
+            .ToList();
+    }
+
     private static NuGetFramework TryParse(string moniker)
     {
         try

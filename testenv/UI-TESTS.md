@@ -60,6 +60,8 @@ For every page you open, the browser console should show no errors.
 | P6 | `carol` | Versions of Contoso.Logging | 2.0.0 and 1.5.0 only, no Manage section |
 | P7 | `admin` | Open `/feeds/internal/packages/Contoso.Logging/99.0.0` | "Version not found" with a link to the latest version (also for `/not-a-version`) |
 | P8 | `admin` | **Download package** | Downloads `contoso.logging.2.0.0.nupkg` |
+| P9 | `admin` | Look under the Contoso.Logging title, hover a badge | Badges `.NET 8.0` and `.NET Standard 2.0`; the tooltip says the package is compatible with that framework or higher |
+| P10 | `admin` | Expand **Frameworks** on Contoso.Logging | `.NET 10.0`, `.NET 8.0`, `.NET Standard 2.0`, in that order |
 
 ## Package management
 

@@ -113,6 +113,17 @@ public class PackageModel : PageModel
     public IReadOnlyList<DependencyGroupModel> DependencyGroups { get; private set; }
     public IReadOnlyList<VersionModel> Versions { get; private set; }
 
+    /// <summary>
+    /// The lowest target framework per family (e.g. ".NET 6.0", ".NET Standard 2.0"), shown as badges
+    /// under the title.
+    /// </summary>
+    public IReadOnlyList<string> FrameworkBadges { get; private set; }
+
+    /// <summary>
+    /// Every target framework of the package, as display names, sorted by family and version.
+    /// </summary>
+    public IReadOnlyList<string> Frameworks { get; private set; }
+
     public HtmlString Readme { get; private set; }
 
     public HtmlString ParsedReleaseNotes { get; private set; }
@@ -177,6 +188,15 @@ public class PackageModel : PageModel
 
         UsedBy = dependents.Data;
         DependencyGroups = ToDependencyGroups(Package);
+
+        // Mirrored packages may have no target frameworks.
+        var monikers = (Package.TargetFrameworks ?? [])
+            .Select(f => f.Moniker)
+            .Where(m => !string.IsNullOrEmpty(m) && !m.Equals("any", StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        FrameworkBadges = TargetFrameworkNames.GetLowestPerFamily(monikers);
+        Frameworks = TargetFrameworkNames.Sort(monikers).Select(TargetFrameworkNames.GetDisplayName).ToList();
 
         // Managers (CanDelete) also see unlisted versions of this feed so they can relist them;
         // the versions table strikes those through. Unlisted versions that only exist on a mirror

@@ -954,6 +954,21 @@ code,
   font-size: 45%;
 }
 
+.display-package .framework-badges {
+  margin: -5px 0 15px;
+}
+
+.display-package .framework-badge {
+  display: inline-block;
+  margin: 0 6px 6px 0;
+  padding: 2px 8px;
+  border: 1px solid var(--link-button-color);
+  border-radius: 3px;
+  color: var(--link-button-color);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 .display-package .tabbed-info {
   margin-bottom: 20px;
 }
