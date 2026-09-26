@@ -89,7 +89,7 @@ jobs:
 
       # latest, X.Y and X only move for stable releases; prereleases get just their full version tag.
       - id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.DOCKER_IMAGE }}
           tags: |
