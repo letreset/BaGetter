@@ -19,5 +19,6 @@ public interface IGroupService
     Task SyncAppRoleMembershipsAsync(Guid userId, IReadOnlyList<string> appRoleValues, CancellationToken cancellationToken);
     Task<bool> IsRoleLinkedGroupAsync(Guid groupId, CancellationToken cancellationToken);
     Task<bool> CanManuallyModifyMembershipAsync(Guid groupId, Guid userId, CancellationToken cancellationToken);
-    Task DeleteGroupAsync(Guid groupId, CancellationToken cancellationToken);
+    /// <returns>False when the group doesn't exist.</returns>
+    Task<bool> DeleteGroupAsync(Guid groupId, CancellationToken cancellationToken);
 }

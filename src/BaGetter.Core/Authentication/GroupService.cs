@@ -192,11 +192,11 @@ public partial class GroupService : IGroupService
         return user.AuthProvider != AuthProvider.Entra;
     }
 
-    public async Task DeleteGroupAsync(Guid groupId, CancellationToken cancellationToken)
+    public async Task<bool> DeleteGroupAsync(Guid groupId, CancellationToken cancellationToken)
     {
         var group = await _context.Groups
             .FirstOrDefaultAsync(g => g.Id == groupId, cancellationToken);
-        if (group == null) return;
+        if (group == null) return false;
 
         var memberships = await _context.UserGroups
             .Where(ug => ug.GroupId == groupId)
@@ -212,6 +212,8 @@ public partial class GroupService : IGroupService
         await _context.SaveChangesAsync(cancellationToken);
 
         LogGroupDeleted(group.Name, groupId);
+
+        return true;
     }
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Created group {GroupName} with ID {GroupId}")]

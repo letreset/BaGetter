@@ -133,6 +133,8 @@ For every page you open, the browser console should show no errors.
 | G2 | `admin` | Create a group `Developers`, then `developers` | "already exists" both times |
 | G3 | `admin` | Remove `carol` from Developers, then check `carol` | `carol` sees "No feeds available"; add her back and she sees all four feeds again |
 | G4 | `admin` | Clear Pull on Internal for Developers and **Save all** | `bob` no longer sees Internal; restore it |
+| G5 | `admin` | Do G4, then check the container log | One `AUDIT feed_permission_revoked` line for Internal and one `feed_permission_set` line for the restore, no lines for the unchanged feeds |
+| G6 | `admin` | Create a group, open its delete confirmation in two tabs, confirm in both | The first says "Group deleted successfully.", the second "Group not found." |
 
 ## Access control
 

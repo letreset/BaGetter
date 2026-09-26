@@ -228,12 +228,13 @@ public class GroupsModel : PageModel
             if (permission.FeedId == Guid.Empty)
                 continue;
 
+            var existing = await _permissionService.GetPermissionAsync(
+                groupId, PrincipalType.Group, permission.FeedId, cancellationToken);
+
             // Unchecking every permission revokes the row so we don't persist an
             // all-false row that has no effect.
             if (!permission.CanPush && !permission.CanPull && !permission.CanDelete)
             {
-                var existing = await _permissionService.GetPermissionAsync(
-                    groupId, PrincipalType.Group, permission.FeedId, cancellationToken);
                 if (existing != null)
                 {
                     await _permissionService.RevokePermissionAsync(existing.Id, cancellationToken);
@@ -241,7 +242,11 @@ public class GroupsModel : PageModel
                         $"feed={feedSlugs.GetValueOrDefault(permission.FeedId)}");
                 }
             }
-            else
+            // Save all posts every feed row; only changed rows are written and audited.
+            else if (existing == null
+                || existing.CanPull != permission.CanPull
+                || existing.CanPush != permission.CanPush
+                || existing.CanDelete != permission.CanDelete)
             {
                 await _permissionService.GrantPermissionAsync(
                     groupId, PrincipalType.Group, permission.FeedId,
@@ -274,9 +279,15 @@ public class GroupsModel : PageModel
             return RedirectToPage("/Index");
 
         var deletedName = await GetGroupNameAsync(groupId, cancellationToken);
-        await _groupService.DeleteGroupAsync(groupId, cancellationToken);
-        _audit.Admin(HttpContext, "group_deleted", deletedName);
-        SuccessMessage = "Group deleted successfully.";
+        if (await _groupService.DeleteGroupAsync(groupId, cancellationToken))
+        {
+            _audit.Admin(HttpContext, "group_deleted", deletedName);
+            SuccessMessage = "Group deleted successfully.";
+        }
+        else
+        {
+            ErrorMessage = "Group not found.";
+        }
 
         Groups = await _groupService.GetAllGroupsAsync(cancellationToken);
         AllUsers = await _userService.GetAllUsersAsync(cancellationToken);
