@@ -52,7 +52,7 @@ For every page you open, the browser console should show no errors.
 
 | # | Account | Steps | Expected |
 |---|---|---|---|
-| P1 | `admin` | Open Internal > Contoso.Logging | Version 2.0.0, install tabs (.NET CLI, PackageReference, Paket CLI, Package Manager), copy button works |
+| P1 | `admin` | Open Internal > Contoso.Logging | Version 2.0.0, install tabs (.NET CLI, Package Manager, PackageReference, CPM, Paket CLI, Script & Interactive, File-based Apps, Cake), copy button works |
 | P2 | `admin` | Expand **Readme** | The Contoso.Logging readme with a code block |
 | P3 | `admin` | Expand **Dependencies** | Contoso.Core (>= 2.0.0), grouped by target framework |
 | P4 | `admin` | Open Contoso.Core, expand **Used By** | Contoso.Logging and Contoso.Configuration |
@@ -62,6 +62,8 @@ For every page you open, the browser console should show no errors.
 | P8 | `admin` | **Download package** | Downloads `contoso.logging.2.0.0.nupkg` |
 | P9 | `admin` | Look under the Contoso.Logging title, hover a badge | Badges `.NET 8.0` and `.NET Standard 2.0`; the tooltip says the package is compatible with that framework or higher |
 | P10 | `admin` | Expand **Frameworks** on Contoso.Logging | `.NET 10.0`, `.NET 8.0`, `.NET Standard 2.0`, in that order |
+| P11 | `admin` | Contoso.Logging > **CPM** and **Cake** tabs, copy each | One line per entry (`PackageVersion` and `PackageReference`; `#addin` and `#tool`), and the copied text has the same lines. **Package Manager** shows `NuGet\Install-Package Contoso.Logging -Version 2.0.0` |
+| P12 | `admin` | Experimental > Contoso.Preview.Ai > **Cake** tab | Both lines end with `&prerelease` (no `&amp;`) |
 
 ## Package management
 

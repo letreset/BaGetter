@@ -84,7 +84,11 @@ else
                 </ul>
 
                 <div class="content">
-                    <div class="script" x-text="`${active.prefix} ${active.content}`"></div>
+                    <div class="script">
+                        <template x-for="line in active.content">
+                            <div x-text="active.prefix ? `${active.prefix} ${line}` : line"></div>
+                        </template>
+                    </div>
 
                     <div class="copy-button">
                         <button class="btn btn-default btn-warning"
@@ -405,14 +409,21 @@ else
             {
                 <text>
                 {
-                    name: ".NET CLI",
+                    name: ".NET CLI (Global)",
                     prefix: ">",
                     content: ["dotnet tool install --global @Model.Package.Id --version @Model.Package.NormalizedVersionString"],
+                },
+                {
+                    name: ".NET CLI (Local)",
+                    prefix: ">",
+                    content: ["dotnet tool install @Model.Package.Id --version @Model.Package.NormalizedVersionString"],
                 },
                 </text>
             }
             else
             {
+                // A constant, so it is written raw: the encoder would turn '&' into '&amp;' inside the script.
+                var cakePrerelease = Model.Package.IsPrerelease ? Html.Raw("&prerelease") : HtmlString.Empty;
                 <text>
                 {
                     name: ".NET CLI",
@@ -420,9 +431,24 @@ else
                     content: ["dotnet add package @Model.Package.Id --version @Model.Package.NormalizedVersionString"],
                 },
                 {
+                    name: "Package Manager",
+                    prefix: "PM>",
+                    content: ["NuGet\\Install-Package @Model.Package.Id -Version @Model.Package.NormalizedVersionString"]
+                },
+                {
                     name: "PackageReference",
                     prefix: "",
                     content: ["<PackageReference Include=\"@Model.Package.Id\" Version=\"@Model.Package.NormalizedVersionString\" />"]
+                },
+                {
+                    name: "CPM",
+                    prefix: "",
+                    content: [
+                        "<!-- Directory.Packages.props -->",
+                        "<PackageVersion Include=\"@Model.Package.Id\" Version=\"@Model.Package.NormalizedVersionString\" />",
+                        "<!-- Project file -->",
+                        "<PackageReference Include=\"@Model.Package.Id\" />"
+                    ]
                 },
                 {
                     name: "Paket CLI",
@@ -430,9 +456,24 @@ else
                     content: ["paket add @Model.Package.Id --version @Model.Package.NormalizedVersionString"]
                 },
                 {
-                    name: "Package Manager",
-                    prefix: "PM>",
-                    content: ["Install-Package @Model.Package.Id -Version @Model.Package.NormalizedVersionString"]
+                    name: "Script & Interactive",
+                    prefix: "",
+                    content: ["#r \"nuget: @Model.Package.Id, @Model.Package.NormalizedVersionString\""]
+                },
+                {
+                    name: "File-based Apps",
+                    prefix: "",
+                    content: ["#:package @(Model.Package.Id)@@@(Model.Package.NormalizedVersionString)"]
+                },
+                {
+                    name: "Cake",
+                    prefix: "",
+                    content: [
+                        "// Install @Model.Package.Id as a Cake Addin",
+                        "#addin nuget:?package=@Model.Package.Id&version=@(Model.Package.NormalizedVersionString)@(cakePrerelease)",
+                        "// Install @Model.Package.Id as a Cake Tool",
+                        "#tool nuget:?package=@Model.Package.Id&version=@(Model.Package.NormalizedVersionString)@(cakePrerelease)"
+                    ]
                 },
                 </text>
             }
