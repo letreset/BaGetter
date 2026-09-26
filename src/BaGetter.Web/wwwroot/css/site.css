@@ -969,8 +969,25 @@ code,
   white-space: nowrap;
 }
 
+.display-package .package-title-text {
+  margin-top: -5px;
+  font-size: 16px;
+}
+
 .display-package .tabbed-info {
   margin-bottom: 20px;
+}
+
+.display-package .package-notes li {
+  margin-bottom: 5px;
+}
+
+.display-package .package-summary {
+  font-size: 15px;
+}
+
+.display-package .version-prerelease-filter {
+  margin-bottom: 5px;
 }
 
 .display-package .package-description {

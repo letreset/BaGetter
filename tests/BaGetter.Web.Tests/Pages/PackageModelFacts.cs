@@ -10,6 +10,7 @@ using BaGetter.Core.Authentication;
 using BaGetter.Core.Configuration;
 using BaGetter.Core.Content;
 using BaGetter.Core.Entities;
+using BaGetter.Core.Extensions;
 using BaGetter.Core.Feeds;
 using BaGetter.Core.Indexing;
 using BaGetter.Core.Search;
@@ -36,6 +37,8 @@ public class PackageModelFacts
     private readonly Mock<IFeedContext> _feedContext;
     private readonly Mock<IFeedSettingsResolver> _feedSettings = new();
     private readonly Mock<ILogger<WebAuditLog>> _auditLogger = new();
+    private readonly Mock<SystemTime> _time = new();
+    private static readonly DateTime _now = new(2020, 1, 11, 0, 0, 0, DateTimeKind.Utc);
     private readonly PackageModel _target;
 
     private readonly CancellationToken _cancellation = CancellationToken.None;
@@ -52,6 +55,7 @@ public class PackageModelFacts
 
         var defaultFeed = new Feed { Id = _defaultFeedId, Slug = DefaultFeedSlug };
         _feedContext.Setup(f => f.CurrentFeed).Returns(defaultFeed);
+        _time.Setup(t => t.UtcNow).Returns(_now);
 
         var permissions = new Mock<IPermissionService>();
         var deletionService = new Mock<IPackageDeletionService>();
@@ -69,7 +73,8 @@ public class PackageModelFacts
             deletionService.Object,
             _feedSettings.Object,
             new WebAuditLog(_auditLogger.Object),
-            authOptions.Object);
+            authOptions.Object,
+            _time.Object);
 
         _search
             .Setup(s => s.FindDependentsAsync(It.IsAny<Guid>(), "testpackage", _cancellation))
@@ -364,6 +369,64 @@ public class PackageModelFacts
     }
 
     [Fact]
+    public async Task ComputesTheDailyDownloadAverageFromTheEarliestLocalVersion()
+    {
+        _packages
+            .Setup(m => m.FindPackagesAsync(It.IsAny<Guid>(), "testpackage", _cancellation))
+            .ReturnsAsync(new List<Package>
+            {
+                CreatePackage("1.0.0", downloads: 30, published: _now.AddDays(-10)),
+                CreatePackage("2.0.0", downloads: 20, published: _now.AddDays(-2)),
+                // Upstream dates don't count: downloads are only tracked for stored versions.
+                CreatePackage("0.1.0", local: false, published: _now.AddYears(-5)),
+            });
+
+        await _target.OnGetAsync("testpackage", "2.0.0", _cancellation);
+
+        Assert.Equal(5, _target.DailyDownloadAverage);
+    }
+
+    [Fact]
+    public async Task CountsAtLeastOneDayForTheDailyDownloadAverage()
+    {
+        _packages
+            .Setup(m => m.FindPackagesAsync(It.IsAny<Guid>(), "testpackage", _cancellation))
+            .ReturnsAsync(new List<Package> { CreatePackage("1.0.0", downloads: 7, published: _now.AddHours(-1)) });
+
+        await _target.OnGetAsync("testpackage", "1.0.0", _cancellation);
+
+        Assert.Equal(7, _target.DailyDownloadAverage);
+    }
+
+    [Fact]
+    public async Task HasNoDailyDownloadAverageWithoutLocalVersions()
+    {
+        _packages
+            .Setup(m => m.FindPackagesAsync(It.IsAny<Guid>(), "testpackage", _cancellation))
+            .ReturnsAsync(new List<Package> { CreatePackage("1.0.0", local: false) });
+
+        await _target.OnGetAsync("testpackage", "1.0.0", _cancellation);
+
+        Assert.Null(_target.DailyDownloadAverage);
+    }
+
+    [Fact]
+    public async Task MarksPrereleaseVersions()
+    {
+        _packages
+            .Setup(m => m.FindPackagesAsync(It.IsAny<Guid>(), "testpackage", _cancellation))
+            .ReturnsAsync(new List<Package> { CreatePackage("1.0.0"), CreatePackage("2.0.0-beta.1") });
+
+        await _target.OnGetAsync("testpackage", "1.0.0", _cancellation);
+
+        Assert.True(_target.HasPrereleaseVersions);
+        Assert.Collection(
+            _target.Versions,
+            v => Assert.True(v.IsPrerelease),
+            v => Assert.False(v.IsPrerelease));
+    }
+
+    [Fact]
     public async Task StatisticsIncludeUnlistedPackages()
     {
         var now = DateTime.Now;
@@ -459,7 +522,7 @@ public class PackageModelFacts
 
         var target = new PackageModel(
             _packages.Object, _content.Object, _search.Object, _url.Object,
-            _feedContext.Object, permissions.Object, new Mock<IPackageDeletionService>().Object, _feedSettings.Object, new WebAuditLog(_auditLogger.Object), authOptions.Object);
+            _feedContext.Object, permissions.Object, new Mock<IPackageDeletionService>().Object, _feedSettings.Object, new WebAuditLog(_auditLogger.Object), authOptions.Object, _time.Object);
 
         var principal = new ClaimsPrincipal(new ClaimsIdentity(
             new[] { new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()) }, "TestAuth"));
@@ -573,7 +636,7 @@ public class PackageModelFacts
         var deletion = new Mock<IPackageDeletionService>();
         var target = new PackageModel(
             _packages.Object, _content.Object, _search.Object, _url.Object,
-            _feedContext.Object, permissions.Object, deletion.Object, _feedSettings.Object, new WebAuditLog(_auditLogger.Object), authOptions.Object);
+            _feedContext.Object, permissions.Object, deletion.Object, _feedSettings.Object, new WebAuditLog(_auditLogger.Object), authOptions.Object, _time.Object);
 
         var principal = new ClaimsPrincipal(new ClaimsIdentity(
             new[] { new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()) }, "TestAuth"));

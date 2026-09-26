@@ -36,6 +36,19 @@ public class WebUiPackagePageTests : IDisposable
         Assert.Contains("\"#tool nuget:?package=TestData&version=1.2.3\"", html);
     }
 
+    [Fact]
+    public async Task ShowsNoPrereleaseNoteForAStableVersion()
+    {
+        await _app.AddPackageAsync(TestResources.GetResourceStream(TestResources.Package));
+        using var client = _app.CreateClient();
+
+        var html = await client.GetStringAsync("/packages/TestData/1.2.3");
+
+        Assert.Contains("per day average", html);
+        Assert.DoesNotContain("This is a prerelease version", html);
+        Assert.DoesNotContain("Include prerelease", html);
+    }
+
     public void Dispose()
     {
         _app.Dispose();

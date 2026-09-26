@@ -9,6 +9,7 @@ using BaGetter.Core.Authentication;
 using BaGetter.Core.Configuration;
 using BaGetter.Core.Content;
 using BaGetter.Core.Entities;
+using BaGetter.Core.Extensions;
 using BaGetter.Core.Feeds;
 using BaGetter.Core.Indexing;
 using BaGetter.Core.Search;
@@ -40,6 +41,7 @@ public class PackageModel : PageModel
     private readonly IFeedSettingsResolver _feedSettings;
     private readonly WebAuditLog _audit;
     private readonly IOptionsSnapshot<NugetAuthenticationOptions> _authOptions;
+    private readonly SystemTime _time;
 
     static PackageModel()
     {
@@ -58,7 +60,8 @@ public class PackageModel : PageModel
         IPackageDeletionService deletionService,
         IFeedSettingsResolver feedSettings,
         WebAuditLog audit,
-        IOptionsSnapshot<NugetAuthenticationOptions> authOptions)
+        IOptionsSnapshot<NugetAuthenticationOptions> authOptions,
+        SystemTime time)
     {
         _packages = packages ?? throw new ArgumentNullException(nameof(packages));
         _content = content ?? throw new ArgumentNullException(nameof(content));
@@ -70,6 +73,7 @@ public class PackageModel : PageModel
         _feedSettings = feedSettings ?? throw new ArgumentNullException(nameof(feedSettings));
         _audit = audit ?? throw new ArgumentNullException(nameof(audit));
         _authOptions = authOptions ?? throw new ArgumentNullException(nameof(authOptions));
+        _time = time ?? throw new ArgumentNullException(nameof(time));
     }
 
     public bool Found { get; private set; }
@@ -108,6 +112,17 @@ public class PackageModel : PageModel
     public bool IsDotnetTool { get; private set; }
     public DateTime LastUpdated { get; private set; }
     public long TotalDownloads { get; private set; }
+
+    /// <summary>
+    /// Total downloads divided by the days since the earliest version stored in this feed was
+    /// published (at least one day). Null when no version is stored in this feed.
+    /// </summary>
+    public long? DailyDownloadAverage { get; private set; }
+
+    /// <summary>
+    /// Whether any shown version is a prerelease; the versions table then offers a prerelease filter.
+    /// </summary>
+    public bool HasPrereleaseVersions => Versions?.Any(v => v.IsPrerelease) == true;
 
     public IReadOnlyList<PackageDependent> UsedBy { get; set; }
     public IReadOnlyList<DependencyGroupModel> DependencyGroups { get; private set; }
@@ -183,6 +198,7 @@ public class PackageModel : PageModel
         IsDotnetTool = Package.PackageTypes.Any(t => t.Name.Equals("DotnetTool", StringComparison.OrdinalIgnoreCase));
         LastUpdated = packages.Max(p => p.Published);
         TotalDownloads = packages.Sum(p => p.Downloads);
+        DailyDownloadAverage = GetDailyDownloadAverage(packages, TotalDownloads, _time.UtcNow);
 
         var dependents = await _search.FindDependentsAsync(_feedContext.CurrentFeed.Id, Package.Id, cancellationToken);
 
@@ -303,6 +319,19 @@ public class PackageModel : PageModel
         return package.Key != 0;
     }
 
+    /// <summary>
+    /// Downloads are only counted for versions stored in this feed, so the average starts at the
+    /// earliest of those, not at an upstream publish date.
+    /// </summary>
+    private static long? GetDailyDownloadAverage(IReadOnlyList<Package> packages, long totalDownloads, DateTime utcNow)
+    {
+        var local = packages.Where(IsLocal).ToList();
+        if (local.Count == 0) return null;
+
+        var days = Math.Max(1, (long)(utcNow - local.Min(p => p.Published)).TotalDays);
+        return totalDownloads / days;
+    }
+
     private Task<bool> CanDeleteCurrentFeedAsync(CancellationToken cancellationToken)
         => FeedAccessGuard.CanDeleteFromCurrentFeedAsync(
             HttpContext, _feedContext, _permissions, _authOptions.Value.Mode, cancellationToken);
@@ -343,6 +372,7 @@ public class PackageModel : PageModel
                 // Upstreams report 1900-01-01 for unlisted versions they have no date for.
                 LastUpdated = p.Published.Year > 1900 ? p.Published : null,
                 Listed = p.Listed,
+                IsPrerelease = p.Version.IsPrerelease,
                 IsLocal = IsLocal(p),
             })
             .OrderByDescending(m => m.Version)
@@ -396,6 +426,7 @@ public class PackageModel : PageModel
         public bool Selected { get; set; }
         public DateTime? LastUpdated { get; set; }
         public bool Listed { get; set; }
+        public bool IsPrerelease { get; set; }
         public bool IsLocal { get; set; }
     }
 }
