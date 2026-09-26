@@ -71,6 +71,98 @@ public class WebUiAccountAdminTests
         }
     }
 
+    public class AdminRights : FactsBase
+    {
+        public AdminRights(ITestOutputHelper output) : base(output)
+        {
+        }
+
+        [Fact]
+        public async Task MakesAnotherLocalAccountAnAdministrator()
+        {
+            await WebUiSession.SeedLocalUserAsync(_app, "admin", Password, isAdmin: true);
+            var bob = await WebUiSession.SeedLocalUserAsync(_app, "bob", Password);
+
+            using var admin = await WebUiSession.SignInAsync(_app, "admin", Password);
+            using var response = await admin.PostFormAsync("/Admin/Accounts", "ToggleAdmin", new Dictionary<string, string>
+            {
+                { "userId", bob.Id.ToString() },
+                { "isAdmin", "False" },
+            });
+
+            Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+            Assert.True((await FindAsync(bob.Id)).IsAdmin);
+        }
+
+        [Theory]
+        [InlineData("ToggleEnabled", "isEnabled")]
+        [InlineData("ToggleCanLoginToUI", "canLoginToUI")]
+        [InlineData("ToggleAdmin", "isAdmin")]
+        public async Task RefusesToLockTheSignedInAdministratorOut(string handler, string field)
+        {
+            var self = await WebUiSession.SeedLocalUserAsync(_app, "admin", Password, isAdmin: true);
+
+            using var admin = await WebUiSession.SignInAsync(_app, "admin", Password);
+            using var response = await admin.PostFormAsync("/Admin/Accounts", handler, new Dictionary<string, string>
+            {
+                { "userId", self.Id.ToString() },
+                { field, "True" },
+            });
+
+            Assert.Contains("your own administrator access", await response.Content.ReadAsStringAsync());
+            var unchanged = await FindAsync(self.Id);
+            Assert.True(unchanged.IsEnabled && unchanged.CanLoginToUI && unchanged.IsAdmin);
+        }
+
+        [Fact]
+        public async Task OwnRowHasNoLockOutButtons()
+        {
+            // The administrator is the only account, so any of these handlers would be on their own row.
+            await WebUiSession.SeedLocalUserAsync(_app, "admin", Password, isAdmin: true);
+
+            using var admin = await WebUiSession.SignInAsync(_app, "admin", Password);
+            var body = await admin.GetStringAsync("/Admin/Accounts");
+
+            Assert.DoesNotContain("handler=ToggleEnabled", body);
+            Assert.DoesNotContain("handler=ToggleCanLoginToUI", body);
+            Assert.DoesNotContain("handler=ToggleAdmin", body);
+        }
+
+        [Fact]
+        public async Task ShowsAndUnlocksLockedAccounts()
+        {
+            await WebUiSession.SeedLocalUserAsync(_app, "admin", Password, isAdmin: true);
+            var bob = await WebUiSession.SeedLocalUserAsync(_app, "bob", Password);
+            using (var scope = _app.Services.CreateScope())
+            {
+                var users = scope.ServiceProvider.GetRequiredService<IUserService>();
+                for (var i = 0; i < 5; i++)
+                {
+                    await users.RecordFailedLoginAsync(bob.Id, CancellationToken.None);
+                }
+            }
+
+            using var admin = await WebUiSession.SignInAsync(_app, "admin", Password);
+            var body = await admin.GetStringAsync("/Admin/Accounts");
+            Assert.Contains("Locked until", body);
+
+            using var response = await admin.PostFormAsync("/Admin/Accounts", "Unlock", new Dictionary<string, string>
+            {
+                { "userId", bob.Id.ToString() },
+            });
+
+            Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+            Assert.Null((await FindAsync(bob.Id)).LockedUntilUtc);
+            using var bobSession = await WebUiSession.SignInAsync(_app, "bob", Password);
+        }
+
+        private async Task<BaGetter.Core.Entities.User> FindAsync(Guid userId)
+        {
+            using var scope = _app.Services.CreateScope();
+            return await scope.ServiceProvider.GetRequiredService<IUserService>().FindByIdAsync(userId, CancellationToken.None);
+        }
+    }
+
     public class DeleteConfirmation : FactsBase
     {
         public DeleteConfirmation(ITestOutputHelper output) : base(output)

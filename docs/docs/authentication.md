@@ -52,8 +52,9 @@ Keep the password out of `appsettings.json`: pass it as the `Authentication__Ini
 
 The initial admin settings only ever create an account:
 
-- Once any administrator exists, they are ignored. You can remove them after the first start.
-- An existing user is never changed and a password is never reset. If a user with the configured username already exists but isn't an administrator, BaGetter logs a warning and leaves it alone; pick a different username.
+- Once an enabled administrator with web sign-in exists, they are ignored. You can remove them after the first start.
+- An existing user is never changed and a password is never reset. If a user with the configured username already exists, BaGetter logs a warning and leaves it alone; pick a different username.
+- **Recovery:** if no administrator can sign in any more (every administrator is disabled or has lost web sign-in), set a username that doesn't exist yet and restart. BaGetter creates that account as a new administrator.
 - The password must be at least 12 characters, the same rule as **Admin > Accounts**. Startup fails if only one of the two settings is set.
 - Several replicas can start at once: only one creates the account, the others skip it.
 
@@ -168,9 +169,13 @@ When `Mode` is `Local` or `Hybrid`, administrators manage local accounts on **Ad
 - **Create** an account with a username (case-insensitive: `alice` and `ALICE` are the same account, on every database), an optional display name, an optional email address (used for [token expiry notifications](#expiry-notifications)) and a password of at least 12 characters. Passwords are stored as bcrypt hashes.
 - **Enable or disable** an account. Disabled accounts can't sign in or use their tokens.
 - **Allow or block web sign-in** ("can log in to UI"). Turn it off for build agents that should only use NuGet clients.
+- **Make admin** or **Remove admin** for a local account. Entra accounts are administrators through the `Admin` app role instead. An **Admin** label marks administrators.
+- **Unlock** an account that is [locked](#account-lockout) after too many failed sign-ins; a **Locked until** label shows when the lock ends.
 - **Reset password**: set a new password (at least 12 characters). This also ends a [lockout](#account-lockout).
 - **New token**: create a [personal access token](#personal-access-tokens-pats) for the account.
 - **Delete** the account. The button only appears after the account has been disabled.
+
+Your own row has no **Disable**, **Revoke Web Access** or **Remove admin** button, and BaGetter refuses to take those away from the last enabled administrator with web sign-in, so administration can't be locked out by accident.
 
 ### Account lockout
 

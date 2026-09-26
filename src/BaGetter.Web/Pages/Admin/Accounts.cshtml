@@ -85,8 +85,20 @@
             <tbody>
                 @foreach (var user in Model.Users)
                 {
+                    var isSelf = user.Id == Model.CurrentUserId;
+                    var isLocal = user.AuthProvider == BaGetter.Core.Entities.AuthProvider.Local;
                     <tr class="@(!user.IsEnabled ? "text-muted" : "")">
-                        <td>@user.Username</td>
+                        <td>
+                            @user.Username
+                            @if (user.IsAdmin)
+                            {
+                                <span class="label label-primary" title="@(isLocal ? "Administrator" : "Administrator through the Entra Admin app role")">Admin</span>
+                            }
+                            @if (BaGetter.Web.Pages.Admin.AccountsModel.IsLocked(user))
+                            {
+                                <span class="label label-warning" title="Too many failed sign-ins">Locked until @user.LockedUntilUtc.Value.ToString("yyyy-MM-dd HH:mm", System.Globalization.CultureInfo.InvariantCulture) UTC</span>
+                            }
+                        </td>
                         <td>@user.DisplayName</td>
                         <td>@(string.IsNullOrEmpty(user.Email) ? "—" : user.Email)</td>
                         <td>
@@ -142,22 +154,45 @@
                         </td>
                         <td>@Html.DisplayDate(user.CreatedAtUtc)</td>
                         <td>
-                            <form method="post" asp-page-handler="ToggleEnabled" style="display:inline">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="userId" value="@user.Id" />
-                                <input type="hidden" name="isEnabled" value="@user.IsEnabled.ToString()" />
-                                <button type="submit" class="btn btn-xs @(user.IsEnabled ? "btn-warning" : "btn-success")">
-                                    @(user.IsEnabled ? "Disable" : "Enable")
-                                </button>
-                            </form>
-                            <form method="post" asp-page-handler="ToggleCanLoginToUI" style="display:inline">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="userId" value="@user.Id" />
-                                <input type="hidden" name="canLoginToUI" value="@user.CanLoginToUI.ToString()" />
-                                <button type="submit" class="btn btn-xs @(user.CanLoginToUI ? "btn-warning" : "btn-success")">
-                                    @(user.CanLoginToUI ? "Revoke Web Access" : "Grant Web Access")
-                                </button>
-                            </form>
+                            @* The signed-in administrator can't lock themselves out, so their own row has no Disable, Revoke Web Access or Remove admin. *@
+                            @if (!isSelf)
+                            {
+                                <form method="post" asp-page-handler="ToggleEnabled" style="display:inline">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="userId" value="@user.Id" />
+                                    <input type="hidden" name="isEnabled" value="@user.IsEnabled.ToString()" />
+                                    <button type="submit" class="btn btn-xs @(user.IsEnabled ? "btn-warning" : "btn-success")">
+                                        @(user.IsEnabled ? "Disable" : "Enable")
+                                    </button>
+                                </form>
+                                <form method="post" asp-page-handler="ToggleCanLoginToUI" style="display:inline">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="userId" value="@user.Id" />
+                                    <input type="hidden" name="canLoginToUI" value="@user.CanLoginToUI.ToString()" />
+                                    <button type="submit" class="btn btn-xs @(user.CanLoginToUI ? "btn-warning" : "btn-success")">
+                                        @(user.CanLoginToUI ? "Revoke Web Access" : "Grant Web Access")
+                                    </button>
+                                </form>
+                                @if (isLocal)
+                                {
+                                    <form method="post" asp-page-handler="ToggleAdmin" style="display:inline">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="userId" value="@user.Id" />
+                                        <input type="hidden" name="isAdmin" value="@user.IsAdmin.ToString()" />
+                                        <button type="submit" class="btn btn-xs @(user.IsAdmin ? "btn-warning" : "btn-default")">
+                                            @(user.IsAdmin ? "Remove admin" : "Make admin")
+                                        </button>
+                                    </form>
+                                }
+                            }
+                            @if (BaGetter.Web.Pages.Admin.AccountsModel.IsLocked(user))
+                            {
+                                <form method="post" asp-page-handler="Unlock" style="display:inline">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="userId" value="@user.Id" />
+                                    <button type="submit" class="btn btn-xs btn-success">Unlock</button>
+                                </form>
+                            }
                             @if (!user.IsEnabled)
                             {
                                 <form method="post" asp-page-handler="Delete" style="display:inline"
@@ -169,7 +204,7 @@
                                     </button>
                                 </form>
                             }
-                            @if (user.AuthProvider == BaGetter.Core.Entities.AuthProvider.Local)
+                            @if (isLocal)
                             {
                                 <details class="account-action">
                                     <summary class="btn btn-xs btn-default">New token</summary>

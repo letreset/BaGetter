@@ -109,7 +109,9 @@ For every page you open, the browser console should show no errors.
 | A2 | `admin` | Create `ALICE` with a valid password | "already exists", and signing in as `Alice` works like `alice` |
 | A3 | `admin` | Disable `bob`, then check a signed-in `bob` session | `bob` is signed out on the next request; enable again |
 | A4 | `admin` | Disable `dave` and delete him | The confirmation shows the username; the account is gone |
-| A5 | `admin` | Look at the `admin` row | No Disable button for the last administrator. **Known issue** [#42](https://github.com/letreset/BaGetter/issues/42) |
+| A5 | `admin` | Look at the `admin` row | An **Admin** label, and no Disable, Revoke Web Access or Remove admin button on the signed-in admin's own row |
+| A5a | `admin` | `alice` > **Make admin**, sign in as `alice` and open Admin > Accounts; then **Remove admin** as `admin` | `alice` can open the page while she is an admin |
+| A5b | `admin` | After S7 (`bob` locked), open Admin > Accounts and **Unlock** `bob` | A "Locked until" label before; `bob` can sign in right away after |
 | A6 | `admin` | `bob` > **Reset password** with a 12+ character password, then sign in as `bob` with it | "Password of 'bob' reset successfully.", and the sign-in works (also right after S7's lockout) |
 
 ## Admin > Groups & Permissions

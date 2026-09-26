@@ -66,6 +66,39 @@ public class AccountsModel : PageModel
     public string NewTokenPlaintext { get; set; }
     public string ErrorMessage { get; set; }
 
+    /// <summary>The signed-in administrator. Their own row doesn't offer actions that lock them out.</summary>
+    public Guid CurrentUserId => GetUserId();
+
+    /// <summary>
+    /// An administrator who can manage the server: enabled and allowed to sign in to the web UI.
+    /// </summary>
+    public static bool IsActiveAdmin(User user)
+    {
+        return user.IsAdmin && user.IsEnabled && user.CanLoginToUI;
+    }
+
+    public static bool IsLocked(User user)
+    {
+        return user.LockedUntilUtc > DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Returns an error when taking <paramref name="userId"/>'s admin access away (disable, revoke
+    /// web sign-in, remove admin) would lock the current user or everybody out of administration.
+    /// </summary>
+    private async Task<string> CheckKeepsAdminAccessAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        if (userId == GetUserId())
+            return "You can't take away your own administrator access. Ask another administrator.";
+
+        var users = await _userService.GetAllUsersAsync(cancellationToken);
+        var target = users.FirstOrDefault(u => u.Id == userId);
+        if (target != null && IsActiveAdmin(target) && users.Count(IsActiveAdmin) == 1)
+            return $"'{target.Username}' is the last enabled administrator.";
+
+        return null;
+    }
+
     private Guid GetUserId()
     {
         var claim = User.FindFirst(ClaimTypes.NameIdentifier);
@@ -138,6 +171,13 @@ public class AccountsModel : PageModel
         if (!await IsCurrentUserAdminAsync(cancellationToken))
             return RedirectToPage("/Index");
 
+        if (isEnabled && await CheckKeepsAdminAccessAsync(userId, cancellationToken) is { } error)
+        {
+            ErrorMessage = error;
+            await LoadUsersAndGroupsAsync(cancellationToken);
+            return Page();
+        }
+
         await _userService.SetEnabledAsync(userId, !isEnabled, cancellationToken);
 
         return RedirectToPage();
@@ -149,7 +189,54 @@ public class AccountsModel : PageModel
         if (!await IsCurrentUserAdminAsync(cancellationToken))
             return RedirectToPage("/Index");
 
+        if (canLoginToUI && await CheckKeepsAdminAccessAsync(userId, cancellationToken) is { } error)
+        {
+            ErrorMessage = error;
+            await LoadUsersAndGroupsAsync(cancellationToken);
+            return Page();
+        }
+
         await _userService.SetCanLoginToUIAsync(userId, !canLoginToUI, cancellationToken);
+
+        return RedirectToPage();
+    }
+
+    /// <summary>
+    /// Makes a local account an administrator or removes its admin rights. Entra accounts follow
+    /// the Admin app role on every sign-in, so they can't be changed here.
+    /// </summary>
+    public async Task<IActionResult> OnPostToggleAdminAsync(
+        Guid userId, bool isAdmin, CancellationToken cancellationToken)
+    {
+        if (!await IsCurrentUserAdminAsync(cancellationToken))
+            return RedirectToPage("/Index");
+
+        var user = await _userService.FindByIdAsync(userId, cancellationToken);
+        if (user == null || user.AuthProvider != AuthProvider.Local)
+        {
+            ErrorMessage = "Administrator rights can only be changed here for local accounts.";
+            await LoadUsersAndGroupsAsync(cancellationToken);
+            return Page();
+        }
+
+        if (isAdmin && await CheckKeepsAdminAccessAsync(userId, cancellationToken) is { } error)
+        {
+            ErrorMessage = error;
+            await LoadUsersAndGroupsAsync(cancellationToken);
+            return Page();
+        }
+
+        await _userService.SetAdminAsync(userId, !isAdmin, cancellationToken);
+
+        return RedirectToPage();
+    }
+
+    public async Task<IActionResult> OnPostUnlockAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        if (!await IsCurrentUserAdminAsync(cancellationToken))
+            return RedirectToPage("/Index");
+
+        await _userService.ResetFailedLoginCountAsync(userId, cancellationToken);
 
         return RedirectToPage();
     }
