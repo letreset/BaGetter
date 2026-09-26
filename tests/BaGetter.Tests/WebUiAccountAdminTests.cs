@@ -37,6 +37,40 @@ public class WebUiAccountAdminTests
         }
     }
 
+    public class Create : FactsBase
+    {
+        public Create(ITestOutputHelper output) : base(output)
+        {
+        }
+
+        [Fact]
+        public async Task RejectsUsernameThatDiffersOnlyInCase()
+        {
+            await WebUiSession.SeedLocalUserAsync(_app, "admin", Password, isAdmin: true);
+            await WebUiSession.SeedLocalUserAsync(_app, "alice", Password);
+
+            using var admin = await WebUiSession.SignInAsync(_app, "admin", Password);
+            using var response = await admin.PostFormAsync("/Admin/Accounts", "Create", new Dictionary<string, string>
+            {
+                { "NewUsername", "ALICE" },
+                { "NewPassword", NewPassword },
+            });
+
+            Assert.Contains("already exists", await response.Content.ReadAsStringAsync());
+            using var scope = _app.Services.CreateScope();
+            var users = await scope.ServiceProvider.GetRequiredService<IUserService>().GetAllUsersAsync(CancellationToken.None);
+            Assert.DoesNotContain(users, u => u.Username == "ALICE");
+        }
+
+        [Fact]
+        public async Task SignInIgnoresUsernameCase()
+        {
+            await WebUiSession.SeedLocalUserAsync(_app, "alice", Password);
+
+            using var session = await WebUiSession.SignInAsync(_app, "Alice", Password);
+        }
+    }
+
     public class DeleteConfirmation : FactsBase
     {
         public DeleteConfirmation(ITestOutputHelper output) : base(output)

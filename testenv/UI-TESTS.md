@@ -106,7 +106,7 @@ For every page you open, the browser console should show no errors.
 | # | Account | Steps | Expected |
 |---|---|---|---|
 | A1 | `admin` | Create `dave` with the password `short` | "Password must be at least 12 characters." |
-| A2 | `admin` | Create `ALICE` with a valid password | "already exists". **Known issue** [#41](https://github.com/letreset/BaGetter/issues/41) on SQLite |
+| A2 | `admin` | Create `ALICE` with a valid password | "already exists", and signing in as `Alice` works like `alice` |
 | A3 | `admin` | Disable `bob`, then check a signed-in `bob` session | `bob` is signed out on the next request; enable again |
 | A4 | `admin` | Disable `dave` and delete him | The confirmation shows the username; the account is gone |
 | A5 | `admin` | Look at the `admin` row | No Disable button for the last administrator. **Known issue** [#42](https://github.com/letreset/BaGetter/issues/42) |
@@ -117,7 +117,7 @@ For every page you open, the browser console should show no errors.
 | # | Account | Steps | Expected |
 |---|---|---|---|
 | G1 | `admin` | Open Developers > **Feed Permissions** | Pull on Default, Internal, Archive; Pull, Push, Delete on Experimental |
-| G2 | `admin` | Create a group `Developers` | "already exists" |
+| G2 | `admin` | Create a group `Developers`, then `developers` | "already exists" both times |
 | G3 | `admin` | Remove `carol` from Developers, then check `carol` | `carol` sees "No feeds available"; add her back and she sees all four feeds again |
 | G4 | `admin` | Clear Pull on Internal for Developers and **Save all** | `bob` no longer sees Internal; restore it |
 

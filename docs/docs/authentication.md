@@ -165,7 +165,7 @@ When a user signs in via Entra ID:
 
 When `Mode` is `Local` or `Hybrid`, administrators manage local accounts on **Admin > Accounts**:
 
-- **Create** an account with a username, an optional display name, an optional email address (used for [token expiry notifications](#expiry-notifications)) and a password of at least 12 characters. Passwords are stored as bcrypt hashes.
+- **Create** an account with a username (case-insensitive: `alice` and `ALICE` are the same account, on every database), an optional display name, an optional email address (used for [token expiry notifications](#expiry-notifications)) and a password of at least 12 characters. Passwords are stored as bcrypt hashes.
 - **Enable or disable** an account. Disabled accounts can't sign in or use their tokens.
 - **Allow or block web sign-in** ("can log in to UI"). Turn it off for build agents that should only use NuGet clients.
 - **Reset password**: set a new password (at least 12 characters). This also ends a [lockout](#account-lockout).
@@ -195,7 +195,7 @@ After `MaxFailedAttempts` consecutive failed logins, the account is locked for `
 
 ## Groups
 
-Groups are managed on **Admin > Groups & Permissions**. A user inherits the permissions of every group they belong to. Groups come in two flavors:
+Groups are managed on **Admin > Groups & Permissions**. A user inherits the permissions of every group they belong to. Group names are case-insensitive, like usernames. Groups come in two flavors:
 
 - **Role-linked groups** have an `AppRoleValue` set (e.g., `TeamFrontend`). Membership for Entra users is synchronized from the token's `roles` claim on each sign-in and can't be changed by hand: it is controlled by the App Role assignments in Entra ID. Local users can still be added manually.
 - **Manually-managed groups** have no `AppRoleValue`. Membership is managed entirely in the BaGetter admin UI, for all user types.

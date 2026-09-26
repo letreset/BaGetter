@@ -27,7 +27,16 @@ public partial class GroupService : IGroupService
 
     public async Task<Group> FindByNameAsync(string name, CancellationToken cancellationToken)
     {
-        return await _context.Groups.FirstOrDefaultAsync(g => g.Name == name, cancellationToken);
+        if (name == null) return null;
+
+        // Case-insensitive on every database, like usernames (see UserService.FindByUsernameAsync).
+        var lowered = name.ToLowerInvariant();
+        return await _context.Groups
+#pragma warning disable CA1862 // EF Core can't translate string.Equals with a StringComparison to SQL.
+            .Where(g => g.Name == name || g.Name.ToLower() == lowered)
+#pragma warning restore CA1862
+            .OrderByDescending(g => g.Name == name)
+            .FirstOrDefaultAsync(cancellationToken);
     }
 
     public async Task<Group> FindByAppRoleValueAsync(string appRoleValue, CancellationToken cancellationToken)
