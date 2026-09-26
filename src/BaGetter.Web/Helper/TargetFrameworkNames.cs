@@ -11,12 +11,15 @@ namespace BaGetter.Web.Helper;
 public static class TargetFrameworkNames
 {
     /// <summary>
-    /// Returns a display name such as ".NET 8.0", ".NET Core 3.1", ".NET Standard 2.0" or
-    /// ".NET Framework 4.7.2", or the moniker itself when it can't be parsed.
+    /// Returns a display name such as ".NET 8.0", ".NET Core 3.1", ".NET Standard 2.0",
+    /// ".NET Framework 4.7.2" or ".NET Portable (net45, win8)", or the moniker itself when it can't be parsed.
     /// </summary>
     public static string GetDisplayName(string moniker)
     {
         if (moniker == null) return "All Frameworks";
+
+        var portableName = TryGetPortableDisplayName(moniker);
+        if (portableName != null) return portableName;
 
         var framework = TryParse(moniker);
         if (framework == null) return moniker;
@@ -71,6 +74,32 @@ public static class TargetFrameworkNames
         {
             var framework = NuGetFramework.Parse(moniker);
             return framework.IsUnsupported || framework.IsPCL ? null : framework;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Names a portable class library profile after the frameworks it targets, in string order.
+    /// Returns null when the moniker isn't a PCL or its profile is unknown.
+    /// </summary>
+    private static string TryGetPortableDisplayName(string moniker)
+    {
+        try
+        {
+            var framework = NuGetFramework.Parse(moniker);
+            if (!framework.IsPCL
+                || !DefaultFrameworkNameProvider.Instance.TryGetPortableFrameworks(framework.Profile, includeOptional: false, out var frameworks))
+            {
+                return null;
+            }
+
+            var names = frameworks
+                .Select(f => f.GetShortFolderName())
+                .OrderBy(n => n, StringComparer.OrdinalIgnoreCase);
+            return $".NET Portable ({string.Join(", ", names)})";
         }
         catch (Exception)
         {

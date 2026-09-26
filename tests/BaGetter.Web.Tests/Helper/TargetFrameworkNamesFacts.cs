@@ -19,6 +19,9 @@ public class TargetFrameworkNamesFacts
         [InlineData("net403", ".NET Framework 4.0.3")]
         [InlineData("net47", ".NET Framework 4.7")]
         [InlineData("net472", ".NET Framework 4.7.2")]
+        [InlineData("portable-net40+sl5+win8+wp8+wpa81", ".NET Portable (net40, sl5, win8, wp8, wpa81)")]
+        [InlineData("portable-net45+win8+wp8+wpa81", ".NET Portable (net45, win8, wp8, wpa81)")]
+        [InlineData("portable-wpa81+net45+win8+wp8", ".NET Portable (net45, win8, wp8, wpa81)")]
         [InlineData("not a framework", "not a framework")]
         public void ReturnsReadableName(string moniker, string expected)
         {
