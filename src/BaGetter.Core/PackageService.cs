@@ -147,7 +147,16 @@ public partial class PackageService : IPackageService
 
             LogPackageDownloaded(id, version, cacheFeedUrl);
 
-            var result = await _indexer.IndexAsync(feedId, feedSlug, packageStream, cacheFeedUrl, cancellationToken);
+            // Keep the upstream publish date rather than the time of mirroring. The listing is
+            // usually cached already (the package page and clients list versions first).
+            // Upstreams report 1900-01-01 or no date at all for versions they have no date for.
+            var upstreamPackages = await upstream.ListPackagesAsync(id, cancellationToken);
+            var published = upstreamPackages
+                .Where(p => p.Version == version && p.Published.Year > 1900)
+                .Select(p => (DateTime?)p.Published)
+                .FirstOrDefault();
+
+            var result = await _indexer.IndexAsync(feedId, feedSlug, packageStream, cacheFeedUrl, published, cancellationToken);
 
             LogUpstreamIndexingFinished(id, version, result);
 

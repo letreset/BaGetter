@@ -31,7 +31,7 @@ public class PackagePublishControllerFacts
         public async Task LogsSucceeded()
         {
             Indexer
-                .Setup(i => i.IndexAsync(Feed.Id, Feed.Slug, It.IsAny<Stream>(), null, It.IsAny<CancellationToken>()))
+                .Setup(i => i.IndexAsync(Feed.Id, Feed.Slug, It.IsAny<Stream>(), null, null, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(PackageIndexingResult.Success);
             var controller = Build(apiKey: ValidApiKey, body: CreatePackage("Foo", "1.0.0"));
 
@@ -75,7 +75,7 @@ public class PackagePublishControllerFacts
             Assert.Equal(413, controller.Response.StatusCode);
             VerifyAudit(LogLevel.Warning, "package_upload_too_large", "Foo", "1.0.0", "api-key");
             Indexer.Verify(
-                i => i.IndexAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+                i => i.IndexAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<DateTime?>(), It.IsAny<CancellationToken>()),
                 Times.Never);
         }
 
@@ -83,7 +83,7 @@ public class PackagePublishControllerFacts
         public async Task LogsAlreadyExists()
         {
             Indexer
-                .Setup(i => i.IndexAsync(Feed.Id, Feed.Slug, It.IsAny<Stream>(), null, It.IsAny<CancellationToken>()))
+                .Setup(i => i.IndexAsync(Feed.Id, Feed.Slug, It.IsAny<Stream>(), null, null, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(PackageIndexingResult.PackageAlreadyExists);
             var controller = Build(apiKey: ValidApiKey, body: CreatePackage("Foo", "1.0.0"));
 
@@ -97,7 +97,7 @@ public class PackagePublishControllerFacts
         public async Task LogsInvalidPackage()
         {
             Indexer
-                .Setup(i => i.IndexAsync(Feed.Id, Feed.Slug, It.IsAny<Stream>(), null, It.IsAny<CancellationToken>()))
+                .Setup(i => i.IndexAsync(Feed.Id, Feed.Slug, It.IsAny<Stream>(), null, null, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(PackageIndexingResult.InvalidPackage);
             var controller = Build(apiKey: ValidApiKey, body: new MemoryStream(Encoding.UTF8.GetBytes("not a package")));
 
@@ -117,7 +117,7 @@ public class PackagePublishControllerFacts
                 .ReturnsAsync(new AuthResult(true, userId, "alice"));
             Permissions.Setup(p => p.CanPushAsync(userId, Feed.Id, It.IsAny<CancellationToken>())).ReturnsAsync(true);
             Indexer
-                .Setup(i => i.IndexAsync(Feed.Id, Feed.Slug, It.IsAny<Stream>(), null, It.IsAny<CancellationToken>()))
+                .Setup(i => i.IndexAsync(Feed.Id, Feed.Slug, It.IsAny<Stream>(), null, null, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(PackageIndexingResult.Success);
             var controller = Build(apiKey: "pat", body: CreatePackage("Foo", "1.0.0"));
 

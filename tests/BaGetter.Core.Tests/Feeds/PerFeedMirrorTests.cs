@@ -99,7 +99,7 @@ public class PerFeedMirrorTests
             .ReturnsAsync(stream);
 
         _indexer
-            .Setup(i => i.IndexAsync(_feedWithMirror.Id, _feedWithMirror.Slug, stream, It.IsAny<string>(), _cancellation))
+            .Setup(i => i.IndexAsync(_feedWithMirror.Id, _feedWithMirror.Slug, stream, It.IsAny<string>(), It.IsAny<DateTime?>(), _cancellation))
             .ReturnsAsync(PackageIndexingResult.Success);
 
         await service.ExistsAsync(_feedWithMirror.Id, _feedWithMirror.Slug, _packageId, _packageVersion, _cancellation);

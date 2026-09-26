@@ -150,6 +150,7 @@ For every page you open, the browser console should show no errors.
 |---|---|---|---|
 | R1 | `admin` | Open Default > `/packages/Newtonsoft.Json` (needs internet) | The package page with nuget.org's versions |
 | R2 | `admin` | Look at the versions | Versions not stored in the feed carry a **mirror** label, no downloads, no `1900-01-01` dates and no Relist; upstream-unlisted versions aren't listed; opening a mirror-only version shows no Manage section |
+| R3 | `admin` | Download a mirror-only version, e.g. `curl -u admin:<password> -o NUL http://localhost:5000/v3/package/newtonsoft.json/12.0.1/newtonsoft.json.12.0.1.nupkg`, then reload the Newtonsoft.Json page | 12.0.1 loses the **mirror** label and keeps its publish date from nuget.org (in 2018), not today's |
 
 ## Small screens
 
