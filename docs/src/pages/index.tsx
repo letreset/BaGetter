@@ -1,50 +1,40 @@
 import Link from '@docusaurus/Link';
 import useBaseUrl from '@docusaurus/useBaseUrl';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
-import CodeBlock from '@theme/CodeBlock';
 import Heading from '@theme/Heading';
 import Layout from '@theme/Layout';
 import HomepageFeatures from '@site/src/components/HomepageFeatures';
+import QuickStartTerminal from '@site/src/components/QuickStartTerminal';
 
 import styles from './index.module.css';
-
-const quickStart = `docker run -d -p 5000:8080 -v bagetter-data:/data \\
-  -e ApiKey=change-me letreset/bagetter:latest
-
-dotnet nuget push -s http://localhost:5000/v3/index.json \\
-  -k change-me MyPackage.1.0.0.nupkg`;
 
 function HomepageHeader() {
   const {siteConfig} = useDocusaurusContext();
   return (
-    <header className={styles.hero}>
-      <div className="container">
-        <div className={styles.heroGrid}>
-          <div className={styles.heroText}>
+    <header className={`hero ${styles.hero}`}>
+      <div className={styles.heroInner}>
+        <div className={styles.heroText}>
+          <div className={styles.brand}>
             <img className={styles.logo} src={useBaseUrl('/img/logo.svg')} alt="" />
-            <Heading as="h1" className={styles.title}>
+            <Heading as="h1" className={`hero__title ${styles.title}`}>
               {siteConfig.title}
             </Heading>
-            <p className={styles.tagline}>{siteConfig.tagline}</p>
-            <p className={styles.subtitle}>
-              Multiple feeds, per-feed permissions, Entra ID sign-in and read-through mirrors
-              of nuget.org. Runs on Docker, Kubernetes or any machine with .NET.
-            </p>
-            <div className={styles.buttons}>
-              <Link className="button button--primary button--lg" to="/docs">
-                Get Started
-              </Link>
-              <Link className="button button--secondary button--outline button--lg" href="https://github.com/letreset/BaGetter">
-                GitHub
-              </Link>
-            </div>
           </div>
-          <div className={styles.heroCode}>
-            <CodeBlock language="bash" title="Quick start">
-              {quickStart}
-            </CodeBlock>
+          <p className={`hero__subtitle ${styles.tagline}`}>{siteConfig.tagline}</p>
+          <p className={styles.subtitle}>
+            Multiple feeds, per-feed permissions, Entra ID sign-in and read-through mirrors
+            of nuget.org. Runs on Docker, Kubernetes or any machine with .NET.
+          </p>
+          <div className={styles.buttons}>
+            <Link className="button button--primary" to="/docs">
+              Get started
+            </Link>
+            <Link className="button button--secondary" href="https://github.com/letreset/BaGetter">
+              GitHub
+            </Link>
           </div>
         </div>
+        <QuickStartTerminal />
       </div>
     </header>
   );

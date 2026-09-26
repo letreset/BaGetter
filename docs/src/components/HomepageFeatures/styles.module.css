@@ -1,33 +1,68 @@
 .features {
-  padding: 3rem 0;
+  max-width: 1100px;
+  width: 100%;
+  margin: 0 auto;
+  padding: clamp(24px, 3.5vw, 36px) 24px 40px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 16px;
 }
 
 .card {
-  display: block;
-  height: calc(100% - 2rem);
-  margin-bottom: 2rem;
-  padding: 1.5rem;
-  border: 1px solid var(--ifm-color-emphasis-200);
-  border-radius: var(--ifm-card-border-radius);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px;
+  border: 1px solid var(--bgt-border);
+  border-radius: 12px;
   background: var(--ifm-background-surface-color);
   color: var(--ifm-font-color-base);
-  transition: border-color 0.2s, transform 0.2s;
+  transition: border-color 0.15s;
 }
 
 .card:hover {
-  border-color: var(--ifm-color-primary);
+  border-color: #b9c2cf;
   color: var(--ifm-font-color-base);
   text-decoration: none;
-  transform: translateY(-2px);
 }
 
-.card p {
-  margin-bottom: 0;
-  opacity: 0.85;
+[data-theme='dark'] .card:hover {
+  border-color: #3d4553;
 }
 
-.icon {
-  display: block;
-  font-size: 2rem;
-  margin-bottom: 0.75rem;
+.watermark {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 112px;
+  height: 112px;
+  fill: none;
+  stroke: var(--ifm-color-primary);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.06;
+  pointer-events: none;
+}
+
+.title {
+  position: relative;
+  margin: 0;
+  padding-right: 56px;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: normal;
+}
+
+.description {
+  position: relative;
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--ifm-menu-color);
 }
