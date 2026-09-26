@@ -15,8 +15,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="BCrypt.Net-Next" />
     <PackageReference Include="Humanizer" />
+    <PackageReference Include="MailKit" />
     <PackageReference Include="Markdig" />
+    <PackageReference Include="Newtonsoft.Json" />
   </ItemGroup>
 
   <ItemGroup>
