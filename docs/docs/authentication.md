@@ -168,7 +168,9 @@ When `Mode` is `Local` or `Hybrid`, administrators manage local accounts on **Ad
 - **Create** an account with a username, an optional display name, an optional email address (used for [token expiry notifications](#expiry-notifications)) and a password of at least 12 characters. Passwords are stored as bcrypt hashes.
 - **Enable or disable** an account. Disabled accounts can't sign in or use their tokens.
 - **Allow or block web sign-in** ("can log in to UI"). Turn it off for build agents that should only use NuGet clients.
-- **Reset** the password, or **delete** the account.
+- **Reset password**: set a new password (at least 12 characters). This also ends a [lockout](#account-lockout).
+- **New token**: create a [personal access token](#personal-access-tokens-pats) for the account.
+- **Delete** the account. The button only appears after the account has been disabled.
 
 ### Account lockout
 
@@ -442,7 +444,7 @@ The admin role value is hardcoded as `Admin` (case-sensitive). Verify your App R
 
 ### Local account is locked out
 
-If a local account is locked after too many failed attempts, wait for the lockout period to expire (`LockoutMinutes`, default 15 minutes). Resetting the password doesn't end the lockout early. Personal access tokens keep working while the account is locked.
+If a local account is locked after too many failed attempts, wait for the lockout period to expire (`LockoutMinutes`, default 15 minutes), or have an administrator reset the password on **Admin > Accounts**, which ends the lockout. Personal access tokens keep working while the account is locked.
 
 ### NuGet client returns 401 Unauthorized
 

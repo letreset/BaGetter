@@ -84,7 +84,7 @@ Administrators get these pages under **Admin**:
 | Page | Contents |
 |---|---|
 | Feeds | Create, edit, reorder and delete [feeds](feeds.md#managing-feeds), and open each feed's [settings](feeds.md#feed-settings) and mirrors |
-| Accounts | Create, enable and disable [local accounts](authentication.md#local-accounts), allow or block web sign-in, and see Entra users who have signed in. A disabled account can be deleted |
+| Accounts | Create, enable and disable [local accounts](authentication.md#local-accounts), allow or block web sign-in, reset passwords, create tokens, and see Entra users who have signed in. A disabled account can be deleted |
 | Groups & Permissions | Manage [groups](authentication.md#groups), their members, and their [permissions](authentication.md#feed-permissions) on each feed |
 
 ### Feeds

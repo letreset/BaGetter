@@ -110,7 +110,7 @@ For every page you open, the browser console should show no errors.
 | A3 | `admin` | Disable `bob`, then check a signed-in `bob` session | `bob` is signed out on the next request; enable again |
 | A4 | `admin` | Disable `dave` and delete him | The confirmation shows the username; the account is gone |
 | A5 | `admin` | Look at the `admin` row | No Disable button for the last administrator. **Known issue** [#42](https://github.com/letreset/BaGetter/issues/42) |
-| A6 | `admin` | Reset the password of `bob` | **Known issue** [#33](https://github.com/letreset/BaGetter/issues/33): no reset action |
+| A6 | `admin` | `bob` > **Reset password** with a 12+ character password, then sign in as `bob` with it | "Password of 'bob' reset successfully.", and the sign-in works (also right after S7's lockout) |
 
 ## Admin > Groups & Permissions
 

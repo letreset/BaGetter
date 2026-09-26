@@ -186,6 +186,15 @@
                                         <button type="submit" class="btn btn-xs btn-primary">Create</button>
                                     </form>
                                 </details>
+                                <details class="account-action">
+                                    <summary class="btn btn-xs btn-default">Reset password</summary>
+                                    <form method="post" asp-page-handler="ResetPassword" class="form-inline">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="userId" value="@user.Id" />
+                                        <input type="password" name="newPassword" class="form-control input-sm" placeholder="New password" minlength="12" autocomplete="new-password" required />
+                                        <button type="submit" class="btn btn-xs btn-primary">Set</button>
+                                    </form>
+                                </details>
                             }
                         </td>
                     </tr>

@@ -167,9 +167,20 @@ public class AccountsModel : PageModel
             return Page();
         }
 
+        var user = await _userService.FindByIdAsync(userId, cancellationToken);
+        if (user == null || user.AuthProvider != AuthProvider.Local)
+        {
+            ErrorMessage = "Passwords can only be reset for local accounts.";
+            await LoadUsersAndGroupsAsync(cancellationToken);
+            return Page();
+        }
+
         await _userService.SetPasswordAsync(userId, newPassword, cancellationToken);
 
-        SuccessMessage = "Password reset successfully.";
+        // A new password from an administrator also ends a lockout from earlier failed attempts.
+        await _userService.ResetFailedLoginCountAsync(userId, cancellationToken);
+
+        SuccessMessage = $"Password of '{user.Username}' reset successfully.";
         await LoadUsersAndGroupsAsync(cancellationToken);
         return Page();
     }
