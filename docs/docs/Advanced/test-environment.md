@@ -24,6 +24,8 @@ docker compose -f testenv/docker-compose.yml down -v
 | `BAGETTER_PORT` | `5000` | Port on the host |
 | `TESTENV_EMPTY` | `0` | `1` starts with an empty database instead of the snapshot |
 
+The server runs in the ASP.NET Core `Development` environment: errors show a detailed error page instead of a bare status code, sign-in cookies also work over plain HTTP (for example when you open it through a LAN address instead of `localhost`), and HSTS is off. Production servers must not use `Development`.
+
 To test your own build instead of a published image, build it with `docker build -t letreset/bagetter:dev .` and start the environment with `BAGETTER_TAG=dev`.
 
 ## Test accounts
