@@ -11,6 +11,8 @@ namespace BaGetter.Tests;
 /// </summary>
 public class WebUiPackagePageTests : IDisposable
 {
+    private const string XssPayload = "\"><script>alert(1)</script>";
+
     private readonly BaGetterApplication _app;
 
     public WebUiPackagePageTests(ITestOutputHelper output)
@@ -47,6 +49,31 @@ public class WebUiPackagePageTests : IDisposable
         Assert.Contains("per day average", html);
         Assert.DoesNotContain("This is a prerelease version", html);
         Assert.DoesNotContain("Include prerelease", html);
+    }
+
+    [Fact]
+    public async Task EncodesAnUnknownPackageIdFromTheUrl()
+    {
+        using var client = _app.CreateClient();
+
+        var html = await client.GetStringAsync("/packages/" + Uri.EscapeDataString(XssPayload));
+
+        Assert.Contains("Oops, package not found...", html);
+        Assert.DoesNotContain(XssPayload, html);
+        Assert.Contains("&lt;script&gt;", html);
+    }
+
+    [Fact]
+    public async Task EncodesAMissingVersionFromTheUrl()
+    {
+        await _app.AddPackageAsync(TestResources.GetResourceStream(TestResources.Package));
+        using var client = _app.CreateClient();
+
+        var html = await client.GetStringAsync("/packages/TestData/" + Uri.EscapeDataString(XssPayload));
+
+        Assert.Contains("Version not found", html);
+        Assert.DoesNotContain(XssPayload, html);
+        Assert.Contains("&lt;script&gt;", html);
     }
 
     public void Dispose()
