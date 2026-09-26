@@ -6,11 +6,10 @@ on:
     paths-ignore:
       - 'docs/**'
       - '**.md'
+  # No paths-ignore here: the ruleset on main requires these checks, so a pull request that
+  # skipped CI (e.g. docs only) could never be merged.
   pull_request:
     branches: [ main ]
-    paths-ignore:
-      - 'docs/**'
-      - '**.md'
   workflow_dispatch:
 
 permissions:
