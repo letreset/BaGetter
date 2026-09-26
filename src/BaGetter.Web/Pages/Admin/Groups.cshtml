@@ -1,244 +1,251 @@
 @page
 @using System.Linq
+@using BaGetter.Core.Entities
 @model BaGetter.Web.Pages.Admin.GroupsModel
 
 @{
     ViewData["Title"] = "Groups & Permissions";
+
+    // Keep the create form open when its last submission failed.
+    var createFailed = !ViewData.ModelState.IsValid || (Model.NewGroupName != null && Model.ErrorMessage != null);
 }
 
-<div class="col-sm-12">
-    <h1>Groups &amp; Permissions</h1>
-    <hr class="breadcrumb-divider" />
+@await Html.PartialAsync("_AdminTabs", "Groups")
 
-    @if (!string.IsNullOrEmpty(Model.SuccessMessage))
-    {
-        <div class="alert alert-success" role="alert">@Model.SuccessMessage</div>
-    }
+<div x-data="{ createOpen: @Json.Serialize(createFailed) }">
+    <div class="bgt-page-head">
+        <div>
+            <h1>Groups &amp; permissions</h1>
+            <p class="bgt-lead">Grant pull, push and delete per feed.</p>
+        </div>
+        <button type="button" class="btn btn-primary" @@click="createOpen = !createOpen" x-bind:aria-expanded="createOpen" aria-controls="create-group">
+            <icon name="plus" size="15" />New group
+        </button>
+    </div>
 
     @if (!string.IsNullOrEmpty(Model.ErrorMessage))
     {
         <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>
     }
 
-    <h3>Create group</h3>
-    <form method="post" asp-page-handler="CreateGroup">
-        @Html.AntiForgeryToken()
-        <div class="row">
-            <div class="col-sm-6">
-                <div class="form-group">
-                    <label asp-for="NewGroupName">Group Name</label>
-                    <input asp-for="NewGroupName" class="form-control" />
+    <div id="create-group" class="bgt-card bgt-card-body mb-3" x-show="createOpen" @(createFailed ? null : "x-cloak")>
+        <h2 class="bgt-card-title">Create group</h2>
+        <form method="post" asp-page-handler="CreateGroup">
+            @Html.AntiForgeryToken()
+            <div class="bgt-form-grid" style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr))">
+                <div>
+                    <label asp-for="NewGroupName" class="form-label">Group name</label>
+                    <input asp-for="NewGroupName" class="form-control" autocomplete="off" />
                     <span asp-validation-for="NewGroupName" class="text-danger"></span>
                 </div>
-                <div class="form-group">
-                    <label asp-for="NewAppRoleValue">App Role Value (optional)</label>
-                    <input asp-for="NewAppRoleValue" class="form-control" placeholder="Azure App Role value, e.g. TeamFrontend" />
-                    <small class="text-muted">Enter an Azure App Role value to automatically sync members. Leave empty for manual membership management.</small>
+                <div>
+                    <label asp-for="NewAppRoleValue" class="form-label">App role value <span class="bgt-optional">(optional)</span></label>
+                    <input asp-for="NewAppRoleValue" class="form-control" placeholder="e.g. TeamFrontend" autocomplete="off" />
+                    <div class="form-text">Syncs members from an Entra ID app role. Leave empty to manage members manually.</div>
                 </div>
-                <div class="form-group">
-                    <label asp-for="NewDescription">Description</label>
-                    <input asp-for="NewDescription" class="form-control" />
+                <div style="grid-column: 1 / -1">
+                    <label asp-for="NewDescription" class="form-label">Description</label>
+                    <input asp-for="NewDescription" class="form-control" autocomplete="off" />
                 </div>
-                <button type="submit" class="btn btn-primary">Create Group</button>
             </div>
-        </div>
-    </form>
+            <div class="bgt-form-actions">
+                <button type="button" class="btn btn-secondary" @@click="createOpen = false">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create group</button>
+            </div>
+        </form>
+    </div>
+</div>
 
-    <h3>Existing groups</h3>
-    @if (Model.Groups.Count == 0)
+@if (Model.Groups.Count == 0)
+{
+    <div class="bgt-card"><div class="bgt-empty-row">No groups found.</div></div>
+}
+
+<div class="d-flex flex-column gap-3">
+    @foreach (var group in Model.Groups)
     {
-        <p>No groups found.</p>
-    }
-    else
-    {
-        @foreach (var group in Model.Groups)
-        {
-            <div class="panel panel-default">
-                <div class="panel-heading">
-                    <h4 class="panel-title" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                        @group.Name
-                        @if (!string.IsNullOrEmpty(group.AppRoleValue))
+        var isRoleLinked = !string.IsNullOrEmpty(group.AppRoleValue);
+        var members = (group.UserGroups ?? new List<UserGroup>()).OrderBy(u => u.User?.Username).ToList();
+        var memberIds = members.Select(m => m.UserId).ToHashSet();
+        var addableUsers = Model.AllUsers
+            .Where(u => !memberIds.Contains(u.Id))
+            .Where(u => !isRoleLinked || u.AuthProvider != AuthProvider.Entra)
+            .OrderBy(u => u.Username)
+            .ToList();
+
+        Model.GroupPermissions.TryGetValue(group.Id, out var perFeedPerms);
+        perFeedPerms ??= new Dictionary<Guid, FeedPermission>();
+        var permissionsId = $"perms-{group.Id}";
+        var isExpanded = Model.SavedGroupId == group.Id;
+
+        <section class="bgt-card">
+            <div class="bgt-group-head">
+                <div style="flex: 1; min-width: 0">
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <h2 class="bgt-group-name m-0">@group.Name</h2>
+                        @if (isRoleLinked)
                         {
-                            <small class="text-muted">(Role: @group.AppRoleValue)</small>
-                            <span class="label label-info">Role-synced</span>
+                            <span class="bgt-badge" title="Members with the Entra app role '@group.AppRoleValue' are synced">Synced · @group.AppRoleValue</span>
                         }
                         else
                         {
-                            <span class="label label-default">Manual</span>
-                        }
-                        <form method="post" asp-page-handler="DeleteGroup" style="display:inline; margin-left:auto"
-                              data-confirm="Are you sure you want to delete this group? All memberships and permissions will be removed.">
-                            @Html.AntiForgeryToken()
-                            <input type="hidden" name="groupId" value="@group.Id" />
-                            <button type="submit" class="btn btn-sm btn-icon btn-icon-red" title="Delete group" aria-label="Delete group">
-                                <span class="ms-Icon ms-Icon--Delete" aria-hidden="true"></span>
-                            </button>
-                        </form>
-                    </h4>
-                    @if (!string.IsNullOrEmpty(group.Description))
-                    {
-                        <p class="text-muted" style="margin-bottom:0">@group.Description</p>
-                    }
-                </div>
-                <div class="panel-body">
-                    @{
-                        var isRoleLinked = !string.IsNullOrEmpty(group.AppRoleValue);
-                    }
-                    <h5>Members</h5>
-                    @if (isRoleLinked)
-                    {
-                        <p class="text-muted"><em>Membership for Entra users is managed by Azure AD App Roles. Local users can be added manually.</em></p>
-                    }
-                    @if (group.UserGroups != null && group.UserGroups.Count > 0)
-                    {
-                        @* Fixed column widths, so the member tables of all groups line up. *@
-                        <table class="table table-condensed table-striped data-table group-members-table">
-                            <thead>
-                                <tr>
-                                    <th>Username</th>
-                                    <th>Provider</th>
-                                    <th class="cell-actions"></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var ug in group.UserGroups.OrderBy(u => u.User?.Username))
-                                {
-                                    var isEntraUser = ug.User?.AuthProvider == BaGetter.Core.Entities.AuthProvider.Entra;
-                                    var canRemove = !isRoleLinked || !isEntraUser;
-                                    <tr>
-                                        <td>@ug.User?.Username</td>
-                                        <td>
-                                            <span class="label @(isEntraUser ? "label-info" : "label-default")">@ug.User?.AuthProvider</span>
-                                            @if (isEntraUser && isRoleLinked)
-                                            {
-                                                <span class="label label-info" title="Synced via App Role '@group.AppRoleValue'">Synced</span>
-                                            }
-                                        </td>
-                                        <td class="cell-actions">
-                                            @if (canRemove)
-                                            {
-                                                <form method="post" asp-page-handler="RemoveUser">
-                                                    @Html.AntiForgeryToken()
-                                                    <input type="hidden" name="groupId" value="@group.Id" />
-                                                    <input type="hidden" name="userId" value="@ug.UserId" />
-                                                    <button type="submit" class="btn btn-sm btn-icon btn-icon-red" title="Remove member" aria-label="Remove member">
-                                                        <span class="ms-Icon ms-Icon--UserRemove" aria-hidden="true"></span>
-                                                    </button>
-                                                </form>
-                                            }
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    }
-                    else
-                    {
-                        <p class="text-muted">No members</p>
-                    }
-
-                    @{
-                        var addableUsers = isRoleLinked
-                            ? Model.AllUsers.Where(u => u.AuthProvider != BaGetter.Core.Entities.AuthProvider.Entra).ToList()
-                            : Model.AllUsers;
-                    }
-                    @if (addableUsers.Any())
-                    {
-                        <form method="post" asp-page-handler="AddUser" class="form-inline" style="margin-top:8px">
-                            @Html.AntiForgeryToken()
-                            <input type="hidden" name="groupId" value="@group.Id" />
-                            <div class="form-group">
-                                <select name="userId" class="form-control input-sm">
-                                    @foreach (var user in addableUsers)
-                                    {
-                                        <option value="@user.Id">@user.Username (@user.AuthProvider)</option>
-                                    }
-                                </select>
-                            </div>
-                            <button type="submit" class="btn btn-sm btn-icon btn-icon-green" title="Add member" aria-label="Add member">
-                                <span class="ms-Icon ms-Icon--AddFriend" aria-hidden="true"></span>
-                            </button>
-                        </form>
-                    }
-
-                    @{
-                        Model.GroupPermissions.TryGetValue(group.Id, out var perFeedPerms);
-                        perFeedPerms ??= new Dictionary<Guid, BaGetter.Core.Entities.FeedPermission>();
-                        var permissionsCollapseId = $"perms-{group.Id}";
-                        var isExpanded = Model.SavedGroupId == group.Id;
-                    }
-                    <h5 style="margin-top:16px; display:flex; align-items:center; gap:8px;">
-                        <a role="button"
-                           data-toggle="collapse"
-                           href="#@permissionsCollapseId"
-                           aria-expanded="@(isExpanded ? "true" : "false")"
-                           aria-controls="@permissionsCollapseId"
-                           style="text-decoration:none">
-                            Feed Permissions
-                            <span class="caret"></span>
-                        </a>
-                        <small class="text-muted">(@perFeedPerms.Count of @Model.AllFeeds.Count feeds)</small>
-                        @if (Model.SavedGroupId == group.Id)
-                        {
-                            <span class="text-success saved-indicator" title="Permissions saved">&#10003;</span>
-                        }
-                    </h5>
-                    <div id="@permissionsCollapseId" class="collapse @(isExpanded ? "in" : "")">
-                        @if (Model.AllFeeds.Count == 0)
-                        {
-                            <p class="text-muted">No feeds available.</p>
-                        }
-                        else
-                        {
-                            <form method="post" asp-page-handler="SavePermissions">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="groupId" value="@group.Id" />
-                                <table class="table table-condensed table-striped data-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Feed</th>
-                                            <th class="cell-center">Pull</th>
-                                            <th class="cell-center">Push</th>
-                                            <th class="cell-center">Delete</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @{ var rowIndex = 0; }
-                                        @foreach (var feed in Model.AllFeeds)
-                                        {
-                                            perFeedPerms.TryGetValue(feed.Id, out var feedPerm);
-                                            <tr>
-                                                <td>
-                                                    <input type="hidden" name="permissions[@rowIndex].FeedId" value="@feed.Id" />
-                                                    <strong>@feed.Name</strong>
-                                                    <small class="text-muted">(@feed.Slug)</small>
-                                                </td>
-                                                <td class="cell-center">
-                                                    <input type="checkbox" name="permissions[@rowIndex].CanPull" value="true"
-                                                           @(feedPerm?.CanPull == true ? "checked" : "") />
-                                                </td>
-                                                <td class="cell-center">
-                                                    <input type="checkbox" name="permissions[@rowIndex].CanPush" value="true"
-                                                           @(feedPerm?.CanPush == true ? "checked" : "") />
-                                                </td>
-                                                <td class="cell-center">
-                                                    <input type="checkbox" name="permissions[@rowIndex].CanDelete" value="true"
-                                                           @(feedPerm?.CanDelete == true ? "checked" : "") />
-                                                </td>
-                                            </tr>
-                                            rowIndex++;
-                                        }
-                                    </tbody>
-                                </table>
-                                <div style="display:flex; align-items:center; gap:8px; justify-content:right;">
-                                    <small class="text-muted">Unchecking Pull, Push and Delete revokes the group's permission for that feed.</small>
-                                    <button type="submit" class="btn btn-primary">Save all</button>
-                                </div>
-                            </form>
+                            <span class="bgt-badge">Manual</span>
                         }
                     </div>
+                    @if (!string.IsNullOrEmpty(group.Description))
+                    {
+                        <div class="bgt-group-desc">@group.Description</div>
+                    }
+                </div>
+                <form method="post" asp-page-handler="DeleteGroup" class="m-0"
+                      data-confirm="@($"Delete the group '{group.Name}'? All memberships and permissions will be removed.")">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="groupId" value="@group.Id" />
+                    <button type="submit" class="btn btn-outline-danger btn-icon" title="Delete group" aria-label="Delete group @group.Name">
+                        <icon name="trash" size="15" />
+                    </button>
+                </form>
+            </div>
+
+            <div class="bgt-group-body">
+                <div class="bgt-section-label">Members · @members.Count</div>
+                @if (isRoleLinked)
+                {
+                    <p class="bgt-group-note">Membership for Entra users is managed by the Entra app role. Local users can be added manually.</p>
+                }
+                <div class="bgt-members">
+                    @foreach (var ug in members)
+                    {
+                        var memberName = ug.User?.Username ?? ug.UserId.ToString();
+                        var isEntraUser = ug.User?.AuthProvider == AuthProvider.Entra;
+                        var canRemove = !isRoleLinked || !isEntraUser;
+                        <span class="bgt-member">
+                            <span class="bgt-avatar bgt-avatar-sm">@((ug.User?.DisplayName ?? memberName).ToNameInitials())</span>
+                            <span class="bgt-member-name">@memberName</span>
+                            @if (isEntraUser)
+                            {
+                                <span class="bgt-badge" title="@(isRoleLinked ? $"Synced via the app role '{group.AppRoleValue}'" : "Entra account")">@(isRoleLinked ? "Synced" : "Entra")</span>
+                            }
+                            @if (canRemove)
+                            {
+                                <form method="post" asp-page-handler="RemoveUser">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="groupId" value="@group.Id" />
+                                    <input type="hidden" name="userId" value="@ug.UserId" />
+                                    <button type="submit" class="bgt-member-remove" title="Remove member" aria-label="Remove @memberName from @group.Name">
+                                        <icon name="x" size="12" />
+                                    </button>
+                                </form>
+                            }
+                        </span>
+                    }
+
+                    @if (addableUsers.Any())
+                    {
+                        <div class="dropdown">
+                            <button type="button" class="bgt-add-member" data-bs-toggle="dropdown" aria-expanded="false">
+                                <icon name="plus" size="13" />Add member
+                            </button>
+                            <div class="dropdown-menu bgt-member-menu">
+                                <h6 class="dropdown-header">Add to @group.Name</h6>
+                                <form method="post" asp-page-handler="AddUser">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="groupId" value="@group.Id" />
+                                    @foreach (var user in addableUsers)
+                                    {
+                                        var userDisplay = string.IsNullOrEmpty(user.DisplayName) || user.DisplayName == user.Username ? null : user.DisplayName;
+                                        <button type="submit" name="userId" value="@user.Id" class="dropdown-item">
+                                            <span class="bgt-avatar" style="width: 26px; height: 26px; font-size: 10.5px">@((user.DisplayName ?? user.Username).ToNameInitials())</span>
+                                            <span class="fw-medium">@user.Username</span>
+                                            <span class="bgt-member-display">@(userDisplay ?? (user.AuthProvider == AuthProvider.Entra ? "Entra" : null))</span>
+                                        </button>
+                                    }
+                                </form>
+                            </div>
+                        </div>
+                    }
+                    else if (members.Count == 0)
+                    {
+                        <span class="text-muted" style="font-size: 13px">No members</span>
+                    }
                 </div>
             </div>
-        }
+
+            <button type="button" class="bgt-perm-toggle" data-bs-toggle="collapse" data-bs-target="#@permissionsId"
+                    aria-expanded="@(isExpanded ? "true" : "false")" aria-controls="@permissionsId">
+                Feed permissions
+                <span class="bgt-perm-count">@perFeedPerms.Count of @Model.AllFeeds.Count feeds</span>
+                @if (isExpanded)
+                {
+                    <span class="bgt-saved" title="Permissions saved"><icon name="check" size="13" />Saved</span>
+                }
+                <icon name="chevron-down" size="14" class="bgt-chev" />
+            </button>
+            <div id="@permissionsId" class="collapse @(isExpanded ? "show" : null)">
+                @if (Model.AllFeeds.Count == 0)
+                {
+                    <div class="bgt-empty-row" style="border-top: 1px solid var(--bgt-divider)">No feeds available.</div>
+                }
+                else
+                {
+                    <form method="post" asp-page-handler="SavePermissions">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="groupId" value="@group.Id" />
+                        <div class="overflow-x-auto" style="border-top: 1px solid var(--bgt-divider)">
+                            <table class="bgt-perm-table">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Feed</th>
+                                        <th scope="col">Pull</th>
+                                        <th scope="col">Push</th>
+                                        <th scope="col">Delete</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @for (var rowIndex = 0; rowIndex < Model.AllFeeds.Count; rowIndex++)
+                                    {
+                                        var feed = Model.AllFeeds[rowIndex];
+                                        perFeedPerms.TryGetValue(feed.Id, out var feedPerm);
+                                        <tr>
+                                            <td>
+                                                <input type="hidden" name="permissions[@rowIndex].FeedId" value="@feed.Id" />
+                                                @feed.Name <span class="bgt-slug ms-1">@feed.Slug</span>
+                                            </td>
+                                            <td>
+                                                <label title="Pull from @feed.Name">
+                                                    <input type="checkbox" class="form-check-input" name="permissions[@rowIndex].CanPull" value="true"
+                                                           aria-label="Pull from @feed.Name" @(feedPerm?.CanPull == true ? "checked" : "") />
+                                                </label>
+                                            </td>
+                                            <td>
+                                                <label title="Push to @feed.Name">
+                                                    <input type="checkbox" class="form-check-input" name="permissions[@rowIndex].CanPush" value="true"
+                                                           aria-label="Push to @feed.Name" @(feedPerm?.CanPush == true ? "checked" : "") />
+                                                </label>
+                                            </td>
+                                            <td>
+                                                <label title="Delete from @feed.Name">
+                                                    <input type="checkbox" class="form-check-input" name="permissions[@rowIndex].CanDelete" value="true"
+                                                           aria-label="Delete from @feed.Name" @(feedPerm?.CanDelete == true ? "checked" : "") />
+                                                </label>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="bgt-perm-foot">
+                            <span>Unchecking Pull, Push and Delete revokes the group's permission for that feed.</span>
+                            <button type="submit" class="btn btn-primary btn-sm">Save permissions</button>
+                        </div>
+                    </form>
+                }
+            </div>
+        </section>
     }
 </div>
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="bgt-toast" role="status"><icon name="check" />@Model.SuccessMessage</div>
+}

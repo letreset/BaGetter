@@ -27,48 +27,52 @@ For every page you open, the browser console should show no errors.
 
 | # | Account | Steps | Expected |
 |---|---|---|---|
-| N1 | `admin` | Open the feed switcher | Default, Internal, Experimental, Archive in that order |
-| N2 | `carol` | Look at the tabs on Internal | Packages, Connect, Statistics. No Upload (no push permission) |
-| N3 | `carol` | Look at the tabs on Experimental | Packages, Connect, Upload, Statistics |
+| N1 | `admin` | Open the feed switcher (the pill next to the logo) | Default, Internal, Experimental, Archive in that order, each with its description and a check on the current feed |
+| N2 | `carol` | Look at the header links on Internal | Packages, Connect, Statistics, Docs. No Upload (no push permission), and no **Upload package** button on the package list |
+| N3 | `carol` | Look at the header links on Experimental | Packages, Connect, Upload, Statistics, Docs |
 | N4 | `carol` | Open `/Admin/Feeds` | Redirected to the package list |
-| N5 | `admin` | Open **Statistics** on Internal | 22 packages, 28 versions (including the unlisted one), "28 stable, 0 prerelease (1 unlisted)", 171 total downloads, the stored package size and the services in use. **Most downloaded** starts with Contoso.Core (50), Contoso.Logging (47), Contoso.Testing (22); **Recently published** lists 10 versions, newest first, without Contoso.Logging 1.4.0 |
+| N5 | `admin` | Open **Statistics** on Internal | Cards with 22 packages ("1 unlisted version"), 28 versions ("28 stable · 0 prerelease"), 171 total downloads and the stored package size; the server version and the services in use below them. **Most downloaded** starts with Contoso.Core (50), Contoso.Logging (47), Contoso.Testing (22); **Recently published** lists 10 versions, newest first, without Contoso.Logging 1.4.0 |
 | N6 | `admin` | Open `/feeds/nope/` | 404 |
+| N7 | `admin` | Press the moon icon in the header, reload, then press the sun icon | The whole UI switches to dark mode and stays dark after the reload; the header keeps its orange bottom line. Without a saved choice the system setting decides |
 
 ## Package list, search and filters
 
 | # | Account | Steps | Expected |
 |---|---|---|---|
-| L1 | `admin` | Open Internal | 20 packages and a page link **2**; page 2 lists the remaining 2 |
+| L1 | `admin` | Open Internal | "22 packages" next to the title, 20 packages and a page link **2**; page 2 lists the remaining 2 |
 | L2 | `admin` | Search `logging` | Contoso.Logging |
 | L3 | `admin` | Search `LOGGING` | Same result (case-insensitive) |
 | L4 | `admin` | Search `observability` | Contoso.Logging and Contoso.Metrics (tag and description matches) |
 | L5 | `admin` | Tag filter: type `obs` in the dropdown and pick `observability` | Contoso.Logging and Contoso.Metrics |
 | L6 | `admin` | Framework filter: `.NET Standard 2.0` | All Contoso packages |
 | L7 | `admin` | Framework dropdown on Internal | `.NET 10.0`, `.NET 8.0`, `.NET Standard 2.0`, in that order. On Default (with mirrored packages) every entry has a readable name, grouped by family, newest first; after R3 the portable profiles read e.g. `.NET Portable (net45, win8, wp8, wpa81)` |
-| L8 | `admin` | Experimental, clear **Include prerelease** | No packages left (all of them are prereleases) |
+| L8 | `admin` | Experimental, switch off **Prerelease** | "No packages match these filters." (all of them are prereleases) |
 | L9 | `admin` | Open `/feeds/internal?p=99` | "No packages found" with a link to the first page |
+| L10 | `admin` | Internal, switch to the grid view (next to the filters), reload | Package cards in a grid, still after the reload; the list button switches back |
+| L11 | `admin` | Internal, press `/`, then an **Install** button | The cursor jumps to the search field; the button briefly reads "Copied" and the clipboard holds `dotnet add package … --version …` |
+| L12 | `admin` | Open Default (empty) | "Nothing in Default yet" with **Upload a package** and **Connect a client** |
 
 ## Package page
 
 | # | Account | Steps | Expected |
 |---|---|---|---|
-| P1 | `admin` | Open Internal > Contoso.Logging | Version 2.0.0, install tabs (.NET CLI, Package Manager, PackageReference, CPM, Paket CLI, Script & Interactive, File-based Apps, Cake) on one line on a desktop screen, lined up with the command box, copy button works |
-| P2 | `admin` | Expand **Readme** | The Contoso.Logging readme with a code block |
-| P3 | `admin` | Expand **Dependencies** | Contoso.Core (>= 2.0.0), grouped by target framework |
-| P4 | `admin` | Open Contoso.Core, expand **Used By** | Contoso.Logging and Contoso.Configuration |
-| P5 | `admin` | Versions of Contoso.Logging | 2.0.0, 1.5.0, and 1.4.0 struck through as "(unlisted)" with **Relist** |
+| P1 | `admin` | Open Internal > Contoso.Logging | Version 2.0.0 with a **latest** label, install tabs (.NET CLI, Package Manager, PackageReference, CPM, Paket, Script, File-based apps, Cake) on one line on a desktop screen, and **Copy** turns into "Copied" for a moment |
+| P2 | `admin` | **Readme** tab (open by default) | The Contoso.Logging readme with a code block |
+| P3 | `admin` | **Dependencies** tab | Contoso.Core (>= 2.0.0), grouped by target framework; the tab shows the number of dependencies |
+| P4 | `admin` | Open Contoso.Core, **Used by** tab | Contoso.Logging and Contoso.Configuration |
+| P5 | `admin` | **Versions** tab of Contoso.Logging | 2.0.0 (highlighted as **current**), 1.5.0, and 1.4.0 struck through with an **unlisted** label and **Relist**; a download bar per stored version |
 | P6 | `carol` | Versions of Contoso.Logging | 2.0.0 and 1.5.0 only, no Manage section |
 | P7 | `admin` | Open `/feeds/internal/packages/Contoso.Logging/99.0.0` | "Version not found" with a link to the latest version (also for `/not-a-version`) |
-| P8 | `admin` | **Download package** | Downloads `contoso.logging.2.0.0.nupkg` |
+| P8 | `admin` | **Download .nupkg** in the sidebar | Downloads `contoso.logging.2.0.0.nupkg` |
 | P9 | `admin` | Look under the Contoso.Logging title, hover a badge | Badges `.NET 8.0` and `.NET Standard 2.0`; the tooltip says the package is compatible with that framework or higher |
-| P10 | `admin` | Expand **Frameworks** on Contoso.Logging | `.NET 10.0`, `.NET 8.0`, `.NET Standard 2.0`, in that order |
+| P10 | `admin` | **Frameworks** tab on Contoso.Logging | `.NET 10.0`, `.NET 8.0`, `.NET Standard 2.0`, in that order |
 | P11 | `admin` | Contoso.Logging > **CPM** and **Cake** tabs, copy each | One line per entry (`PackageVersion` and `PackageReference`; `#addin` and `#tool`), and the copied text has the same lines. **Package Manager** shows `NuGet\Install-Package Contoso.Logging -Version 2.0.0` |
 | P12 | `admin` | Experimental > Contoso.Preview.Ai > **Cake** tab | Both lines end with `&prerelease` (no `&amp;`) |
 | P13 | `admin` | Experimental > Contoso.Preview.Ai, then Internal > Contoso.Logging | "This is a prerelease version of Contoso.Preview.Ai." under the install box; no such note on Contoso.Logging |
-| P14 | `admin` | Statistics of Contoso.Logging | 47 total downloads, 35 of the current version, and a "per day average" line |
-| P15 | `admin` | Default > `/packages/Newtonsoft.Json` (needs internet), clear **Include prerelease** | Only the prerelease rows disappear, the remaining stable versions are all shown (no 5-row cap) and **Show more** is hidden; ticking it again restores the list. Contoso.Logging (no prereleases) has no checkbox |
-| P16 | `admin` | Info of Internal > Contoso.Logging (on an image with this change the startup backfill fills the snapshot's packages) | The license link reads "MIT license" and opens `https://licenses.nuget.org/MIT`; **Download package** is followed by the size, e.g. "(8.21 KB)" |
-| P17 | `carol` | Pack a package with `<Copyright>Copyright (c) Contoso</Copyright>` and push it to Experimental, then open it | A **Copyright** section in the sidebar with that text |
+| P14 | `admin` | Statistics card of Contoso.Logging | 47 Total, 35 This version, and a Per day value |
+| P15 | `admin` | Default > `/packages/Newtonsoft.Json` (needs internet), **Versions** tab, switch off **Include prerelease** | Only the prerelease rows disappear, the remaining stable versions are all shown (no 5-row cap) and **Show all … versions** is hidden; switching it on again restores the list. Contoso.Logging (no prereleases) has no switch |
+| P16 | `admin` | **About** card of Internal > Contoso.Logging | The license link reads "MIT license" and opens `https://licenses.nuget.org/MIT`; **Size** shows the package size, e.g. "8.21 KB" |
+| P17 | `carol` | Pack a package with `<Copyright>Copyright (c) Contoso</Copyright>` and push it to Experimental, then open it | The copyright text in the **About** card |
 | P18 | `admin` | Contoso.Logging > **Atom feed** in the sidebar; then `curl -u carol:<password> http://localhost:5000/feeds/internal/packages/Contoso.Logging/atom.xml` | The link points to `/feeds/internal/packages/contoso.logging/atom.xml` and the page head has a `<link rel="alternate" type="application/atom+xml">`; curl returns an Atom feed with 2.0.0 and 1.5.0 (not the unlisted 1.4.0), and without `-u` it gets 401 |
 
 ## Package management
@@ -88,7 +92,7 @@ For every page you open, the browser console should show no errors.
 |---|---|---|---|
 | C1 | `carol` | Internal > **Connect** | Service index `http://localhost:5000/feeds/internal/v3/index.json`, copy button, tabs for .NET CLI, NuGet, nuget.config, Paket |
 | C2 | `carol` | Read the authentication text, then open **My Tokens** in the user menu | The text points to My Tokens; the page opens, and a new token is shown once and can be revoked |
-| C2a | `admin` | Admin > Accounts > `build-agent` > **New token** | The token is shown once in the success message |
+| C2a | `admin` | Admin > Accounts > `build-agent` > ⋯ > **New token…** | After **Create token**, a dialog shows the token once with a **Copy** button |
 | C3 | `carol` | Experimental > **Upload** | Push commands for the Experimental service index |
 
 ## Admin > Feeds
@@ -98,15 +102,15 @@ For every page you open, the browser console should show no errors.
 | F1 | `admin` | Create a feed with slug `Bad Slug` | Validation message, nothing created |
 | F2 | `admin` | Create a feed with slug `internal` | "already exists" |
 | F3 | `admin` | Create `ui-test`, drag it above Internal, reload | The new order is kept, also in the feed switcher |
-| F4 | `admin` | Edit details of `ui-test`, then delete it | Both work; the feed disappears from the switcher |
+| F4 | `admin` | Change the display name of `ui-test` in its **Settings**, then delete it | Both work; the feed disappears from the switcher |
 
 ## Admin > Feed settings
 
 | # | Account | Steps | Expected |
 |---|---|---|---|
 | FS1 | `admin` | Open Internal > Settings | Overwrite policy **Prerelease only** and Max major versions **3**, with their "Use global default" boxes cleared |
-| FS2 | `admin` | Press **Save Settings** without changes, reopen | Same values as FS1 |
-| FS2a | `admin` | Tick **Use global default** for Max major versions, clear it again | The field shows `3` again |
+| FS2 | `admin` | Press **Save settings** without changes, reopen | Same values as FS1; after saving, the save bar says "All changes saved", and editing a field makes it say "You have unsaved changes" |
+| FS2a | `admin` | Tick **Use global default** for Max major versions, clear it again | While ticked the field is disabled and shows the global value; cleared, it shows `3` again |
 | FS3 | `admin` | Enter `-3` for Max major versions and save | A message next to the field, "nothing was saved", and the stored value is unchanged |
 | FS4 | `admin` | Default > Settings > Mirrors | One mirror, `https://api.nuget.org/v3/index.json`, enabled |
 | FS5 | `admin` | Add a mirror with the URL `not a url` and save | "the package source must be an absolute http(s) URL" |
@@ -119,24 +123,24 @@ For every page you open, the browser console should show no errors.
 | A1 | `admin` | Create `dave` with the password `short` | "Password must be at least 12 characters." |
 | A2 | `admin` | Create `ALICE` with a valid password | "already exists", and signing in as `Alice` works like `alice` |
 | A3 | `admin` | Disable `bob`, then check a signed-in `bob` session | `bob` is signed out on the next request; enable again |
-| A4 | `admin` | Disable `dave` and delete him | The confirmation shows the username; the account is gone |
-| A5 | `admin` | Look at the `admin` row | An **Admin** label, and no Disable, Revoke Web Access or Remove admin button on the signed-in admin's own row |
-| A5a | `admin` | `alice` > **Make admin**, sign in as `alice` and open Admin > Accounts; then **Remove admin** as `admin` | `alice` can open the page while she is an admin |
+| A4 | `admin` | Disable `dave` and delete him (⋯ > **Delete account…**, only offered for disabled accounts) | The dialog shows the username; the account is gone |
+| A5 | `admin` | Look at the `admin` row and its ⋯ menu | An **Admin** label; the menu only has **Reset password…** and **New token…** on the signed-in admin's own row |
+| A5a | `admin` | `alice` > ⋯ > **Make admin**, sign in as `alice` and open Admin > Accounts; then **Remove admin role** as `admin` | `alice` can open the page while she is an admin |
 | A5b | `admin` | After S7 (`bob` locked), open Admin > Accounts and **Unlock** `bob` | A "Locked until" label before; `bob` can sign in right away after |
-| A6 | `admin` | `bob` > **Reset password** with a 12+ character password, then sign in as `bob` with it | "Password of 'bob' reset successfully.", and the sign-in works (also right after S7's lockout) |
-| A7 | `admin` | Look at the account table, hover the action buttons | Headers, dates and usernames stay on one line; every row has **New token** and **Reset password** on the first line and the state buttons below. The actions are colored icon buttons whose names show on hover |
-| A8 | `admin` | Open **New token** on `build-agent` (the last row), press Esc, open it again, type a name and press Enter | A small popup over the page with the cursor in the name field and nothing cut off; Esc closes it; Enter creates the token |
+| A6 | `admin` | `bob` > ⋯ > **Reset password…** with a 12+ character password (**Set password** stays disabled below 12), then sign in as `bob` with it | "Password of 'bob' reset successfully.", and the sign-in works (also right after S7's lockout) |
+| A7 | `admin` | Look at the account list | Column headers on a desktop screen; each row has the avatar, groups, an Enabled/Disabled and a "Web + API"/"API only" label, the date and a ⋯ button whose menu isn't cut off, also on the last row |
+| A8 | `admin` | Open ⋯ > **New token…** on `build-agent` (the last row), press Esc, open it again, type a name and press Enter | A dialog with the cursor in the name field; Esc closes it; Enter creates the token |
 
 ## Admin > Groups & Permissions
 
 | # | Account | Steps | Expected |
 |---|---|---|---|
-| G1 | `admin` | Open Developers > **Feed Permissions** | Pull on Default, Internal, Archive; Pull, Push, Delete on Experimental |
+| G1 | `admin` | Open Developers > **Feed permissions** | "4 of 4 feeds"; Pull on Default, Internal, Archive; Pull, Push, Delete on Experimental |
 | G2 | `admin` | Create a group `Developers`, then `developers` | "already exists" both times |
-| G3 | `admin` | Remove `carol` from Developers, then check `carol` | `carol` sees "No feeds available"; add her back and she sees all four feeds again |
-| G4 | `admin` | Clear Pull on Internal for Developers and **Save all** | `bob` no longer sees Internal; restore it |
+| G3 | `admin` | Remove `carol` from Developers (× on her chip), then check `carol` | `carol` sees "No feeds available"; add her back with **Add member** (the list only offers accounts that aren't members yet) and she sees all four feeds again |
+| G4 | `admin` | Clear Pull on Internal for Developers and **Save permissions** | `bob` no longer sees Internal; restore it |
 | G5 | `admin` | Do G4, then check the container log | One `AUDIT feed_permission_revoked` line for Internal and one `feed_permission_set` line for the restore, no lines for the unchanged feeds |
-| G6 | `admin` | Create a group, open its delete confirmation in two tabs, confirm in both | The first says "Group deleted successfully.", the second "Group not found." |
+| G6 | `admin` | Create a group, open its delete confirmation in two tabs, confirm in both | The first shows the toast "Group deleted successfully.", the second "Group not found." |
 
 ## Access control
 
@@ -158,10 +162,10 @@ For every page you open, the browser console should show no errors.
 
 | # | Account | Steps | Expected |
 |---|---|---|---|
-| Y1 | `admin` | Emulate a 375 x 812 viewport, open Internal, a package page, Connect, Upload, Statistics, Admin > Accounts and Admin > Feeds | No horizontal page scrolling (wide admin tables scroll inside their box), the navigation is collapsed behind the menu button and opens with it |
+| Y1 | `admin` | Emulate a 375 x 812 viewport, open Internal, a package page, Connect, Upload, Statistics, Admin > Accounts, Admin > Feeds and a feed's settings | No horizontal page scrolling (wide tables scroll inside their box), rows reflow, the navigation and the user menu are collapsed behind the menu button and open as a panel under the header |
 
 ## Security
 
 | # | Account | Steps | Expected |
 |---|---|---|---|
-| Z1 | `admin` | Create an account named `x'+(document.title='pwned')+'`, disable it, click **Delete** and cancel | The confirmation shows the username literally; the page title doesn't change |
+| Z1 | `admin` | Create an account named `x'+(document.title='pwned')+'`, disable it, open ⋯ > **Delete account…** and cancel | The dialog shows the username literally; the page title doesn't change |

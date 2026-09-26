@@ -1,37 +1,18 @@
-﻿// Please see documentation at https://docs.microsoft.com/aspnet/core/client-side/bundling-and-minification
-// for details on configuring this project to bundle and minify static web assets.
-
-// Write your JavaScript code.
 (function () {
     'use strict';
 
     var baget = {};
     window.baget = baget;
 
-    function detectIE() {
-        var ua = window.navigator.userAgent;
-        var msie = ua.indexOf('MSIE ');
-        if (msie > 0) {
-            // IE 10 or older => return version number
-            return parseInt(ua.substring(msie + 5, ua.indexOf('.', msie)), 10);
-        }
-
-        var trident = ua.indexOf('Trident/');
-        if (trident > 0) {
-            // IE 11 => return version number
-            var rv = ua.indexOf('rv:');
-            return parseInt(ua.substring(rv + 3, ua.indexOf('.', rv)), 10);
-        }
-
-        // other browser or edge
-        return false;
+    function store(key, value) {
+        try { localStorage.setItem(key, value); } catch (e) { }
     }
 
     // Filter the items of a scrollable tag dropdown as the user types. Items carry their
     // value in a data-tag attribute; the "Any" reset item has none and always stays visible.
     baget.filterTags = function (input) {
         var query = input.value.trim().toLowerCase();
-        var menu = input.closest('.tag-dropdown-menu');
+        var menu = input.closest('.dropdown-menu');
         if (!menu) return;
 
         var items = menu.querySelectorAll('li[data-tag]');
@@ -41,87 +22,85 @@
         }
     };
 
-    // source: http://stackoverflow.com/questions/400212/how-do-i-copy-to-the-clipboard-in-javascript
-    // enhancement with special case for IEs, otherwise the temp textarea will be visible
-    baget.copyTextToClipboard = function (text, elementToFocus) {
-        if (detectIE()) {
-            try {
-                window.clipboardData.setData('Text', text);
-                console.log('Copying text command via IE-setData');
-            } catch (err) {
-                console.log('Oops, unable to copy via IE-setData');
-            }
+    function fallbackCopy(text) {
+        var textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.setAttribute('readonly', '');
+        textArea.style.position = 'fixed';
+        textArea.style.top = '0';
+        textArea.style.left = '0';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.select();
+        try { document.execCommand('copy'); } catch (e) { }
+        document.body.removeChild(textArea);
+    }
+
+    // Copies text and shows "Copied" on the button for a moment. The label is the button's
+    // .bgt-copy-label element, or the whole button when it has none.
+    baget.copy = function (text, button) {
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(text).catch(function () { fallbackCopy(text); });
+        } else {
+            fallbackCopy(text);
         }
-        else {
 
-            var textArea = document.createElement("textarea");
-
-            //
-            //  This styling is an extra step which is likely not required. 
-            //
-            // Why is it here? To ensure:
-            // 1. the element is able to have focus and selection.
-            // 2. if element was to flash render it has minimal visual impact.
-            // 3. less flakyness with selection and copying which might occur if
-            //    the textarea element is not visible.
-            //
-            // The likelihood is the element won't even render, not even a flash,
-            // so some of these are just precautions. 
-            // 
-            // However in IE the element
-            // is visible whilst the popup box asking the user for permission for
-            // the web page to copy to the clipboard. To prevent this, we are using 
-            // the detectIE workaround.
-
-            // Place in top-left corner of screen regardless of scroll position.
-            textArea.style.position = 'fixed';
-            textArea.style.top = 0;
-            textArea.style.left = 0;
-
-            // Ensure it has a small width and height. Setting to 1px / 1em
-            // doesn't work as this gives a negative w/h on some browsers.
-            textArea.style.width = '2em';
-            textArea.style.height = '2em';
-
-            // We don't need padding, reducing the size if it does flash render.
-            textArea.style.padding = 0;
-
-            // Clean up any borders.
-            textArea.style.border = 'none';
-            textArea.style.outline = 'none';
-            textArea.style.boxShadow = 'none';
-
-            // Avoid flash of white box if rendered for any reason.
-            textArea.style.background = 'transparent';
-
-
-            textArea.value = text;
-
-            document.body.appendChild(textArea);
-
-            textArea.select();
-
-            try {
-                var successful = document.execCommand('copy');
-                var msg = successful ? 'successful' : 'unsuccessful';
-                console.log('Copying text command was ' + msg);
-            } catch (err) {
-                console.log('Oops, unable to copy');
-            }
-
-            document.body.removeChild(textArea);
-
-            // Focus the element provided so that tab order is not reset to the beginning of the page.
-            if (elementToFocus) {
-                elementToFocus.focus();
-            }
-        }
+        if (!button) return;
+        var label = button.querySelector('.bgt-copy-label');
+        if (label && !label.hasAttribute('data-label')) label.setAttribute('data-label', label.textContent);
+        if (label) label.textContent = 'Copied';
+        button.classList.add('bgt-copied');
+        clearTimeout(button._copyTimer);
+        button._copyTimer = setTimeout(function () {
+            if (label) label.textContent = label.getAttribute('data-label');
+            button.classList.remove('bgt-copied');
+        }, 1400);
     };
 
-    // Switch between the light and the dark theme. The inline script in _Layout applies the
-    // saved choice before the page renders; this keeps the button label in sync and saves changes.
+    // Kept for existing callers.
+    baget.copyTextToClipboard = function (text) {
+        baget.copy(text);
+    };
+
+    document.addEventListener('click', function (event) {
+        if (!event.target.closest) return;
+
+        // Buttons with data-copy copy that text; data-copy-target copies the text of an element.
+        var copyButton = event.target.closest('[data-copy], [data-copy-target]');
+        if (copyButton) {
+            event.preventDefault();
+            event.stopPropagation();
+            var text = copyButton.getAttribute('data-copy');
+            if (text === null) {
+                var target = document.querySelector(copyButton.getAttribute('data-copy-target'));
+                text = target ? target.textContent : '';
+            }
+            baget.copy(text, copyButton);
+            return;
+        }
+
+        // Switch between the light and the dark theme. The inline script in _Layout applies
+        // the saved choice before the page renders.
+        var toggle = event.target.closest('[data-theme-toggle]');
+        if (toggle) {
+            var theme = document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-bs-theme', theme);
+            store('bagetter-theme', theme);
+            updateThemeToggles();
+            return;
+        }
+
+        // List or grid view of the package list, remembered per browser.
+        var viewButton = event.target.closest('[data-view]');
+        if (viewButton) {
+            var grid = viewButton.getAttribute('data-view') === 'grid';
+            document.documentElement.classList.toggle('bgt-view-grid', grid);
+            store('bagetter-view', grid ? 'grid' : 'list');
+        }
+    });
+
     function updateThemeToggles() {
-        var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        var dark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
         var label = dark ? 'Switch to light mode' : 'Switch to dark mode';
         var toggles = document.querySelectorAll('[data-theme-toggle]');
         for (var i = 0; i < toggles.length; i++) {
@@ -130,17 +109,42 @@
         }
     }
 
-    document.addEventListener('click', function (event) {
-        var toggle = event.target.closest && event.target.closest('[data-theme-toggle]');
-        if (!toggle) return;
+    updateThemeToggles();
 
-        var theme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-        document.documentElement.setAttribute('data-theme', theme);
-        try { localStorage.setItem('bagetter-theme', theme); } catch (e) { }
-        updateThemeToggles();
+    // "/" focuses the package search, unless the user is typing somewhere. On pages without the
+    // search field it opens the package list, which then focuses its search field.
+    var focusSearchKey = 'bagetter-focus-search';
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key !== '/' || event.ctrlKey || event.metaKey || event.altKey || event.defaultPrevented) return;
+        var active = document.activeElement;
+        if (active && (active.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName))) return;
+        if (document.querySelector('.modal.show')) return;
+
+        var search = document.querySelector('[data-search-input]');
+        if (search) {
+            event.preventDefault();
+            search.focus();
+            search.select();
+            return;
+        }
+
+        var packagesUrl = document.body.getAttribute('data-packages-url');
+        if (!packagesUrl) return;
+        event.preventDefault();
+        try { sessionStorage.setItem(focusSearchKey, '1'); } catch (e) { }
+        window.location.href = packagesUrl;
     });
 
-    updateThemeToggles();
+    (function () {
+        var wanted = false;
+        try {
+            wanted = sessionStorage.getItem(focusSearchKey) === '1';
+            sessionStorage.removeItem(focusSearchKey);
+        } catch (e) { }
+        var search = wanted && document.querySelector('[data-search-input]');
+        if (search) search.focus();
+    })();
 
     // Ask for confirmation before submitting a form with a data-confirm attribute. The text
     // comes from an HTML attribute, never from JavaScript built on the server, so usernames,
@@ -152,4 +156,35 @@
             event.preventDefault();
         }
     });
+
+    // A modal opened from a dropdown item returns the focus to the dropdown's button when it
+    // closes: the item itself is hidden by then. Bootstrap already handles other triggers.
+    document.addEventListener('show.bs.modal', function (event) {
+        var trigger = event.relatedTarget;
+        var dropdown = trigger && trigger.closest && trigger.closest('.dropdown');
+        var toggle = dropdown && dropdown.querySelector('[data-bs-toggle="dropdown"]');
+        if (!toggle) return;
+        event.target.addEventListener('hidden.bs.modal', function () { toggle.focus(); }, { once: true });
+    });
+
+    // Esc closes the mobile menu and puts the focus back on the menu button.
+    document.addEventListener('keydown', function (event) {
+        if (event.key !== 'Escape') return;
+        var drawer = document.getElementById('bgt-drawer');
+        if (!drawer || !drawer.classList.contains('show') || !window.bootstrap) return;
+        bootstrap.Collapse.getOrCreateInstance(drawer, { toggle: false }).hide();
+        var button = document.querySelector('[data-bs-target="#bgt-drawer"]');
+        if (button) button.focus();
+    });
+
+    // Toasts hide themselves after a moment.
+    var toasts = document.querySelectorAll('.bgt-toast');
+    for (var t = 0; t < toasts.length; t++) {
+        (function (toast) {
+            setTimeout(function () {
+                toast.classList.add('hide');
+                setTimeout(function () { toast.remove(); }, 400);
+            }, 2600);
+        })(toasts[t]);
+    }
 })();

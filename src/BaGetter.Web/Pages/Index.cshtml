@@ -1,25 +1,28 @@
 @page
+@using System.Globalization
+@using BaGetter.Core.Authentication
 @using BaGetter.Core.Configuration
 @using BaGetter.Core.Feeds
+@using BaGetter.Protocol.Models
+@using BaGetter.Web.Authentication
 @using BaGetter.Web.Extensions
 @using Microsoft.Extensions.Options
 @model IndexModel
 @inject IOptions<NugetAuthenticationOptions> AuthOptions
 @inject IFeedContext FeedContext
+@inject IPermissionService PermissionService
 
 @{
-    ViewData["Title"] = "Packages \u2014 " + FeedContext.CurrentFeed.Name;
-    ViewData["SearchQuery"] = Model.Query;
+    ViewData["Title"] = "Packages — " + FeedContext.CurrentFeed.Name;
     var requiresAuth = AuthOptions.Value.Mode != AuthenticationMode.Config;
     var isAuthenticated = User.Identity?.IsAuthenticated == true;
-    var fallbackIconUrl = Url.Content("~/_content/BaGetter.Web/images/default-package-icon-256x256.png");
 }
 
 @if (requiresAuth && !isAuthenticated)
 {
     // Generic on purpose: anonymous visitors must not learn feed or package names.
     ViewData["Title"] = "Sign in required";
-    <div class="text-center" style="margin-top: 60px;">
+    <div class="bgt-message">
         <h2>Sign in required</h2>
         <p>You need to sign in to browse packages.</p>
         <a asp-page="/Login" class="btn btn-primary">Sign in</a>
@@ -29,245 +32,284 @@
 
 @if (Model.HasNoAccessibleFeeds)
 {
-    <div class="text-center" style="margin-top: 60px;">
+    <div class="bgt-message">
         <h2>No feeds available</h2>
         <p>You don't currently have access to any feeds. Please contact an administrator to be granted permissions.</p>
     </div>
     return;
 }
 
-@section SearchForm
-{
-    @* The search query is in a form in the header. The search filters are bindings on this Razor page.
-    @* Pass the Razor bindings back up to the header's search form. *@
+@{
+    var feedName = FeedContext.CurrentFeed.Name;
+    var canPush = await FeedAccessGuard.CanPushToCurrentFeedAsync(
+        HttpContext, FeedContext, PermissionService, AuthOptions.Value.Mode, HttpContext.RequestAborted);
+    var isFiltered = !string.IsNullOrEmpty(Model.Query)
+        || Model.PackageType != "any" || Model.Framework != "any" || Model.Tag != "any" || !Model.Prerelease;
+}
+
+<div class="bgt-page-head" style="margin-bottom: 20px">
+    <div>
+        <div class="bgt-eyebrow">Feed</div>
+        <h1>@feedName <span class="bgt-count">@Model.TotalHits.ToString("N0", CultureInfo.InvariantCulture) @(Model.TotalHits == 1 ? "package" : "packages")</span></h1>
+    </div>
+    @if (canPush)
+    {
+        <a asp-page="/Upload" class="btn btn-primary"><icon name="arrow-up" size="15" />Upload package</a>
+    }
+</div>
+
+<form action="@Url.Page("/Index")" method="get" role="search">
+    <label class="bgt-search">
+        <icon name="search" size="18" />
+        <span class="visually-hidden">Search packages</span>
+        <input type="search" name="q" value="@Model.Query" autocomplete="off" placeholder="Search packages, tags, authors…" data-search-input />
+        <kbd class="bgt-kbd">/</kbd>
+    </label>
+
+    @* The filters are links below; keep their values when a new search is submitted. *@
     @if (Model.PackageType != "any")
     {
         <input type="hidden" name="packageType" value="@Model.PackageType" />
     }
-
     @if (Model.Framework != "any")
     {
         <input type="hidden" name="framework" value="@Model.Framework" />
     }
-
     @if (Model.Tag != "any")
     {
         <input type="hidden" name="tag" value="@Model.Tag" />
     }
-
     @if (Model.Prerelease != true)
     {
         <input type="hidden" name="prerelease" value="False" />
     }
-}
+</form>
 
-@if (FeedContext.CurrentFeed != null)
-{
-    <h1 class="feed-title">@FeedContext.CurrentFeed.Name</h1>
-}
+<div class="bgt-filters">
+    <div class="dropdown">
+        <button class="btn btn-filter" type="button" id="package-type" data-bs-toggle="dropdown" aria-expanded="false">
+            <span class="bgt-filter-label">Type</span> <span class="bgt-filter-value">@PackageTypeLabel(Model.PackageType)</span>
+            <icon name="chevron-down" size="12" />
+        </button>
+        <ul class="dropdown-menu bgt-filter-menu" aria-labelledby="package-type">
+            <li><a class="dropdown-item @(Model.PackageType == "any" ? "active" : null)" href="@SearchLink(packageType: "any", page: 1)">Any</a></li>
+            @foreach (var packageType in Model.PackageTypeFacets)
+            {
+                <li><a class="dropdown-item @(Model.PackageType == packageType ? "active" : null)" href="@SearchLink(packageType: packageType, page: 1)">@PackageTypeLabel(packageType)</a></li>
+            }
+        </ul>
+    </div>
 
-<div class="search-options form-inline">
-    <div class="form-group">
-        <label>Package type:</label>
+    <div class="dropdown">
+        <button class="btn btn-filter" type="button" id="framework" data-bs-toggle="dropdown" aria-expanded="false">
+            <span class="bgt-filter-label">Framework</span> <span class="bgt-filter-value">@FrameworkLabel(Model.Framework)</span>
+            <icon name="chevron-down" size="12" />
+        </button>
+        <ul class="dropdown-menu bgt-filter-menu" aria-labelledby="framework">
+            <li><a class="dropdown-item @(Model.Framework == "any" ? "active" : null)" href="@SearchLink(framework: "any", page: 1)">Any</a></li>
+            @foreach (var framework in Model.FrameworkFacets)
+            {
+                <li><a class="dropdown-item @(Model.Framework == framework ? "active" : null)" href="@SearchLink(framework: framework, page: 1)">@FrameworkLabel(framework)</a></li>
+            }
+        </ul>
+    </div>
 
-        <div class="search-dropdown">
-            <div class="dropdown">
-                <button class="btn btn-default dropdown-toggle" type="button" id="package-type" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
-                    @PackageTypeLabel(Model.PackageType)
-                    <span class="caret"></span>
-                </button>
-                <ul class="dropdown-menu" aria-labelledby="package-type">
-                    <li><a href="@SearchLink(packageType: "any", page: 1)">Any</a></li>
-                    @foreach (var packageType in Model.PackageTypeFacets)
-                    {
-                        <li><a href="@SearchLink(packageType: packageType, page: 1)">@PackageTypeLabel(packageType)</a></li>
-                    }
-                </ul>
-            </div>
+    <div class="dropdown">
+        <button class="btn btn-filter" type="button" id="tag" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+            <span class="bgt-filter-label">Tag</span> <span class="bgt-filter-value">@(Model.Tag == "any" ? "Any" : Model.Tag)</span>
+            <icon name="chevron-down" size="12" />
+        </button>
+        <ul class="dropdown-menu bgt-filter-menu" aria-labelledby="tag">
+            <li class="bgt-filter-search">
+                <input type="text" class="form-control" placeholder="Filter tags…" aria-label="Filter tags"
+                       autocomplete="off" oninput="window.baget.filterTags(this)" />
+            </li>
+            <li><a class="dropdown-item @(Model.Tag == "any" ? "active" : null)" href="@SearchLink(tag: "any", page: 1)">Any</a></li>
+            @foreach (var tag in Model.TagFacets)
+            {
+                <li data-tag="@tag"><a class="dropdown-item @(Model.Tag == tag ? "active" : null)" href="@SearchLink(tag: tag, page: 1)">@tag</a></li>
+            }
+        </ul>
+    </div>
+
+    <a class="btn btn-filter bgt-prerelease-toggle @(Model.Prerelease ? "on" : null)"
+       href="@SearchLink(prerelease: !Model.Prerelease, page: 1)"
+       role="switch" aria-checked="@(Model.Prerelease ? "true" : "false")" id="prerelease">
+        <span class="bgt-switch-vis" aria-hidden="true"></span>Prerelease
+    </a>
+
+    <div class="bgt-grow"></div>
+
+    @if (Model.Packages.Count > 0)
+    {
+        <div class="bgt-segmented" role="group" aria-label="View">
+            <button type="button" class="bgt-view-list-btn" data-view="list" title="List view" aria-label="List view"><icon name="list" size="15" /></button>
+            <button type="button" class="bgt-view-grid-btn" data-view="grid" title="Grid view" aria-label="Grid view"><icon name="grid" size="15" /></button>
         </div>
-    </div>
-
-    <div class="form-group">
-        <label>Framework:</label>
-
-        <div class="search-dropdown">
-            <div class="dropdown">
-                <button class="btn btn-default dropdown-toggle" type="button" id="framework" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
-                    @FrameworkLabel(Model.Framework)
-                    <span class="caret"></span>
-                </button>
-                <ul class="dropdown-menu" aria-labelledby="framework">
-                    <li><a href="@SearchLink(framework: "any", page: 1)">Any</a></li>
-                    @foreach (var framework in Model.FrameworkFacets)
-                    {
-                        <li><a href="@SearchLink(framework: framework, page: 1)">@FrameworkLabel(framework)</a></li>
-                    }
-                </ul>
-            </div>
-        </div>
-    </div>
-
-    <div class="form-group">
-        <label>Tag:</label>
-
-        <div class="search-dropdown">
-            <div class="dropdown">
-                <button class="btn btn-default dropdown-toggle" type="button" id="tag" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
-                    @(Model.Tag == "any" ? "Any" : Model.Tag)
-                    <span class="caret"></span>
-                </button>
-                <ul class="dropdown-menu tag-dropdown-menu" aria-labelledby="tag">
-                    <li class="tag-search">
-                        <input type="text" class="form-control input-sm" placeholder="Filter tags..."
-                               autocomplete="off" oninput="window.baget.filterTags(this)" onclick="event.stopPropagation()" />
-                    </li>
-                    <li><a href="@SearchLink(tag: "any", page: 1)">Any</a></li>
-                    @foreach (var tag in Model.TagFacets)
-                    {
-                        <li data-tag="@tag"><a href="@SearchLink(tag: tag, page: 1)">@tag</a></li>
-                    }
-                </ul>
-            </div>
-        </div>
-    </div>
-
-    <div class="form-group form-check">
-        <label for="prerelease">Include prerelease:</label>
-
-        <input
-            type="checkbox"
-            id="prerelease"
-            @(Model.Prerelease ? "checked='checked'" : "")
-            data-href="@SearchLink(prerelease: !Model.Prerelease, page: 1)"
-            onclick="window.location.href = this.dataset.href" />
-    </div>
+    }
 </div>
 
 @if (Model.Packages.Count == 0 && Model.PageIndex > 1)
 {
-    <div>
+    <div class="bgt-empty">
         <h2>No packages found</h2>
         <p>Page @Model.PageIndex is past the last page of this list.</p>
-        <p><a href="@SearchLink(page: 1)">Go to the first page</a></p>
+        <div class="bgt-empty-actions">
+            <a href="@SearchLink(page: 1)" class="btn btn-secondary">Go to the first page</a>
+        </div>
+    </div>
+}
+else if (Model.Packages.Count == 0 && isFiltered)
+{
+    <div class="bgt-empty">
+        @if (string.IsNullOrEmpty(Model.Query))
+        {
+            <p>No packages match these filters.</p>
+        }
+        else
+        {
+            <p>No packages match “@Model.Query”.</p>
+        }
     </div>
 }
 else if (Model.Packages.Count == 0)
 {
-    <div>
-        <h2>Oops, nothing here...</h2>
-        <p>
-            It looks like there's no package here to see. Take a look below for useful links.
-        </p>
-        <p><a asp-page="/Upload">Upload a package</a></p>
-        <p><a href="https://letreset.github.io/BaGetter/docs" target="_blank" rel="noopener noreferrer">BaGetter documentation</a></p>
-        <p><a href="https://github.com/letreset/BaGetter/issues" target="_blank" rel="noopener noreferrer">BaGetter issues</a></p>
+    <div class="bgt-empty">
+        <svg width="72" height="72" viewBox="0 0 120 120" style="color: var(--bgt-primary)" aria-hidden="true">
+            <path fill="currentColor" fill-rule="evenodd" d="M54 30H86A24 24 0 0 1 110 54V86A24 24 0 0 1 86 110H54A24 24 0 0 1 30 86V54A24 24 0 0 1 54 30ZM39.4 51.4a10.4 10.4 0 1 0 20.8 0a10.4 10.4 0 1 0 -20.8 0ZM66.8 83.4a16.8 16.8 0 1 0 33.6 0a16.8 16.8 0 1 0 -33.6 0Z" />
+            <g transform="rotate(-45 18 18)">
+                <rect x="1" y="12" width="34" height="12" rx="6" fill="#F2A444" />
+                <path d="M9 21l4-6M16.5 21l4-6M24 21l4-6" stroke="#FDE6BA" stroke-width="1.9" stroke-linecap="round" />
+            </g>
+        </svg>
+        <h2>Nothing in @feedName yet</h2>
+        <p>This feed has no packages. Push one, or connect a client and restore through the mirror.</p>
+        <div class="bgt-empty-actions">
+            @if (canPush)
+            {
+                <a asp-page="/Upload" class="btn btn-primary">Upload a package</a>
+            }
+            <a asp-page="/Connect" class="btn btn-secondary">Connect a client</a>
+        </div>
+        <div class="bgt-empty-links">
+            <a href="https://letreset.github.io/BaGetter/docs" target="_blank" rel="noopener noreferrer">Documentation</a>
+            <a href="https://github.com/letreset/BaGetter/issues" target="_blank" rel="noopener noreferrer">Report an issue</a>
+        </div>
     </div>
 }
 else
 {
-    @foreach (var package in Model.Packages)
-    {
-        <div class="row search-result">
-            <div class="col-sm-1 hidden-xs hidden-sm">
-                <img src="@(string.IsNullOrEmpty(package.IconUrl) ? fallbackIconUrl : package.IconUrl)"
-                     class="package-icon img-responsive"
-                     onerror="this.src='@fallbackIconUrl'"
-                     alt="The package icon" />
-            </div>
-            <div class="col-sm-11">
-                <div>
-                    <a asp-page="Package"
-                       asp-route-id="@package.PackageId"
-                       asp-route-version="@package.Version"
-                       class="package-title">
-                        @package.PackageId
-                    </a>
-                    <span>by: @string.Join(", ", package.Authors)</span>
-                </div>
-                <ul class="info">
-                    <li>
-                        <span>
-                            <i class="ms-Icon ms-Icon--Download"></i>
-                            @package.TotalDownloads.ToMetric() total downloads
-                        </span>
-                    </li>
-                    <li>
-                        <span>
-                            <i class="ms-Icon ms-Icon--Flag"></i>
-                            Latest version:
-                            @if (package.Listed == false)
-                            {
-                                <span class="unlisted-version" title="This package is unlisted">@package.Version</span>
-                                <span class="unlisted-label">(unlisted)</span>
-                            }
-                            else
-                            {
-                                @package.Version
-                            }
-                        </span>
-                    </li>
-                    @if (package.Tags.Any())
+    <div class="bgt-card bgt-card-clip bgt-pkg-list">
+        @foreach (var package in Model.Packages)
+        {
+            var unlisted = package.Listed == false;
+            <div class="bgt-pkg-row">
+                @{ PackageTile(package); }
+                <div class="bgt-pkg-main">
+                    <div class="bgt-pkg-title">
+                        <a asp-page="Package" asp-route-id="@package.PackageId" asp-route-version="@package.Version"
+                           class="bgt-pkg-name bgt-stretched @(unlisted ? "bgt-unlisted" : null)">@package.PackageId</a>
+                        <span class="bgt-version">v@(package.Version)</span>
+                        @if (unlisted)
+                        {
+                            <span class="bgt-badge" title="This package is unlisted">unlisted</span>
+                        }
+                        @if (package.Authors.Any())
+                        {
+                            <span class="bgt-pkg-by">by @string.Join(", ", package.Authors)</span>
+                        }
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(package.Description))
                     {
-                        <li>
-                            <span class="tags">
-                                <i class="ms-Icon ms-Icon--Tag"></i>
-                                @string.Join(" ", package.Tags)
-                            </span>
-                        </li>
+                        <p class="bgt-pkg-desc">@package.Description</p>
                     }
-                </ul>
-                <div>
-                    @package.Description
+                    <div class="bgt-pkg-meta">
+                        <span><icon name="arrow-down" size="13" />@DownloadsLabel(package.TotalDownloads)</span>
+                        @if (package.Tags.Any())
+                        {
+                            <div class="bgt-chips">
+                                @foreach (var tag in package.Tags)
+                                {
+                                    <span class="bgt-chip">@tag</span>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+                <button type="button" class="bgt-install-btn bgt-above bgt-desktop-only" title="Copy install command" data-copy="@InstallCommand(package)">
+                    <icon name="copy" size="13" /><span class="bgt-copy-label">Install</span>
+                </button>
+            </div>
+        }
+    </div>
+
+    <div class="bgt-pkg-grid">
+        @foreach (var package in Model.Packages)
+        {
+            var unlisted = package.Listed == false;
+            <div class="bgt-pkg-card">
+                <div class="d-flex align-items-center gap-3">
+                    @{ PackageTile(package); }
+                    <div class="min-w-0" style="min-width: 0">
+                        <a asp-page="Package" asp-route-id="@package.PackageId" asp-route-version="@package.Version"
+                           class="bgt-pkg-name bgt-stretched @(unlisted ? "bgt-unlisted" : null)">@package.PackageId</a>
+                        <div class="bgt-pkg-sub"><span class="mono">v@(package.Version)</span> · @DownloadsLabel(package.TotalDownloads)</div>
+                    </div>
+                </div>
+                <p class="bgt-pkg-desc">@package.Description</p>
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    @foreach (var tag in package.Tags)
+                    {
+                        <span class="bgt-chip">@tag</span>
+                    }
+                    <span class="flex-grow-1"></span>
+                    <button type="button" class="bgt-install-btn bgt-above" title="Copy install command" data-copy="@InstallCommand(package)">
+                        <icon name="copy" size="12" /><span class="bgt-copy-label">Install</span>
+                    </button>
                 </div>
             </div>
-        </div>
-    }
+        }
+    </div>
 
     if (Model.TotalPages > 1)
     {
         var onFirstPage = Model.PageIndex <= 1;
         var onLastPage = Model.PageIndex >= Model.TotalPages;
 
-        <nav class="text-center" aria-label="Search page navigation">
-            <ul class="pagination">
-                <li class="@(onFirstPage ? "disabled" : null)">
-                    @if (onFirstPage)
-                    {
-                        <span aria-label="Previous">&lsaquo;</span>
-                    }
-                    else
-                    {
-                        <a href="@SearchLink(page: Model.PageIndex - 1)" aria-label="Previous">&lsaquo;</a>
-                    }
-                </li>
+        <nav class="bgt-pager" aria-label="Search page navigation">
+            @if (onFirstPage)
+            {
+                <span class="disabled" aria-disabled="true">&larr; Prev</span>
+            }
+            else
+            {
+                <a href="@SearchLink(page: Model.PageIndex - 1)" rel="prev">&larr; Prev</a>
+            }
 
-                @foreach (var pageNumber in PageWindow(Model.PageIndex, Model.TotalPages))
+            @foreach (var pageNumber in PageWindow(Model.PageIndex, Model.TotalPages))
+            {
+                if (pageNumber == 0)
                 {
-                    if (pageNumber == 0)
-                    {
-                        <li class="disabled"><span>&hellip;</span></li>
-                    }
-                    else if (pageNumber == Model.PageIndex)
-                    {
-                        <li class="active"><span>@pageNumber</span></li>
-                    }
-                    else
-                    {
-                        <li><a href="@SearchLink(page: pageNumber)">@pageNumber</a></li>
-                    }
+                    <span class="gap">&hellip;</span>
                 }
+                else if (pageNumber == Model.PageIndex)
+                {
+                    <span class="num current" aria-current="page">@pageNumber</span>
+                }
+                else
+                {
+                    <a class="num" href="@SearchLink(page: pageNumber)">@pageNumber</a>
+                }
+            }
 
-                <li class="@(onLastPage ? "disabled" : null)">
-                    @if (onLastPage)
-                    {
-                        <span aria-label="Next">&rsaquo;</span>
-                    }
-                    else
-                    {
-                        <a href="@SearchLink(page: Model.PageIndex + 1)" aria-label="Next">&rsaquo;</a>
-                    }
-                </li>
-            </ul>
+            @if (onLastPage)
+            {
+                <span class="disabled" aria-disabled="true">Next &rarr;</span>
+            }
+            else
+            {
+                <a href="@SearchLink(page: Model.PageIndex + 1)" rel="next">Next &rarr;</a>
+            }
         </nav>
     }
 }
@@ -294,6 +336,33 @@ else
     {
         if (string.IsNullOrEmpty(framework) || framework == "any") return "Any";
         return BaGetter.Web.Helper.TargetFrameworkNames.GetDisplayName(framework);
+    }
+
+    private static string DownloadsLabel(long downloads)
+    {
+        return downloads.ToString("N0", CultureInfo.InvariantCulture) + (downloads == 1 ? " download" : " downloads");
+    }
+
+    // The command copied by the Install button, matching the first tab of the package page.
+    private static string InstallCommand(SearchResult package)
+    {
+        bool HasType(string name) => package.PackageTypes?.Any(t => string.Equals(t.Name, name, StringComparison.OrdinalIgnoreCase)) == true;
+
+        if (HasType("DotnetTool")) return $"dotnet tool install --global {package.PackageId} --version {package.Version}";
+        if (HasType("Template")) return $"dotnet new --install {package.PackageId}::{package.Version}";
+        return $"dotnet add package {package.PackageId} --version {package.Version}";
+    }
+
+    // The tile shows the package icon when there is one; if the icon fails to load, the initials behind it show.
+    private void PackageTile(SearchResult package)
+    {
+        <div class="bgt-tile" style="--h: @package.PackageId.ToHue()" aria-hidden="true">
+            @package.PackageId.ToPackageInitials()
+            @if (!string.IsNullOrEmpty(package.IconUrl))
+            {
+                <img src="@package.IconUrl" alt="" loading="lazy" onerror="this.remove()" />
+            }
+        </div>
     }
 
     // Page numbers to render: always the first and last page, plus the pages around the current one.

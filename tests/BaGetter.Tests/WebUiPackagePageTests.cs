@@ -46,7 +46,7 @@ public class WebUiPackagePageTests : IDisposable
 
         var html = await client.GetStringAsync("/packages/TestData/1.2.3");
 
-        Assert.Contains("per day average", html);
+        Assert.Contains("Per day", html);
         Assert.DoesNotContain("This is a prerelease version", html);
         Assert.DoesNotContain("Include prerelease", html);
     }

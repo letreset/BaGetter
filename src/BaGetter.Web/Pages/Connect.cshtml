@@ -25,7 +25,7 @@
 {
     // Generic on purpose: anonymous visitors must not learn feed or package names.
     ViewData["Title"] = "Sign in required";
-    <div class="text-center" style="margin-top: 60px;">
+    <div class="bgt-message">
         <h2>Sign in required</h2>
         <p>You need to sign in to view connection instructions.</p>
         <a asp-page="/Login" class="btn btn-primary">Sign in</a>
@@ -33,89 +33,64 @@
     return;
 }
 
-<div class="col-sm-12">
-    <h1>Connect</h1>
-    <hr class="breadcrumb-divider" />
+<div class="bgt-narrow bgt-stack">
+    <div>
+        <h1>Connect</h1>
+        <p class="bgt-lead">Add this feed as a NuGet source using the service index below.</p>
+    </div>
 
-    <div>Add this feed as a NuGet source using the service index below.</div>
-
-    <div class="feed-url" x-data="{ copied: false }" style="margin-top:12px">
-        <span class="feed-url-label">Service index:</span>
-        <code id="feed-service-index-url">@serviceIndexUrl</code>
-        <button class="btn btn-default btn-sm"
-                type="button"
-                title="Copy feed URL"
-                @@click="window.baget.copyTextToClipboard(document.getElementById('feed-service-index-url').textContent, $el); copied = true; setTimeout(() => copied = false, 2000)">
-            <span x-show="!copied"><i class="ms-Icon ms-Icon--Copy"></i> Copy</span>
-            <span x-show="copied" x-cloak>Copied!</span>
-        </button>
+    <div class="bgt-card bgt-card-body" style="padding: 16px">
+        <div class="form-label" style="margin-bottom: 8px">Service index · @FeedContext.CurrentFeed.Name</div>
+        <div class="bgt-cmd">
+            <code id="feed-service-index-url">@serviceIndexUrl</code>
+            <button type="button" class="bgt-cmd-btn" title="Copy feed URL" data-copy-target="#feed-service-index-url">
+                <icon name="copy" size="13" /><span class="bgt-copy-label">Copy</span>
+            </button>
+        </div>
     </div>
 
     @if (hasEntra || hasLocal)
     {
-        <div class="alert alert-warning" style="margin-top:16px">
-            <strong>Authentication required.</strong>
-            <br />
-            @if (hasEntra && hasLocal)
-            {
-                <span>
-                    Entra (Microsoft) users: sign in to the web UI to generate a personal access token (PAT), then use it as the password / API key below.
-                </span>
-                <br />
-                <span>
-                    Local accounts: use your username with a personal access token (PAT) from My Tokens, or your password. Accounts without web sign-in get their token from an administrator.
-                </span>
-            }
-            else if (hasEntra)
-            {
-                <span>
-                    Sign in with your Microsoft account to generate a personal access token (PAT), then use it as the password / API key below.
-                </span>
-            }
-            else
-            {
-                <span>
-                    Use your username with a personal access token (PAT) from My Tokens as the password / API key below. Your account password also works. Accounts without web sign-in get their token from an administrator.
-                </span>
-            }
+        <div class="bgt-callout">
+            <icon name="lock" size="18" />
+            <div>
+                <div class="bgt-callout-title">Authentication required</div>
+                <div class="bgt-callout-body">
+                    @if (hasEntra && hasLocal)
+                    {
+                        <p>Entra (Microsoft) users: sign in to the web UI to generate a personal access token (PAT), then use it as the password / API key below.</p>
+                        <p>Local accounts: use your username with a personal access token (PAT) from My Tokens, or your password. Accounts without web sign-in get their token from an administrator.</p>
+                    }
+                    else if (hasEntra)
+                    {
+                        <p>Sign in with your Microsoft account to generate a personal access token (PAT), then use it as the password / API key below.</p>
+                    }
+                    else
+                    {
+                        <p>Use your username with a personal access token (PAT) from My Tokens as the password / API key below. Your account password also works. Accounts without web sign-in get their token from an administrator.</p>
+                    }
+                </div>
+                <a asp-page="/Account/Tokens" class="d-inline-block mt-2 fw-medium">Create a personal access token &rarr;</a>
+            </div>
         </div>
     }
 
-    <div class="tabbed-info" x-data="{ tabs: tabs, active: tabs[0] }">
-        <ul class="nav">
+    <div class="bgt-card bgt-card-clip bgt-cmd-card" x-data="{ tabs: tabs, active: tabs[0] }">
+        <div class="bgt-tabs bgt-tabs-sm" role="tablist" aria-label="Client">
             <template x-for="tab in tabs" :key="tab.name">
-                <li x-bind:class="{ 'active': active.name === tab.name }">
-                    <a href="#" x-text="tab.name" @@click="active = tab"></a>
-                </li>
+                <button type="button" class="bgt-tab" role="tab" x-bind:class="{ active: active.name === tab.name }"
+                        x-bind:aria-selected="active.name === tab.name" x-text="tab.name" @@click="active = tab"></button>
             </template>
-        </ul>
-
-        <div class="content">
-            <div class="script" x-bind:class="{ 'script-file': active.file }">
-                <template x-for="line in active.content">
-                    <div class="script-line" x-text="line"></div>
-                </template>
-            </div>
-
-            <div class="copy-button">
-                <button class="btn btn-default btn-warning"
-                        type="button"
-                        data-toggle="popover"
-                        data-placement="bottom"
-                        data-content="Copied"
-                        @@click="window.baget.copyTextToClipboard(active.content.join('\n'), $el)">
-                    <i class="ms-Icon ms-Icon--Copy"></i>
-                </button>
-            </div>
         </div>
-
-        <div class="icon-text alert alert-warning">
-            For more information, please refer to
-            <a target="_blank"
-               rel="noopener noreferrer"
-               x-bind:href="active.documentation"
-               x-text="`${active.name}'s documentation`">
-            </a>.
+        <div class="bgt-cmd">
+            <code x-text="active.content.join('\n')"></code>
+            <button type="button" class="bgt-cmd-btn" @@click="window.baget.copy(active.content.join('\n'), $el)">
+                <icon name="copy" size="13" /><span class="bgt-copy-label">Copy</span>
+            </button>
+        </div>
+        <div class="bgt-card-foot">
+            For more information, see the
+            <a target="_blank" rel="noopener noreferrer" x-bind:href="active.documentation" x-text="`${active.name} documentation ↗`"></a>
         </div>
     </div>
 </div>
@@ -136,7 +111,6 @@
 
         {
             name: "nuget.config",
-            file: true,
             content: [
                 '<?xml version="1.0" encoding="utf-8"?>',
                 '<configuration>',

@@ -24,7 +24,7 @@
 {
     // Generic on purpose: anonymous visitors must not learn feed or package names.
     ViewData["Title"] = "Sign in required";
-    <div class="text-center" style="margin-top: 60px;">
+    <div class="bgt-message">
         <h2>Sign in required</h2>
         <p>You need to sign in to view statistics.</p>
         <a asp-page="/Login" class="btn btn-primary">Sign in</a>
@@ -34,127 +34,81 @@
 
 @{
     var stats = Model.FeedStatistics;
+    var topDownloads = Math.Max(1, stats.MostDownloaded.Select(p => p.Downloads).DefaultIfEmpty(0).Max());
 }
 
-<div class="col-sm-12">
-    <h1>Statistics &mdash; @Model.FeedName</h1>
-    <hr class="breadcrumb-divider" />
-    <div class="row">
-        <article class="col-sm-4">
-            <h4>Current version</h4>
-        </article>
-        <div class="col-sm-8">
-            <h4>@Version.InformationalVersion</h4>
-        </div>
+<div class="bgt-page-head-title" style="margin-bottom: 20px">
+    <h1>Statistics</h1>
+    <span class="bgt-chip bgt-chip-lg bgt-chip-outline">@Model.FeedName</span>
+</div>
+
+<div class="bgt-stat-grid">
+    <div class="bgt-card bgt-stat">
+        <div class="bgt-stat-label">Packages</div>
+        <div class="bgt-stat-value">@Model.PackagesTotal.ToString("N0", CultureInfo.InvariantCulture)</div>
+        <div class="bgt-stat-sub">@stats.UnlistedVersions.ToString("N0", CultureInfo.InvariantCulture) unlisted @(stats.UnlistedVersions == 1 ? "version" : "versions")</div>
     </div>
-    <div class="row">
-        <article class="col-sm-4">
-            <h4>Total amount of packages</h4>
-        </article>
-        <div class="col-sm-8">
-            <h4>@Model.PackagesTotal</h4>
-        </div>
+    <div class="bgt-card bgt-stat">
+        <div class="bgt-stat-label">Versions</div>
+        <div class="bgt-stat-value">@Model.VersionsTotal.ToString("N0", CultureInfo.InvariantCulture)</div>
+        <div class="bgt-stat-sub">@stats.StableVersions stable · @stats.PrereleaseVersions prerelease</div>
     </div>
-    <div class="row">
-        <article class="col-sm-4">
-            <h4>Total amount of package versions</h4>
-        </article>
-        <div class="col-sm-8">
-            <h4>@Model.VersionsTotal</h4>
-        </div>
+    <div class="bgt-card bgt-stat">
+        <div class="bgt-stat-label">Total downloads</div>
+        <div class="bgt-stat-value">@stats.TotalDownloads.ToString("N0", CultureInfo.InvariantCulture)</div>
+        <div class="bgt-stat-sub">All time</div>
     </div>
-    <div class="row">
-        <article class="col-sm-4">
-            <h4>Versions by state</h4>
-        </article>
-        <div class="col-sm-8">
-            <h4>@stats.StableVersions stable, @stats.PrereleaseVersions prerelease (@stats.UnlistedVersions unlisted)</h4>
-        </div>
+    <div class="bgt-card bgt-stat">
+        <div class="bgt-stat-label">Stored size</div>
+        <div class="bgt-stat-value">@stats.TotalSizeBytes.ToFileSize()</div>
+        <div class="bgt-stat-sub">Package files</div>
     </div>
-    <div class="row">
-        <article class="col-sm-4">
-            <h4>Total downloads</h4>
-        </article>
-        <div class="col-sm-8">
-            <h4>@stats.TotalDownloads.ToString("N0", CultureInfo.InvariantCulture)</h4>
-        </div>
-    </div>
-    <div class="row">
-        <article class="col-sm-4">
-            <h4>Stored package size</h4>
-        </article>
-        <div class="col-sm-8">
-            <h4>@stats.TotalSizeBytes.ToFileSize()</h4>
-        </div>
-    </div>
+</div>
+
+<div class="bgt-card bgt-meta-strip">
+    <span><span class="k">Server version</span>@Version.InformationalVersion</span>
     @if (Options.Value.ListConfiguredServices)
     {
-        <div class="row">
-            <article class="col-sm-4">
-                <h4>Services in use</h4>
-            </article>
-            <div class="col-sm-8">
-                <h4>@string.Join(", ", StatisticsService.GetKnownServices())</h4>
-            </div>
-        </div>
+        <span><span class="k">Services</span>@string.Join(", ", StatisticsService.GetKnownServices())</span>
     }
+</div>
 
-    <div class="row statistics-lists">
-        <section class="col-md-6">
-            <h3>Most downloaded</h3>
-            @if (stats.MostDownloaded.Count == 0)
+<div class="bgt-list-grid">
+    <section class="bgt-card bgt-card-clip">
+        <h2 class="bgt-card-head m-0">Most downloaded</h2>
+        @if (stats.MostDownloaded.Count == 0)
+        {
+            <div class="bgt-list-empty">No downloads yet.</div>
+        }
+        else
+        {
+            @foreach (var package in stats.MostDownloaded)
             {
-                <p class="text-muted">No downloads yet.</p>
+                var percent = (int)Math.Round(package.Downloads * 100.0 / topDownloads);
+                <div class="bgt-list-row">
+                    <a class="bgt-list-name bgt-stretched" href="@Url.Page("/Package", new { id = package.Id })">@package.Id</a>
+                    <div class="bgt-bar bgt-bar-lg" aria-hidden="true"><div style="width: @(percent)%"></div></div>
+                    <span class="bgt-list-num">@package.Downloads.ToString("N0", CultureInfo.InvariantCulture)</span>
+                </div>
             }
-            else
+        }
+    </section>
+    <section class="bgt-card bgt-card-clip">
+        <h2 class="bgt-card-head m-0">Recently published</h2>
+        @if (stats.RecentlyPublished.Count == 0)
+        {
+            <div class="bgt-list-empty">No packages yet.</div>
+        }
+        else
+        {
+            @foreach (var version in stats.RecentlyPublished)
             {
-                <table class="table table-striped data-table">
-                    <thead>
-                        <tr>
-                            <th>Package</th>
-                            <th class="text-right">Downloads</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var package in stats.MostDownloaded)
-                        {
-                            <tr>
-                                <td><a href="@Url.Page("/Package", new { id = package.Id })">@package.Id</a></td>
-                                <td class="text-right">@package.Downloads.ToString("N0", CultureInfo.InvariantCulture)</td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
+                <div class="bgt-list-row">
+                    <a class="bgt-list-name bgt-stretched" href="@Url.Page("/Package", new { id = version.Id, version = version.Version })">@version.Id</a>
+                    <span class="bgt-version">@version.Version</span>
+                    <span class="bgt-list-date">@Html.DisplayDate(version.Published)</span>
+                </div>
             }
-        </section>
-        <section class="col-md-6">
-            <h3>Recently published</h3>
-            @if (stats.RecentlyPublished.Count == 0)
-            {
-                <p class="text-muted">No packages yet.</p>
-            }
-            else
-            {
-                <table class="table table-striped data-table">
-                    <thead>
-                        <tr>
-                            <th>Package</th>
-                            <th>Version</th>
-                            <th>Published</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var version in stats.RecentlyPublished)
-                        {
-                            <tr>
-                                <td><a href="@Url.Page("/Package", new { id = version.Id, version = version.Version })">@version.Id</a></td>
-                                <td class="text-nowrap">@version.Version</td>
-                                <td class="text-nowrap">@Html.DisplayDate(version.Published)</td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            }
-        </section>
-    </div>
+        }
+    </section>
 </div>

@@ -71,6 +71,37 @@ public class WebUiAccountAdminTests
         }
     }
 
+    public class ActionFeedback : FactsBase
+    {
+        public ActionFeedback(ITestOutputHelper output) : base(output)
+        {
+        }
+
+        [Theory]
+        [InlineData("ToggleEnabled", "isEnabled", "True", "Account &#x27;bob&#x27; disabled.")]
+        [InlineData("ToggleEnabled", "isEnabled", "False", "Account &#x27;bob&#x27; enabled.")]
+        [InlineData("ToggleCanLoginToUI", "canLoginToUI", "True", "Web sign-in disabled for &#x27;bob&#x27;.")]
+        [InlineData("ToggleCanLoginToUI", "canLoginToUI", "False", "Web sign-in allowed for &#x27;bob&#x27;.")]
+        [InlineData("ToggleAdmin", "isAdmin", "False", "&#x27;bob&#x27; is now an administrator.")]
+        [InlineData("ToggleAdmin", "isAdmin", "True", "Administrator role removed from &#x27;bob&#x27;.")]
+        public async Task ShowsTheResultOnceAfterTheRedirect(string handler, string field, string current, string message)
+        {
+            await WebUiSession.SeedLocalUserAsync(_app, "admin", Password, isAdmin: true);
+            var bob = await WebUiSession.SeedLocalUserAsync(_app, "bob", Password);
+
+            using var admin = await WebUiSession.SignInAsync(_app, "admin", Password);
+            using var response = await admin.PostFormAsync("/Admin/Accounts", handler, new Dictionary<string, string>
+            {
+                { "userId", bob.Id.ToString() },
+                { field, current },
+            });
+
+            Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+            Assert.Contains(message, await admin.GetStringAsync("/Admin/Accounts"));
+            Assert.DoesNotContain(message, await admin.GetStringAsync("/Admin/Accounts"));
+        }
+    }
+
     public class AdminRights : FactsBase
     {
         public AdminRights(ITestOutputHelper output) : base(output)
@@ -184,9 +215,10 @@ public class WebUiAccountAdminTests
             using var admin = await WebUiSession.SignInAsync(_app, "admin", Password);
             var body = await admin.GetStringAsync("/Admin/Accounts");
 
+            // The delete dialog takes the username from this attribute and shows it as text.
             Assert.DoesNotContain("onsubmit=", body);
             Assert.Contains(
-                "data-confirm=\"Are you sure you want to permanently delete the account &#x27;x&#x27;&#x2B;(document.title=&#x27;pwned&#x27;)&#x2B;&#x27;&quot;&lt;\\&#x27;?",
+                "data-username=\"x&#x27;&#x2B;(document.title=&#x27;pwned&#x27;)&#x2B;&#x27;&quot;&lt;\\\"",
                 body);
         }
     }

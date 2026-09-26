@@ -31,7 +31,7 @@ public class PackageIconIntegrationTests : IDisposable
     [InlineData("/packages/TestData", "/_content/")]
     [InlineData("/feeds/default/", "/feeds/default/_content/")]
     [InlineData("/feeds/default/packages/TestData", "/feeds/default/_content/")]
-    public async Task PackageWithoutIconUsesDefaultIcon(string path, string expectedPrefix)
+    public async Task PackageWithoutIconShowsItsInitials(string path, string expectedPrefix)
     {
         await _app.AddPackageAsync(_packageStream);
 
@@ -39,8 +39,11 @@ public class PackageIconIntegrationTests : IDisposable
         var html = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains($"<img src=\"{expectedPrefix}BaGetter.Web/images/default-package-icon-256x256.png\"", html);
+        Assert.Matches("class=\"bgt-tile[^\"]*\"[^>]*>\\s*TE\\s*</div>", html);
         Assert.DoesNotContain("<img src=\"\"", html);
+
+        // Static assets, like the icon sprite, resolve under the feed's path base.
+        Assert.Contains($"<use href=\"{expectedPrefix}BaGetter.Web/images/icons.svg#", html);
     }
 
     public void Dispose()

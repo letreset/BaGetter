@@ -15,9 +15,46 @@
 @inject IPermissionService PermissionService
 
 @{
-    var requiresAuth = AuthOptions.Value.Mode != AuthenticationMode.Config;
+    const string DocsUrl = "https://letreset.github.io/BaGetter/docs";
+
+    // Pages without the app shell (the sign-in page) set ViewData["Bare"] = true.
+    var bare = ViewData["Bare"] as bool? == true;
+
+    var authMode = AuthOptions.Value.Mode;
+    var requiresAuth = authMode != AuthenticationMode.Config;
     var isAuthenticated = User.Identity?.IsAuthenticated == true;
     var showContent = !requiresAuth || isAuthenticated;
+
+    var username = User.Identity?.Name ?? "User";
+    var displayName = User.FindFirst("DisplayName")?.Value
+                   ?? User.FindFirst("name")?.Value
+                   ?? username;
+    var isAdmin = isAuthenticated &&
+        string.Equals(User.FindFirst(AuthenticationConstants.IsAdminClaim)?.Value, "true", StringComparison.Ordinal);
+    var showUser = requiresAuth && isAuthenticated;
+
+    // Admin links must never be scoped to a feed: strip any /feeds/{slug} segment that
+    // FeedResolutionMiddleware appended to PathBase, so they always point at the root.
+    var pathBase = Context.Request.PathBase.Value ?? string.Empty;
+    var feedsIdx = pathBase.IndexOf("/feeds/", StringComparison.OrdinalIgnoreCase);
+    var rootBase = feedsIdx >= 0 ? pathBase[..feedsIdx] : pathBase;
+
+    IReadOnlyList<Feed> accessibleFeeds = Array.Empty<Feed>();
+    var canPull = false;
+    var canPush = false;
+    if (!bare && showContent)
+    {
+        var allFeeds = await FeedService.GetAllFeedsAsync(Context.RequestAborted);
+        accessibleFeeds = await FeedAccessGuard.FilterAccessibleFeedsAsync(
+            Context, allFeeds, PermissionService, authMode, Context.RequestAborted);
+        canPush = await FeedAccessGuard.CanPushToCurrentFeedAsync(
+            Context, FeedContext, PermissionService, authMode, Context.RequestAborted);
+        // The current feed is pullable iff it survived the accessible-feeds filter above.
+        canPull = FeedContext.CurrentFeed != null
+            && accessibleFeeds.Any(f => f.Id == FeedContext.CurrentFeed.Id);
+    }
+    var currentSlug = FeedContext.CurrentFeed?.Slug ?? Feed.DefaultSlug;
+    var showStatistics = StatisticsOptions.Value.EnableStatisticsPage && canPull;
 }
 
 <!DOCTYPE html>
@@ -25,157 +62,238 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="BaGet">
+    <meta name="description" content="BaGetter">
     <meta name="author" content="@Version.Authors">
     @Html.AddReleaseMetaTags()
 
-    <link rel="shortcut icon" href="~/_content/BaGetter.Web/favicon.ico">
+    <link rel="icon" type="image/svg+xml" href="~/_content/BaGetter.Web/favicon.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="~/_content/BaGetter.Web/images/bagetter-32.png">
+    <link rel="apple-touch-icon" href="~/_content/BaGetter.Web/images/apple-touch-icon.png">
 
-    @* Applies the saved theme, or the system setting, before the page renders, so it doesn't flash. *@
+    @* Applies the saved theme (or the system setting) and the package view before the page renders, so they don't flash. *@
     <script>
         (function () {
-            var theme = null;
-            try { theme = localStorage.getItem('bagetter-theme'); } catch (e) { }
+            var theme = null, view = null;
+            try { theme = localStorage.getItem('bagetter-theme'); view = localStorage.getItem('bagetter-view'); } catch (e) { }
             if (theme !== 'light' && theme !== 'dark') {
                 theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
             }
-            document.documentElement.setAttribute('data-theme', theme);
+            document.documentElement.setAttribute('data-bs-theme', theme);
+            if (view === 'grid') document.documentElement.classList.add('bgt-view-grid');
         })();
     </script>
 
     <link rel="stylesheet" href="~/_content/BaGetter.Web/lib/bootstrap/dist/css/bootstrap.min.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/_content/BaGetter.Web/lib/office-ui-fabric-core/dist/css/fabric.min.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/_content/BaGetter.Web/css/site.css" asp-append-version="true" />
 
     <title>@ViewData["Title"] - BaGetter</title>
     @await RenderSectionAsync("Head", required: false)
 </head>
-<body>
-    <header>
-        <nav class="navbar navbar-inverse" role="navigation">
-            <div class="container">
-                <div class="navbar-header">
-                    <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
-                        <span class="sr-only">Toggle navigation</span>
-                        <span class="icon-bar"></span>
-                        <span class="icon-bar"></span>
-                        <span class="icon-bar"></span>
-                    </button>
-                    <a class="navbar-brand visible-xs-block" href="~/">BaGetter</a>
-                </div>
-                <div class="row">
-                    <div id="navbar" class="col-sm-12 collapse navbar-collapse">
-                        <ul class="nav navbar-nav" role="tablist">
-                            @if (showContent)
-                            {
-                                var allFeeds = await FeedService.GetAllFeedsAsync(Context.RequestAborted);
-                                var accessibleFeeds = await FeedAccessGuard.FilterAccessibleFeedsAsync(
-                                    Context, allFeeds, PermissionService, AuthOptions.Value.Mode, Context.RequestAborted);
-                                var currentSlug = FeedContext.CurrentFeed?.Slug ?? Feed.DefaultSlug;
-                                var canPush = await FeedAccessGuard.CanPushToCurrentFeedAsync(
-                                    Context, FeedContext, PermissionService, AuthOptions.Value.Mode, Context.RequestAborted);
-                                // The current feed is pullable iff it survived the accessible-feeds filter above.
-                                var canPull = FeedContext.CurrentFeed != null
-                                    && accessibleFeeds.Any(f => f.Id == FeedContext.CurrentFeed.Id);
+@* The "/" shortcut opens this package list on pages that have no search field. *@
+<body data-packages-url="@(showContent && !bare ? Url.Page("/Index") : null)">
+    @if (bare)
+    {
+        @RenderBody()
+    }
+    else
+    {
+        <a class="visually-hidden-focusable" href="#main">Skip to content</a>
 
-                                @if (accessibleFeeds.Count > 1)
+        <header class="bgt-header">
+            <div class="bgt-header-inner">
+                <a class="bgt-brand" href="@(rootBase)/">
+                    <img src="~/_content/BaGetter.Web/images/bagetter-logo.svg" alt="" />
+                    <span>BaGetter</span>
+                </a>
+
+                @if (showContent && FeedContext.CurrentFeed != null && accessibleFeeds.Count > 0)
+                {
+                    @if (accessibleFeeds.Count > 1)
+                    {
+                        <div class="dropdown bgt-feed">
+                            <button type="button" class="bgt-feed-pill" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Switch feed, current: @FeedContext.CurrentFeed.Name">
+                                <span class="bgt-feed-dot"></span>
+                                <span class="bgt-feed-name">@FeedContext.CurrentFeed.Name</span>
+                                <icon name="chevron-down" size="12" />
+                            </button>
+                            <ul class="dropdown-menu bgt-feed-menu">
+                                <li><h6 class="dropdown-header">Switch feed</h6></li>
+                                @foreach (var feed in accessibleFeeds)
                                 {
-                                    <li role="presentation" class="dropdown">
-                                        <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">
-                                            <span>Feed: @(FeedContext.CurrentFeed?.Name ?? "—")</span>
-                                            <span class="caret"></span>
-                                        </a>
-                                        <ul class="dropdown-menu">
-                                            @foreach (var feed in accessibleFeeds)
+                                    var isActive = feed.Slug == currentSlug;
+                                    <li>
+                                        <a class="dropdown-item @(isActive ? "active" : null)" href="@rootBase/feeds/@feed.Slug" aria-current="@(isActive ? "true" : null)">
+                                            <span class="bgt-feed-option">
+                                                <span class="bgt-feed-option-name d-block">@feed.Name</span>
+                                                @if (!string.IsNullOrWhiteSpace(feed.Description))
+                                                {
+                                                    <span class="bgt-feed-option-desc d-block">@feed.Description</span>
+                                                }
+                                            </span>
+                                            @if (isActive)
                                             {
-                                                var feedHref = "/feeds/" + feed.Slug;
-                                                var isActive = feed.Slug == currentSlug;
-                                                <li class="@(isActive ? "active" : "")">
-                                                    <a href="@feedHref">@feed.Name</a>
-                                                </li>
+                                                <icon name="check" style="color: var(--bgt-primary)" />
                                             }
-                                        </ul>
+                                        </a>
                                     </li>
                                 }
-                                <li role="presentation"><a asp-area="" asp-page="/Index" role="tab" nav-link><span>Packages</span></a></li>
-                                @if (canPull)
-                                {
-                                    <li role="presentation"><a asp-area="" asp-page="/Connect" role="tab" nav-link><span>Connect</span></a></li>
-                                }
-                                @if (canPush)
-                                {
-                                    <li role="presentation"><a asp-area="" asp-page="/Upload" role="tab" nav-link><span>Upload</span></a></li>
-                                }
-                                @if (StatisticsOptions.Value.EnableStatisticsPage && canPull)
-                                {
-                                    <li role="presentation"><a asp-area="" asp-page="/Statistics" role="tab" nav-link><span>Statistics</span></a></li>
-                                }
+                            </ul>
+                        </div>
+                    }
+                    else
+                    {
+                        <span class="bgt-feed-pill bgt-feed">
+                            <span class="bgt-feed-dot"></span>
+                            <span class="bgt-feed-name">@FeedContext.CurrentFeed.Name</span>
+                        </span>
+                    }
+                }
+
+                <nav class="bgt-nav" aria-label="Main">
+                    @if (showContent)
+                    {
+                        <a asp-area="" asp-page="/Index" class="@Active("/Index", "/Package")">Packages</a>
+                        @if (canPull)
+                        {
+                            <a asp-area="" asp-page="/Connect" nav-link>Connect</a>
+                        }
+                        @if (canPush)
+                        {
+                            <a asp-area="" asp-page="/Upload" nav-link>Upload</a>
+                        }
+                        @if (showStatistics)
+                        {
+                            <a asp-area="" asp-page="/Statistics" nav-link>Statistics</a>
+                        }
+                    }
+                    <a href="@DocsUrl" target="_blank" rel="noopener noreferrer">Docs &#x2197;</a>
+                </nav>
+                <div class="bgt-header-spacer"></div>
+
+                <button type="button" class="bgt-header-btn" data-theme-toggle title="Switch to dark mode" aria-label="Switch to dark mode">
+                    <icon name="moon" size="17" class="bgt-theme-dark-icon" />
+                    <icon name="sun" size="17" class="bgt-theme-light-icon" />
+                </button>
+
+                @if (showUser)
+                {
+                    <div class="dropdown bgt-user flex-shrink-0">
+                        <button type="button" class="bgt-user-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Account menu">
+                            <span class="bgt-avatar">@displayName.ToNameInitials()</span>
+                            <span class="bgt-user-name">@username</span>
+                            <icon name="chevron-down" size="12" />
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end bgt-user-menu">
+                            <li><a class="dropdown-item" href="@rootBase/Account/Tokens"><icon name="key" />My Tokens</a></li>
+                            @if (isAdmin)
+                            {
+                                <li><hr class="dropdown-divider" /></li>
+                                <li><a class="dropdown-item" href="@rootBase/Admin/Accounts"><icon name="users" />Accounts</a></li>
+                                <li><a class="dropdown-item" href="@rootBase/Admin/Groups"><icon name="group" />Groups</a></li>
+                                <li><a class="dropdown-item" href="@rootBase/Admin/Feeds"><icon name="database" />Feeds</a></li>
                             }
-                            <li role="presentation">
-                                <a role="tab" href="https://letreset.github.io/BaGetter/docs" target="_blank" rel="noopener noreferrer">
-                                    <span>Documentation</span>
-                                </a>
-                            </li>
-                        </ul>
-                        @await Html.PartialAsync("_LoginPartial")
-                        <ul class="nav navbar-nav navbar-right">
+                            <li><hr class="dropdown-divider" /></li>
                             <li>
-                                <button type="button" class="theme-toggle" data-theme-toggle title="Switch to dark mode" aria-label="Switch to dark mode">
-                                    <span class="ms-Icon ms-Icon--ClearNight theme-toggle-dark" aria-hidden="true"></span>
-                                    <span class="ms-Icon ms-Icon--Sunny theme-toggle-light" aria-hidden="true"></span>
-                                </button>
+                                <form asp-page="/Logout" method="post" id="logout-form">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="dropdown-item"><icon name="sign-out" />Sign out</button>
+                                </form>
                             </li>
                         </ul>
                     </div>
+                }
+                else if (requiresAuth)
+                {
+                    <a class="bgt-signin-link bgt-user" asp-page="/Login">Sign in</a>
+                }
+
+                <button type="button" class="bgt-header-btn bgt-hamburger" data-bs-toggle="collapse" data-bs-target="#bgt-drawer" aria-controls="bgt-drawer" aria-expanded="false" aria-label="Menu">
+                    <icon name="menu" size="20" class="bgt-open-icon" />
+                    <icon name="x" size="20" class="bgt-close-icon" />
+                </button>
+            </div>
+
+            <div id="bgt-drawer" class="collapse bgt-drawer">
+                <div class="bgt-drawer-inner">
+                    <nav class="bgt-drawer-nav" aria-label="Main">
+                        @if (showContent)
+                        {
+                            <a asp-area="" asp-page="/Index" class="@Active("/Index", "/Package")">Packages</a>
+                            @if (canPull)
+                            {
+                                <a asp-area="" asp-page="/Connect" nav-link>Connect</a>
+                            }
+                            @if (canPush)
+                            {
+                                <a asp-area="" asp-page="/Upload" nav-link>Upload</a>
+                            }
+                            @if (showStatistics)
+                            {
+                                <a asp-area="" asp-page="/Statistics" nav-link>Statistics</a>
+                            }
+                        }
+                        <a href="@DocsUrl" target="_blank" rel="noopener noreferrer">Documentation &#x2197;</a>
+                    </nav>
+                    @if (showUser)
+                    {
+                        <div class="bgt-drawer-divider"></div>
+                        <div class="bgt-drawer-user">
+                            <span class="bgt-avatar bgt-avatar-md">@displayName.ToNameInitials()</span>
+                            <div>
+                                <div class="bgt-drawer-user-name">@username</div>
+                                <div class="bgt-drawer-user-role">@(isAdmin ? "Administrator" : displayName)</div>
+                            </div>
+                        </div>
+                        <a href="@rootBase/Account/Tokens" class="@Active("/Account/Tokens")"><icon name="key" size="18" />My Tokens</a>
+                        @if (isAdmin)
+                        {
+                            <div class="bgt-drawer-divider"></div>
+                            <a href="@rootBase/Admin/Accounts" class="@Active("/Admin/Accounts")"><icon name="users" size="18" />Accounts</a>
+                            <a href="@rootBase/Admin/Groups" class="@Active("/Admin/Groups")"><icon name="group" size="18" />Groups</a>
+                            <a href="@rootBase/Admin/Feeds" class="@Active("/Admin/Feeds", "/Admin/FeedSettings")"><icon name="database" size="18" />Feeds</a>
+                        }
+                        <div class="bgt-drawer-divider"></div>
+                        <button type="submit" form="logout-form" class="bgt-drawer-item"><icon name="sign-out" size="18" />Sign out</button>
+                    }
+                    else if (requiresAuth)
+                    {
+                        <div class="bgt-drawer-divider"></div>
+                        <a asp-page="/Login">Sign in</a>
+                    }
                 </div>
             </div>
-            @if (showContent)
-            {
-                <div class="container search-container">
-                    <div class="row">
-                        <form class="col-sm-12" action="@Url.Page("/Index")" method="get">
-                            <div class="input-group">
-                                <input type="text"
-                                       name="q"
-                                       value="@ViewData["SearchQuery"]"
-                                       class="form-control"
-                                       autoComplete="off"
-                                       placeholder="Search packages..." />
+        </header>
 
-                                <span class="input-group-btn">
-                                    <button type="submit"
-                                            class="btn btn-default"
-                                            title="Search for packages">
-                                        <span class="ms-Icon ms-Icon--Search" aria-hidden="true"></span>
-                                    </button>
-                                </span>
-                            </div>
+        <main id="main" role="main" class="bgt-main">
+            @RenderBody()
+        </main>
 
-                            @await RenderSectionAsync("SearchForm", required: false)
-                        </form>
-                    </div>
+        <footer class="bgt-footer">
+            <div class="bgt-footer-inner">
+                <span>BaGetter @Version.Version</span>
+                <div class="bgt-footer-links">
+                    <a href="@DocsUrl" target="_blank" rel="noopener noreferrer">Documentation</a>
+                    <a href="https://github.com/letreset/BaGetter" target="_blank" rel="noopener noreferrer">GitHub</a>
+                    <a href="https://github.com/letreset/BaGetter/issues" target="_blank" rel="noopener noreferrer">Report an issue</a>
                 </div>
-            }
-        </nav>
-    </header>
-
-    <main role="main" class="container main-container">
-        @RenderBody()
-    </main>
-
-    <footer class="footer">
-        <p>
-            Version: @Version.Version
-        </p>
-        @Html.AddReleaseInformationAsComment()
-    </footer>
+            </div>
+            @Html.AddReleaseInformationAsComment()
+        </footer>
+    }
 
     <script src="~/_content/BaGetter.Web/lib/alpinejs/dist/alpine.js" asp-append-version="true"></script>
-
-    <script src="~/_content/BaGetter.Web/lib/jquery/dist/jquery.min.js" asp-append-version="true"></script>
-    <script src="~/_content/BaGetter.Web/lib/bootstrap/dist/js/bootstrap.min.js" asp-append-version="true"></script>
+    <script src="~/_content/BaGetter.Web/lib/bootstrap/dist/js/bootstrap.bundle.min.js" asp-append-version="true"></script>
     <script src="~/_content/BaGetter.Web/js/site.js" asp-append-version="true"></script>
 
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>
+
+@functions {
+    // "active" when the current Razor page is one of the given pages, for links that can't use nav-link.
+    private string Active(params string[] pages)
+    {
+        var current = ViewContext.RouteData.Values["page"] as string;
+        return pages.Contains(current, StringComparer.OrdinalIgnoreCase) ? "active" : null;
+    }
+}

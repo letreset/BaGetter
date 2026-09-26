@@ -73,7 +73,7 @@ public class NamedFeedTests : IDisposable
         await _app.CreateFeedAsync(FeedSlug);
 
         using var response = await _client.GetAsync(
-            $"feeds/{FeedSlug}/_content/BaGetter.Web/images/default-package-icon-256x256.png");
+            $"feeds/{FeedSlug}/_content/BaGetter.Web/images/bagetter-logo.svg");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }

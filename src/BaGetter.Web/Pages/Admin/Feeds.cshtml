@@ -4,163 +4,152 @@
 
 @{
     ViewData["Title"] = "Feed Management";
+
+    // Keep the create form open when its last submission failed.
+    var createFailed = !ViewData.ModelState.IsValid || (Model.NewSlug != null && Model.ErrorMessage != null);
+    var siteUrl = $"{Request.Scheme}://{Request.Host}{Request.PathBase}";
 }
 
-<div class="col-sm-12">
-    <h1>Feed Management</h1>
-    <hr class="breadcrumb-divider" />
+@await Html.PartialAsync("_AdminTabs", "Feeds")
 
-    @if (!string.IsNullOrEmpty(Model.SuccessMessage))
-    {
-        <div class="alert alert-success" role="alert">@Model.SuccessMessage</div>
-    }
+<div x-data="{ createOpen: @Json.Serialize(createFailed) }">
+    <div class="bgt-page-head">
+        <div>
+            <h1>Feeds</h1>
+            <p class="bgt-lead">Drag to reorder. The order drives the feed menu, and signed-in users land on the first feed they can access.</p>
+        </div>
+        <button type="button" class="btn btn-primary" @@click="createOpen = !createOpen" x-bind:aria-expanded="createOpen" aria-controls="create-feed">
+            <icon name="plus" size="15" />New feed
+        </button>
+    </div>
 
     @if (!string.IsNullOrEmpty(Model.ErrorMessage))
     {
         <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>
     }
 
-    <h3>Create feed</h3>
-    <form method="post" asp-page-handler="Create">
-        @Html.AntiForgeryToken()
-        <div class="row">
-            <div class="col-sm-6">
-                <div class="form-group">
-                    <label asp-for="NewSlug">Slug</label>
-                    <input asp-for="NewSlug" class="form-control" placeholder="e.g. internal, team-frontend" />
-                    <small class="text-muted">Lowercase alphanumeric and hyphens only. Cannot be changed after creation.</small>
+    <div id="create-feed" class="bgt-card bgt-card-body mb-3" x-show="createOpen" @(createFailed ? null : "x-cloak")>
+        <h2 class="bgt-card-title">Create feed</h2>
+        <form method="post" asp-page-handler="Create">
+            @Html.AntiForgeryToken()
+            <div class="bgt-form-grid" style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr))">
+                <div>
+                    <label asp-for="NewSlug" class="form-label">Slug</label>
+                    @* Lowercases and drops characters a slug can't have while typing; the server validates again. *@
+                    <input asp-for="NewSlug" class="form-control mono" placeholder="e.g. team-frontend" autocomplete="off"
+                           oninput="var p = this.selectionStart - (this.value.length - this.value.replace(/[^a-zA-Z0-9-]/g, '').length); var v = this.value.toLowerCase().replace(/[^a-z0-9-]/g, ''); if (v !== this.value) { this.value = v; this.setSelectionRange(p, p); }" />
+                    <div class="form-text">Lowercase letters, numbers and hyphens. Can't be changed later.</div>
                     <span asp-validation-for="NewSlug" class="text-danger"></span>
                 </div>
-                <div class="form-group">
-                    <label asp-for="NewName">Display Name</label>
-                    <input asp-for="NewName" class="form-control" />
+                <div>
+                    <label asp-for="NewName" class="form-label">Display name</label>
+                    <input asp-for="NewName" class="form-control" autocomplete="off" />
                     <span asp-validation-for="NewName" class="text-danger"></span>
                 </div>
-                <div class="form-group">
-                    <label asp-for="NewDescription">Description</label>
-                    <input asp-for="NewDescription" class="form-control" />
+                <div>
+                    <label asp-for="NewDescription" class="form-label">Description</label>
+                    <input asp-for="NewDescription" class="form-control" autocomplete="off" />
                 </div>
-                <button type="submit" class="btn btn-primary">Create Feed</button>
             </div>
-        </div>
-    </form>
+            <div class="bgt-form-actions">
+                <button type="button" class="btn btn-secondary" @@click="createOpen = false">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create feed</button>
+            </div>
+        </form>
+    </div>
+</div>
 
-    <h3 style="margin-top: 32px">Existing feeds</h3>
+<div class="bgt-card bgt-card-clip">
     @if (Model.Feeds.Count == 0)
     {
-        <p>No feeds found.</p>
+        <div class="bgt-empty-row">No feeds found.</div>
     }
     else
     {
-        <p class="text-muted">
-            Drag the <span class="glyphicon glyphicon-menu-hamburger" aria-hidden="true"></span> handle to reorder feeds.
-            The order is saved automatically and controls the feed list in the navigation dropdown.
-            When a signed-in user opens the site, they are redirected to the first feed in this order
-            that they have permission to access.
-        </p>
-        <div class="table-responsive">
-        <table class="table table-striped data-table" id="feeds-table">
-            <thead>
-                <tr>
-                    <th style="width:1%"></th>
-                    <th>Slug</th>
-                    <th>Name</th>
-                    <th>Description</th>
-                    <th>Created</th>
-                    <th style="width:1%"></th>
-                </tr>
-            </thead>
-                @foreach (var feed in Model.Feeds)
-                {
-                    var isDefault = feed.Slug == Feed.DefaultSlug;
-                    <tbody class="feed-group" data-feed-id="@feed.Id">
-                    <tr>
-                        <td class="drag-handle-cell"><span class="glyphicon glyphicon-menu-hamburger drag-handle" title="Drag to reorder" aria-hidden="true"></span></td>
-                        <td class="text-nowrap">
-                            @feed.Slug
-                            @if (isDefault)
-                            {
-                                <span class="label label-default label-primary">default</span>
-                            }
-                        </td>
-                        <td>@feed.Name</td>
-                        <td>@feed.Description</td>
-                        <td class="text-nowrap">@Html.DisplayDate(feed.CreatedAtUtc)</td>
-                        <td class="cell-actions">
-                            <div class="row-actions">
-                                <a asp-page="/Admin/FeedSettings" asp-route-slug="@feed.Slug" class="btn btn-sm btn-icon btn-icon-slate" title="Settings" aria-label="Settings">
-                                    <span class="ms-Icon ms-Icon--Settings" aria-hidden="true"></span>
-                                </a>
-                                <button type="button"
-                                        class="btn btn-sm btn-icon btn-icon-blue"
-                                        data-toggle="collapse"
-                                        data-target="#edit-@feed.Id"
-                                        aria-expanded="false"
-                                        aria-controls="edit-@feed.Id"
-                                        title="Edit details"
-                                        aria-label="Edit details">
-                                    <span class="ms-Icon ms-Icon--Rename" aria-hidden="true"></span>
-                                </button>
-                                @if (!isDefault)
+        <div class="bgt-cols-head bgt-desktop-only" style="padding-left: 52px" aria-hidden="true">
+            <span style="flex: 1 1 280px">Feed</span>
+            <span style="flex: 0 0 100px">Created</span>
+            <span style="flex: 0 0 170px"></span>
+        </div>
+        <div id="feed-list">
+            @foreach (var feed in Model.Feeds)
+            {
+                var isDefault = feed.Slug == Feed.DefaultSlug;
+                var serviceIndexUrl = $"{siteUrl}/feeds/{feed.Slug}/v3/index.json";
+                <div class="bgt-feed-item" data-feed-id="@feed.Id">
+                    <div class="bgt-feed-row">
+                        <div class="bgt-feed-main">
+                            <span class="bgt-grip" title="Drag to reorder" aria-hidden="true"><icon name="grip" size="14" /></span>
+                            <div style="min-width: 0">
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <span class="bgt-feed-name">@feed.Name</span>
+                                    <span class="bgt-slug">@feed.Slug</span>
+                                    @if (isDefault)
+                                    {
+                                        <span class="bgt-badge bgt-badge-solid">default</span>
+                                    }
+                                </div>
+                                @if (!string.IsNullOrEmpty(feed.Description))
                                 {
-                                    <form method="post" asp-page-handler="Delete"
-                                          data-confirm="@($"Are you sure you want to delete feed '{feed.Slug}'? All packages in this feed will be removed.")">
-                                        @Html.AntiForgeryToken()
-                                        <input type="hidden" name="feedId" value="@feed.Id" />
-                                        <button type="submit" class="btn btn-sm btn-icon btn-icon-red" title="Delete" aria-label="Delete">
-                                            <span class="ms-Icon ms-Icon--Delete" aria-hidden="true"></span>
-                                        </button>
-                                    </form>
+                                    <div class="bgt-feed-desc">@feed.Description</div>
                                 }
                             </div>
-                        </td>
-                    </tr>
-                    <tr class="feed-edit-row">
-                        <td colspan="6" class="feed-edit-cell">
-                            <div id="edit-@feed.Id" class="collapse feed-edit-panel">
-                                <form method="post" asp-page-handler="Edit">
+                        </div>
+                        <span class="bgt-feed-created">@Html.DisplayDate(feed.CreatedAtUtc)</span>
+                        <div class="bgt-feed-actions">
+                            <a asp-page="/Admin/FeedSettings" asp-route-slug="@feed.Slug" class="btn btn-secondary btn-sm">Settings</a>
+                            <button type="button" class="btn btn-secondary btn-icon" data-copy="@serviceIndexUrl"
+                                    title="Copy service index URL" aria-label="Copy the service index URL of @feed.Name">
+                                <icon name="link" size="14" /><span class="bgt-copy-label visually-hidden">Copy</span>
+                            </button>
+                            @if (!isDefault)
+                            {
+                                <form method="post" asp-page-handler="Delete"
+                                      data-confirm="@($"Are you sure you want to delete feed '{feed.Slug}'? All packages in this feed will be removed.")">
                                     @Html.AntiForgeryToken()
-                                    <input type="hidden" name="EditSlug" value="@feed.Slug" />
-                                    <div class="form-group">
-                                        <label>Display Name</label>
-                                        <input type="text" name="EditName" class="form-control input-sm" value="@feed.Name" style="max-width:400px" required maxlength="256" />
-                                    </div>
-                                    <div class="form-group">
-                                        <label>Description</label>
-                                        <input type="text" name="EditDescription" class="form-control input-sm" value="@feed.Description" style="max-width:400px" maxlength="4000" />
-                                    </div>
-                                    <button type="submit" class="btn btn-sm btn-primary">Save</button>
+                                    <input type="hidden" name="feedId" value="@feed.Id" />
+                                    <button type="submit" class="btn btn-outline-danger btn-icon" title="Delete feed" aria-label="Delete feed @feed.Name">
+                                        <icon name="trash" size="14" />
+                                    </button>
                                 </form>
-                            </div>
-                        </td>
-                    </tr>
-                    </tbody>
-                }
-        </table>
+                            }
+                            else
+                            {
+                                <span style="width: 36px" aria-hidden="true"></span>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
         </div>
     }
 </div>
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="bgt-toast" role="status"><icon name="check" />@Model.SuccessMessage</div>
+}
 
 @section Scripts {
     <script src="~/_content/BaGetter.Web/lib/sortablejs/Sortable.min.js" asp-append-version="true"></script>
     <script>
         (function () {
-            var table = document.getElementById('feeds-table');
-            if (!table) return;
+            var list = document.getElementById('feed-list');
+            if (!list) return;
 
             var tokenInput = document.querySelector('input[name="__RequestVerificationToken"]');
             var token = tokenInput ? tokenInput.value : '';
 
-            new Sortable(table, {
-                draggable: 'tbody.feed-group',
-                handle: '.drag-handle',
+            new Sortable(list, {
+                draggable: '.bgt-feed-item',
+                handle: '.bgt-grip',
                 animation: 150,
                 onEnd: function (evt) {
                     if (evt.oldIndex === evt.newIndex) return;
 
                     var order = [];
-                    table.querySelectorAll('tbody.feed-group').forEach(function (g) {
-                        order.push(g.getAttribute('data-feed-id'));
+                    list.querySelectorAll('.bgt-feed-item').forEach(function (item) {
+                        order.push(item.getAttribute('data-feed-id'));
                     });
 
                     fetch(window.location.pathname + '?handler=Reorder', {
