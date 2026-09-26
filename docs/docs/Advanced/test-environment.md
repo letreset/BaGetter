@@ -49,6 +49,8 @@ These credentials exist only in the test data. Never use them for a real server.
 | Experimental | Prerelease packages (Contoso.Messaging 1.1.0-beta.2, Contoso.Preview.Ai) | Hard delete, keep at most 5 prerelease versions |
 | Archive | Contoso.Legacy | Read-only |
 
+Some versions have been downloaded a few times (Contoso.Core and Contoso.Logging the most), so download counts and the statistics page have data.
+
 | Group | Members | Permissions |
 |---|---|---|
 | Developers | alice, bob, carol | Pull on Default, Internal and Archive; pull, push and delete on Experimental |

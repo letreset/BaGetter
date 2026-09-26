@@ -50,6 +50,23 @@ const groups = [
     },
 ];
 
+// Downloads per version, so the download counts and the statistics page aren't all zero:
+// [feed, id, version, downloads].
+const downloads = [
+    ['internal', 'Contoso.Core', '2.0.0', 42],
+    ['internal', 'Contoso.Core', '1.1.0', 8],
+    ['internal', 'Contoso.Logging', '2.0.0', 35],
+    ['internal', 'Contoso.Logging', '1.5.0', 12],
+    ['internal', 'Contoso.Testing', '5.0.0', 22],
+    ['internal', 'Contoso.Http.Resilience', '3.2.0', 18],
+    ['internal', 'Contoso.Configuration', '2.3.1', 15],
+    ['internal', 'Contoso.Messaging', '1.0.0', 9],
+    ['internal', 'Contoso.Data', '1.2.0', 6],
+    ['internal', 'Contoso.Security', '4.0.0', 4],
+    ['experimental', 'Contoso.Preview.Ai', '0.1.0-alpha.2', 3],
+    ['archive', 'Contoso.Legacy', '1.0.0', 2],
+];
+
 // Test packages: [id, description, tags, versions, options]. Order matters for dependencies.
 const packages = [
     ['Contoso.Core', 'Shared primitives used by all Contoso libraries.', 'core primitives', ['1.0.0', '1.1.0', '2.0.0']],
@@ -206,6 +223,18 @@ async function seedServer() {
         method: 'DELETE', headers: { authorization: 'Basic ' + Buffer.from(`${admin.username}:${admin.password}`).toString('base64') },
     });
     console.log(`unlist Contoso.Logging 1.4.0 ${unlist.status}`);
+
+    // Every package download counts once.
+    for (const [feed, id, version, count] of downloads) {
+        const lower = id.toLowerCase();
+        const url = `${baseUrl}/feeds/${feed}/v3/package/${lower}/${version}/${lower}.${version}.nupkg`;
+        for (let i = 0; i < count; i++) {
+            const res = await fetch(url, { headers: { authorization: 'Basic ' + Buffer.from(`${admin.username}:${admin.password}`).toString('base64') } });
+            await res.arrayBuffer();
+            if (res.status !== 200) throw new Error(`Download of ${id} ${version} from ${feed} failed with ${res.status}.`);
+        }
+        console.log(`download ${feed} ${id} ${version} x${count}`);
+    }
 
     // Feed settings last, so the pushes above aren't blocked by read-only mode.
     const settings = (slug, name, description, overrides = {}, mirrors = []) => {
