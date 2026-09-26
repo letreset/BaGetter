@@ -31,7 +31,7 @@ For every page you open, the browser console should show no errors.
 | N2 | `carol` | Look at the tabs on Internal | Packages, Connect, Statistics. No Upload (no push permission) |
 | N3 | `carol` | Look at the tabs on Experimental | Packages, Connect, Upload, Statistics |
 | N4 | `carol` | Open `/Admin/Feeds` | Redirected to the package list |
-| N5 | `admin` | Open **Statistics** on Internal | 22 packages, 28 versions (including the unlisted one), and the services in use |
+| N5 | `admin` | Open **Statistics** on Internal | 22 packages, 28 versions (including the unlisted one), "28 stable, 0 prerelease (1 unlisted)", 171 total downloads, the stored package size and the services in use. **Most downloaded** starts with Contoso.Core (50), Contoso.Logging (47), Contoso.Testing (22); **Recently published** lists 10 versions, newest first, without Contoso.Logging 1.4.0 |
 | N6 | `admin` | Open `/feeds/nope/` | 404 |
 
 ## Package list, search and filters
@@ -65,7 +65,7 @@ For every page you open, the browser console should show no errors.
 | P11 | `admin` | Contoso.Logging > **CPM** and **Cake** tabs, copy each | One line per entry (`PackageVersion` and `PackageReference`; `#addin` and `#tool`), and the copied text has the same lines. **Package Manager** shows `NuGet\Install-Package Contoso.Logging -Version 2.0.0` |
 | P12 | `admin` | Experimental > Contoso.Preview.Ai > **Cake** tab | Both lines end with `&prerelease` (no `&amp;`) |
 | P13 | `admin` | Experimental > Contoso.Preview.Ai, then Internal > Contoso.Logging | "This is a prerelease version of Contoso.Preview.Ai." under the install box; no such note on Contoso.Logging |
-| P14 | `admin` | Statistics of Contoso.Logging | A "per day average" line next to the total downloads |
+| P14 | `admin` | Statistics of Contoso.Logging | 47 total downloads, 35 of the current version, and a "per day average" line |
 | P15 | `admin` | Default > `/packages/Newtonsoft.Json` (needs internet), clear **Include prerelease** | Only the prerelease rows disappear, the remaining stable versions are all shown (no 5-row cap) and **Show more** is hidden; ticking it again restores the list. Contoso.Logging (no prereleases) has no checkbox |
 | P16 | `admin` | Info of Internal > Contoso.Logging (on an image with this change the startup backfill fills the snapshot's packages) | The license link reads "MIT license" and opens `https://licenses.nuget.org/MIT`; **Download package** is followed by the size, e.g. "(8.21 KB)" |
 | P17 | `carol` | Pack a package with `<Copyright>Copyright (c) Contoso</Copyright>` and push it to Experimental, then open it | A **Copyright** section in the sidebar with that text |
