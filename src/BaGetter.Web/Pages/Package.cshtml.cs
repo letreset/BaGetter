@@ -35,6 +35,7 @@ public class PackageModel : PageModel
     private readonly IFeedContext _feedContext;
     private readonly IPermissionService _permissions;
     private readonly IPackageDeletionService _deletionService;
+    private readonly IFeedSettingsResolver _feedSettings;
     private readonly IOptionsSnapshot<NugetAuthenticationOptions> _authOptions;
 
     static PackageModel()
@@ -52,6 +53,7 @@ public class PackageModel : PageModel
         IFeedContext feedContext,
         IPermissionService permissions,
         IPackageDeletionService deletionService,
+        IFeedSettingsResolver feedSettings,
         IOptionsSnapshot<NugetAuthenticationOptions> authOptions)
     {
         _packages = packages ?? throw new ArgumentNullException(nameof(packages));
@@ -61,6 +63,7 @@ public class PackageModel : PageModel
         _feedContext = feedContext ?? throw new ArgumentNullException(nameof(feedContext));
         _permissions = permissions ?? throw new ArgumentNullException(nameof(permissions));
         _deletionService = deletionService ?? throw new ArgumentNullException(nameof(deletionService));
+        _feedSettings = feedSettings ?? throw new ArgumentNullException(nameof(feedSettings));
         _authOptions = authOptions ?? throw new ArgumentNullException(nameof(authOptions));
     }
 
@@ -71,6 +74,16 @@ public class PackageModel : PageModel
     /// Unlist and Delete buttons on the page. False in Config mode and for anonymous users.
     /// </summary>
     public bool CanDelete { get; private set; }
+
+    /// <summary>
+    /// Whether the feed is in read-only mode. Unlist, relist and delete are refused then.
+    /// </summary>
+    public bool IsReadOnly { get; private set; }
+
+    /// <summary>
+    /// Whether the Manage section and the Relist links are shown.
+    /// </summary>
+    public bool CanManage => CanDelete && !IsReadOnly;
 
     public Package Package { get; private set; }
 
@@ -101,6 +114,7 @@ public class PackageModel : PageModel
 
         CanDelete = await FeedAccessGuard.CanDeleteFromCurrentFeedAsync(
             HttpContext, _feedContext, _permissions, _authOptions.Value.Mode, cancellationToken);
+        IsReadOnly = _feedSettings.GetIsReadOnlyMode(_feedContext.CurrentFeed);
 
         var packages = await _packages.FindPackagesAsync(_feedContext.CurrentFeed.Id, id, cancellationToken);
         var listedPackages = packages.Where(p => p.Listed).ToList();
@@ -162,6 +176,9 @@ public class PackageModel : PageModel
     {
         if (!NuGetVersion.TryParse(version, out var nugetVersion)) return NotFound();
 
+        if (_feedSettings.GetIsReadOnlyMode(_feedContext.CurrentFeed))
+            return StatusCode(StatusCodes.Status403Forbidden);
+
         if (!await CanDeleteCurrentFeedAsync(cancellationToken))
             return StatusCode(StatusCodes.Status403Forbidden);
 
@@ -174,6 +191,9 @@ public class PackageModel : PageModel
     {
         if (!NuGetVersion.TryParse(version, out var nugetVersion)) return NotFound();
 
+        if (_feedSettings.GetIsReadOnlyMode(_feedContext.CurrentFeed))
+            return StatusCode(StatusCodes.Status403Forbidden);
+
         if (!await CanDeleteCurrentFeedAsync(cancellationToken))
             return StatusCode(StatusCodes.Status403Forbidden);
 
@@ -185,6 +205,9 @@ public class PackageModel : PageModel
     public async Task<IActionResult> OnPostDeleteAsync(string id, string version, CancellationToken cancellationToken)
     {
         if (!NuGetVersion.TryParse(version, out var nugetVersion)) return NotFound();
+
+        if (_feedSettings.GetIsReadOnlyMode(_feedContext.CurrentFeed))
+            return StatusCode(StatusCodes.Status403Forbidden);
 
         if (!await CanDeleteCurrentFeedAsync(cancellationToken))
             return StatusCode(StatusCodes.Status403Forbidden);

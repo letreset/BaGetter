@@ -204,7 +204,7 @@ else
                                         @if (!version.Listed)
                                         {
                                             <span class="text-muted" style="margin-left:6px;">(unlisted)</span>
-                                            @if (Model.CanDelete)
+                                            @if (Model.CanManage)
                                             {
                                                 <form method="post" asp-page-handler="Relist"
                                                       asp-route-id="@Model.Package.Id"
@@ -315,7 +315,7 @@ else
                 </div>
             }
 
-            @if (Model.CanDelete)
+            @if (Model.CanManage)
             {
                 <div>
                     <h2>Manage</h2>

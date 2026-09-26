@@ -34,7 +34,7 @@ Open **Admin > Feeds > Settings** for a feed (`/Admin/Feeds/{slug}/Settings`). E
 
 | Setting | Global setting | Description |
 |---|---|---|
-| Read-only mode | `IsReadOnlyMode` | Reject pushes and deletes on this feed |
+| Read-only mode | `IsReadOnlyMode` | Reject pushes, deletes and relists on this feed, from NuGet clients and from the web UI |
 | Package overwrite policy | `AllowPackageOverwrites` | Disallow (recommended), prerelease only, or allow all. See [package overwrites](configuration.md#enable-package-overwrites). |
 | Deletion behavior | `PackageDeletionBehavior` | Unlist (recommended) or hard delete. See [hard deletions](configuration.md#enable-package-hard-deletions). |
 | Max package size (GiB) | `MaxPackageSizeGiB` | Largest package or symbol package this feed accepts, at least 1. It can only lower the global value, which caps every request; larger pushes get `413 Payload Too Large` |

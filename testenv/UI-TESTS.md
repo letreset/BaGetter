@@ -68,7 +68,7 @@ For every page you open, the browser console should show no errors.
 | M1 | `admin` | Contoso.Logging 1.4.0 > **Relist** | 1.4.0 is listed again; **Unlist** it again afterwards |
 | M2 | `alice` | Internal > Contoso.Testing > **Unlist**, then **Relist** | Both work (Package owners have delete on Internal) |
 | M3 | `carol` | Experimental > Contoso.Preview.Ai 0.1.0-alpha.1 > **Delete** | Confirmation, then the version is gone |
-| M4 | `admin` | Archive (read-only) > Contoso.Legacy > **Unlist** | Refused. **Known issue** [#38](https://github.com/letreset/BaGetter/issues/38): the version is unlisted |
+| M4 | `admin` | Archive (read-only) > Contoso.Legacy > **Unlist** | No Manage section and no Relist links; a crafted Unlist POST returns 403 and the version stays listed |
 | M5 | `admin` | Do M1, then check the container log (`docker compose -f testenv/docker-compose.yml logs bagetter`) | An `AUDIT package_relist_succeeded` line. **Known issue** [#39](https://github.com/letreset/BaGetter/issues/39) |
 
 ## Connect and Upload

@@ -32,6 +32,7 @@ public class PackageModelFacts
     private readonly Mock<ISearchService> _search;
     private readonly Mock<IUrlGenerator> _url;
     private readonly Mock<IFeedContext> _feedContext;
+    private readonly Mock<IFeedSettingsResolver> _feedSettings = new();
     private readonly PackageModel _target;
 
     private readonly CancellationToken _cancellation = CancellationToken.None;
@@ -63,6 +64,7 @@ public class PackageModelFacts
             _feedContext.Object,
             permissions.Object,
             deletionService.Object,
+            _feedSettings.Object,
             authOptions.Object);
 
         _search
@@ -406,7 +408,7 @@ public class PackageModelFacts
 
         var target = new PackageModel(
             _packages.Object, _content.Object, _search.Object, _url.Object,
-            _feedContext.Object, permissions.Object, new Mock<IPackageDeletionService>().Object, authOptions.Object);
+            _feedContext.Object, permissions.Object, new Mock<IPackageDeletionService>().Object, _feedSettings.Object, authOptions.Object);
 
         var principal = new ClaimsPrincipal(new ClaimsIdentity(
             new[] { new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()) }, "TestAuth"));
@@ -419,6 +421,67 @@ public class PackageModelFacts
         Assert.Equal(3, target.Versions.Count);
         var unlisted = Assert.Single(target.Versions, v => !v.Listed);
         Assert.Equal("2.0.0", unlisted.Version.OriginalVersion);
+    }
+
+    [Fact]
+    public async Task HidesManageActionsOnReadOnlyFeed()
+    {
+        _packages
+            .Setup(m => m.FindPackagesAsync(It.IsAny<Guid>(), "testpackage", _cancellation))
+            .ReturnsAsync(new List<Package> { CreatePackage("1.0.0"), CreatePackage("2.0.0", listed: false) });
+        _feedSettings.Setup(s => s.GetIsReadOnlyMode(It.IsAny<Feed>())).Returns(true);
+        var (target, _) = CreateManagerTarget();
+
+        await target.OnGetAsync("testpackage", "1.0.0", _cancellation);
+
+        Assert.True(target.CanDelete);
+        Assert.True(target.IsReadOnly);
+        Assert.False(target.CanManage);
+    }
+
+    [Theory]
+    [InlineData("Unlist")]
+    [InlineData("Relist")]
+    [InlineData("Delete")]
+    public async Task RefusesManageActionsOnReadOnlyFeed(string handler)
+    {
+        _feedSettings.Setup(s => s.GetIsReadOnlyMode(It.IsAny<Feed>())).Returns(true);
+        var (target, deletion) = CreateManagerTarget();
+
+        var result = handler switch
+        {
+            "Unlist" => await target.OnPostUnlistAsync("testpackage", "1.0.0", _cancellation),
+            "Relist" => await target.OnPostRelistAsync("testpackage", "1.0.0", _cancellation),
+            _ => await target.OnPostDeleteAsync("testpackage", "1.0.0", _cancellation),
+        };
+
+        Assert.Equal(403, Assert.IsType<StatusCodeResult>(result).StatusCode);
+        Assert.Empty(deletion.Invocations);
+    }
+
+    /// <summary>
+    /// A page model for a signed-in user with pull and delete permission in Entra mode.
+    /// </summary>
+    private (PackageModel Target, Mock<IPackageDeletionService> Deletion) CreateManagerTarget()
+    {
+        var permissions = new Mock<IPermissionService>();
+        permissions.Setup(p => p.CanPullAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), _cancellation)).ReturnsAsync(true);
+        permissions.Setup(p => p.CanDeleteAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), _cancellation)).ReturnsAsync(true);
+
+        var authOptions = new Mock<IOptionsSnapshot<NugetAuthenticationOptions>>();
+        authOptions.Setup(o => o.Value).Returns(new NugetAuthenticationOptions { Mode = AuthenticationMode.Entra });
+
+        var deletion = new Mock<IPackageDeletionService>();
+        var target = new PackageModel(
+            _packages.Object, _content.Object, _search.Object, _url.Object,
+            _feedContext.Object, permissions.Object, deletion.Object, _feedSettings.Object, authOptions.Object);
+
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(
+            new[] { new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()) }, "TestAuth"));
+        target.PageContext = new PageContext(new ActionContext(
+            new DefaultHttpContext { User = principal }, new RouteData(), new PageActionDescriptor()));
+
+        return (target, deletion);
     }
 
     private Package CreatePackage(
