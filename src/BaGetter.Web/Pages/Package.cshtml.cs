@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -16,6 +15,7 @@ using BaGetter.Core.Indexing;
 using BaGetter.Core.Search;
 using BaGetter.Web.Audit;
 using BaGetter.Web.Authentication;
+using BaGetter.Web.Extensions;
 using BaGetter.Web.Helper;
 using Markdig;
 using Microsoft.AspNetCore.Html;
@@ -254,7 +254,7 @@ public class PackageModel : PageModel
             LicenseText = Package.LicenseExpression + " license";
         }
 
-        PackageSize = Package.Size.HasValue ? FormatSize(Package.Size.Value) : null;
+        PackageSize = Package.Size?.ToFileSize();
         PackageDownloadUrl = _url.GetPackageDownloadUrl(Package.Id, packageVersion);
 
         return Page();
@@ -339,24 +339,6 @@ public class PackageModel : PageModel
     private static bool IsLocal(Package package)
     {
         return package.Key != 0;
-    }
-
-    /// <summary>
-    /// Formats a size with binary units and the invariant culture, e.g. "812 B", "2.43 MB".
-    /// </summary>
-    private static string FormatSize(long bytes)
-    {
-        string[] units = ["B", "KB", "MB", "GB", "TB"];
-
-        double size = bytes;
-        var unit = 0;
-        while (size >= 1024 && unit < units.Length - 1)
-        {
-            size /= 1024;
-            unit++;
-        }
-
-        return size.ToString("0.##", CultureInfo.InvariantCulture) + " " + units[unit];
     }
 
     /// <summary>

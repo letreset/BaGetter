@@ -20,4 +20,22 @@ public static class RazorExtensions
             CultureInfo.CurrentCulture = culture;
         }
     }
+
+    /// <summary>
+    /// Formats a size with binary units and the invariant culture, e.g. "812 B", "2.43 MB".
+    /// </summary>
+    public static string ToFileSize(this long bytes)
+    {
+        string[] units = ["B", "KB", "MB", "GB", "TB"];
+
+        double size = bytes;
+        var unit = 0;
+        while (size >= 1024 && unit < units.Length - 1)
+        {
+            size /= 1024;
+            unit++;
+        }
+
+        return size.ToString("0.##", CultureInfo.InvariantCulture) + " " + units[unit];
+    }
 }
