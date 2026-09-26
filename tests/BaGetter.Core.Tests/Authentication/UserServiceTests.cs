@@ -5,6 +5,7 @@ using BaGetter.Core.Authentication;
 using BaGetter.Core.Configuration;
 using BaGetter.Core.Entities;
 using BaGetter.Core.Tests.Support;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
@@ -60,14 +61,11 @@ public class UserServiceTests
         }
 
         [Fact]
-        public async Task PrefersExactMatchWhenNamesDifferOnlyInCase()
+        public async Task StoresNoNamesThatDifferOnlyInCase()
         {
             await CreateLocalUser("alice");
-            var upper = await CreateLocalUser("ALICE");
 
-            var result = await Target.FindByUsernameAsync("ALICE", Ct);
-
-            Assert.Equal(upper.Id, result?.Id);
+            await Assert.ThrowsAsync<DbUpdateException>(() => CreateLocalUser("ALICE"));
         }
     }
 

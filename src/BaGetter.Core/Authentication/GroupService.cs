@@ -30,13 +30,8 @@ public partial class GroupService : IGroupService
         if (name == null) return null;
 
         // Case-insensitive on every database, like usernames (see UserService.FindByUsernameAsync).
-        var lowered = name.ToLowerInvariant();
-        return await _context.Groups
-#pragma warning disable CA1862 // EF Core can't translate string.Equals with a StringComparison to SQL.
-            .Where(g => g.Name == name || g.Name.ToLower() == lowered)
-#pragma warning restore CA1862
-            .OrderByDescending(g => g.Name == name)
-            .FirstOrDefaultAsync(cancellationToken);
+        var normalized = Group.NormalizeName(name);
+        return await _context.Groups.FirstOrDefaultAsync(g => g.NormalizedName == normalized, cancellationToken);
     }
 
     public async Task<Group> FindByAppRoleValueAsync(string appRoleValue, CancellationToken cancellationToken)

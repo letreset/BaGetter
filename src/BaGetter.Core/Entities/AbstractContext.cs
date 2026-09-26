@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using BaGetter.Core.Entities.Converters;
@@ -35,6 +38,11 @@ public abstract class AbstractContext<TContext> : DbContext, IContext where TCon
     public const int MaxAppRoleValueLength = 128;
     public const int MaxFeedIdLength = 128;
 
+    /// <summary>
+    /// The name suffix of the migration that adds the normalized username and group name columns.
+    /// </summary>
+    public const string NormalizedNamesMigrationSuffix = "_AddNormalizedUserAndGroupNames";
+
     protected AbstractContext(DbContextOptions<TContext> efOptions)
         : base(efOptions)
     { }
@@ -54,7 +62,68 @@ public abstract class AbstractContext<TContext> : DbContext, IContext where TCon
     public Task<int> SaveChangesAsync() => SaveChangesAsync(default);
 
     public virtual async Task RunMigrationsAsync(CancellationToken cancellationToken)
-        => await Database.MigrateAsync(cancellationToken);
+    {
+        // The migration that makes usernames and group names unique regardless of case fills the
+        // normalized columns with SQL UPPER(), which only folds ASCII on some databases. Names that
+        // differ only in case are reported before it runs, and the columns are normalized in .NET after.
+        var pending = await Database.GetPendingMigrationsAsync(cancellationToken);
+        var addsNormalizedNames = pending.Any(m => m.EndsWith(NormalizedNamesMigrationSuffix, StringComparison.Ordinal))
+            && (await Database.GetAppliedMigrationsAsync(cancellationToken)).Any();
+
+        if (addsNormalizedNames)
+        {
+            await ThrowOnNamesDifferingOnlyInCaseAsync(cancellationToken);
+        }
+
+        await Database.MigrateAsync(cancellationToken);
+
+        if (addsNormalizedNames)
+        {
+            await NormalizeNamesAsync(cancellationToken);
+        }
+    }
+
+    private async Task ThrowOnNamesDifferingOnlyInCaseAsync(CancellationToken cancellationToken)
+    {
+        var usernames = await Users.Select(u => u.Username).ToListAsync(cancellationToken);
+        var groupNames = await Groups.Select(g => g.Name).ToListAsync(cancellationToken);
+
+        var conflicts = FindConflicts("Usernames", usernames, User.NormalizeUsername)
+            .Concat(FindConflicts("Group names", groupNames, Group.NormalizeName))
+            .ToList();
+
+        if (conflicts.Count > 0)
+        {
+            throw new InvalidOperationException(
+                "Usernames and group names must be unique regardless of case. Rename or delete all but one of each of these, " +
+                "then start BaGetter again: " + string.Join("; ", conflicts) + ".");
+        }
+    }
+
+    private static IEnumerable<string> FindConflicts(string kind, IEnumerable<string> names, Func<string, string> normalize)
+    {
+        return names
+            .GroupBy(normalize)
+            .Where(g => g.Count() > 1)
+            .Select(g => $"{kind} {string.Join(", ", g.Select(n => $"'{n}'"))}");
+    }
+
+    private async Task NormalizeNamesAsync(CancellationToken cancellationToken)
+    {
+        foreach (var user in await Users.ToListAsync(cancellationToken))
+        {
+            var normalized = User.NormalizeUsername(user.Username);
+            if (user.NormalizedUsername != normalized) user.NormalizedUsername = normalized;
+        }
+
+        foreach (var group in await Groups.ToListAsync(cancellationToken))
+        {
+            var normalized = Group.NormalizeName(group.Name);
+            if (group.NormalizedName != normalized) group.NormalizedName = normalized;
+        }
+
+        await SaveChangesAsync(cancellationToken);
+    }
 
     public abstract bool IsUniqueConstraintViolationException(DbUpdateException exception);
 
@@ -231,12 +300,15 @@ public abstract class AbstractContext<TContext> : DbContext, IContext where TCon
     private void BuildUserEntity(EntityTypeBuilder<User> user)
     {
         user.HasKey(u => u.Id);
-        user.HasIndex(u => u.Username).IsUnique();
+        user.HasIndex(u => u.NormalizedUsername).IsUnique();
         user.HasIndex(u => u.EntraObjectId).IsUnique();
 
         user.Property(u => u.Username)
             .HasMaxLength(MaxUsernameLength)
             .IsRequired();
+
+        user.Property(u => u.NormalizedUsername)
+            .HasMaxLength(MaxUsernameLength);
 
         user.Property(u => u.DisplayName)
             .HasMaxLength(MaxDisplayNameLength)
@@ -314,11 +386,14 @@ public abstract class AbstractContext<TContext> : DbContext, IContext where TCon
     private void BuildGroupEntity(EntityTypeBuilder<Group> group)
     {
         group.HasKey(g => g.Id);
-        group.HasIndex(g => g.Name).IsUnique();
+        group.HasIndex(g => g.NormalizedName).IsUnique();
 
         group.Property(g => g.Name)
             .HasMaxLength(MaxGroupNameLength)
             .IsRequired();
+
+        group.Property(g => g.NormalizedName)
+            .HasMaxLength(MaxGroupNameLength);
 
         group.Property(g => g.AppRoleValue)
             .HasMaxLength(MaxAppRoleValueLength);

@@ -84,6 +84,10 @@ Some PostgreSQL databases created by BaGet or upstream BaGetter still have `Pack
 
 If the log says `Cannot convert "Packages"."Version" to citext`, the database has versions of the same package that only differ by case. Delete one of each pair and start BaGetter again.
 
+### Usernames and group names are unique regardless of case
+
+Usernames and group names have always been looked up case-insensitively, but on SQLite and PostgreSQL the database itself allowed `alice` and `ALICE` side by side. A migration now adds a unique index on the upper-cased names. If the database already has names that only differ by case, BaGetter stops at startup before the migration runs and lists them, for example `Usernames 'alice', 'ALICE'`. Rename or delete all but one of each (on 1.x or with a database tool) and start BaGetter again.
+
 ### Mirrored feeds cache upstream version lists
 
 Mirrored feeds now keep upstream version lists and metadata in memory for 5 minutes by default, instead of asking the upstream on every request. This takes most of the load off the upstreams during restores, but a version newly published upstream can take up to 5 minutes to appear in the feed. To keep the old behavior, set `UpstreamListingCacheSeconds` to `0` globally or on the feed. See [Upstream listing cache](feeds.md#upstream-listing-cache).

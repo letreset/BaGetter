@@ -202,14 +202,19 @@ namespace BaGetter.Database.SqlServer.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
+                    b.Property<string>("NormalizedName")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AppRoleValue")
                         .IsUnique()
                         .HasFilter("[AppRoleValue] IS NOT NULL");
 
-                    b.HasIndex("Name")
-                        .IsUnique();
+                    b.HasIndex("NormalizedName")
+                        .IsUnique()
+                        .HasFilter("[NormalizedName] IS NOT NULL");
 
                     b.ToTable("Groups");
                 });
@@ -535,6 +540,10 @@ namespace BaGetter.Database.SqlServer.Migrations
                     b.Property<DateTime?>("LockedUntilUtc")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("NormalizedUsername")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
                     b.Property<string>("PasswordHash")
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
@@ -555,8 +564,9 @@ namespace BaGetter.Database.SqlServer.Migrations
                         .IsUnique()
                         .HasFilter("[EntraObjectId] IS NOT NULL");
 
-                    b.HasIndex("Username")
-                        .IsUnique();
+                    b.HasIndex("NormalizedUsername")
+                        .IsUnique()
+                        .HasFilter("[NormalizedUsername] IS NOT NULL");
 
                     b.ToTable("Users");
                 });

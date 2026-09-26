@@ -204,12 +204,16 @@ namespace BaGetter.Database.MySql.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("varchar(256)");
 
+                    b.Property<string>("NormalizedName")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AppRoleValue")
                         .IsUnique();
 
-                    b.HasIndex("Name")
+                    b.HasIndex("NormalizedName")
                         .IsUnique();
 
                     b.ToTable("Groups");
@@ -536,6 +540,10 @@ namespace BaGetter.Database.MySql.Migrations
                     b.Property<DateTime?>("LockedUntilUtc")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<string>("NormalizedUsername")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
                     b.Property<string>("PasswordHash")
                         .HasMaxLength(256)
                         .HasColumnType("varchar(256)");
@@ -555,7 +563,7 @@ namespace BaGetter.Database.MySql.Migrations
                     b.HasIndex("EntraObjectId")
                         .IsUnique();
 
-                    b.HasIndex("Username")
+                    b.HasIndex("NormalizedUsername")
                         .IsUnique();
 
                     b.ToTable("Users");

@@ -203,12 +203,16 @@ namespace BaGetter.Database.PostgreSql.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
+                    b.Property<string>("NormalizedName")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AppRoleValue")
                         .IsUnique();
 
-                    b.HasIndex("Name")
+                    b.HasIndex("NormalizedName")
                         .IsUnique();
 
                     b.ToTable("Groups");
@@ -535,6 +539,10 @@ namespace BaGetter.Database.PostgreSql.Migrations
                     b.Property<DateTime?>("LockedUntilUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("NormalizedUsername")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
                     b.Property<string>("PasswordHash")
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
@@ -554,7 +562,7 @@ namespace BaGetter.Database.PostgreSql.Migrations
                     b.HasIndex("EntraObjectId")
                         .IsUnique();
 
-                    b.HasIndex("Username")
+                    b.HasIndex("NormalizedUsername")
                         .IsUnique();
 
                     b.ToTable("Users");
