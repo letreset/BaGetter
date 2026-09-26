@@ -109,7 +109,7 @@ For every page you open, the browser console should show no errors.
 | # | Account | Steps | Expected |
 |---|---|---|---|
 | FS1 | `admin` | Open Internal > Settings | Overwrite policy **Prerelease only** and Max major versions **3**, with their "Use global default" boxes cleared |
-| FS2 | `admin` | Press **Save settings** without changes, reopen | Same values as FS1; after saving, the save bar says "All changes saved", and editing a field makes it say "You have unsaved changes" |
+| FS2 | `admin` | Change a field and press **Save settings** (**Save** on a small screen), then reopen | No save bar until the first change; then it slides in with "You have unsaved changes", on one line on a small screen. After saving, the toast says the settings were saved, the bar is gone and the values match FS1 apart from the change |
 | FS2a | `admin` | Tick **Use global default** for Max major versions, clear it again | While ticked the field is disabled and shows the global value; cleared, it shows `3` again |
 | FS3 | `admin` | Enter `-3` for Max major versions and save | A message next to the field, "nothing was saved", and the stored value is unchanged |
 | FS4 | `admin` | Default > Settings > Mirrors | One mirror, `https://api.nuget.org/v3/index.json`, enabled |
@@ -138,7 +138,7 @@ For every page you open, the browser console should show no errors.
 | G1 | `admin` | Open Developers > **Feed permissions** | "4 of 4 feeds"; Pull on Default, Internal, Archive; Pull, Push, Delete on Experimental |
 | G2 | `admin` | Create a group `Developers`, then `developers` | "already exists" both times |
 | G3 | `admin` | Remove `carol` from Developers (× on her chip), then check `carol` | `carol` sees "No feeds available"; add her back with **Add member** (the list only offers accounts that aren't members yet) and she sees all four feeds again |
-| G4 | `admin` | Clear Pull on Internal for Developers and **Save permissions** | `bob` no longer sees Internal; restore it |
+| G4 | `admin` | Open Developers > **Feed permissions**, clear Pull on Internal and **Save permissions** | The button is disabled until a box changes, then shows "Unsaved changes" next to it (ticking the box again disables it again). After saving, `bob` no longer sees Internal; restore it |
 | G5 | `admin` | Do G4, then check the container log | One `AUDIT feed_permission_revoked` line for Internal and one `feed_permission_set` line for the restore, no lines for the unchanged feeds |
 | G6 | `admin` | Create a group, open its delete confirmation in two tabs, confirm in both | The first shows the toast "Group deleted successfully.", the second "Group not found." |
 

@@ -188,7 +188,7 @@
                 }
                 else
                 {
-                    <form method="post" asp-page-handler="SavePermissions">
+                    <form method="post" asp-page-handler="SavePermissions" data-permissions-form>
                         @Html.AntiForgeryToken()
                         <input type="hidden" name="groupId" value="@group.Id" />
                         <div class="overflow-x-auto" style="border-top: 1px solid var(--bgt-divider)">
@@ -235,7 +235,8 @@
                             </table>
                         </div>
                         <div class="bgt-perm-foot">
-                            <span>Unchecking Pull, Push and Delete revokes the group's permission for that feed.</span>
+                            <span class="bgt-perm-hint">Unchecking Pull, Push and Delete revokes the group's permission for that feed.</span>
+                            <span class="bgt-perm-dirty" hidden>Unsaved changes</span>
                             <button type="submit" class="btn btn-primary btn-sm">Save permissions</button>
                         </div>
                     </form>
@@ -248,4 +249,29 @@
 @if (!string.IsNullOrEmpty(Model.SuccessMessage))
 {
     <div class="bgt-toast" role="status"><icon name="check" />@Model.SuccessMessage</div>
+}
+
+@section Scripts {
+    <script>
+        (function () {
+            // "Save permissions" is enabled once the matrix differs from what was loaded, and
+            // disabled again when every box is back. It is only disabled from here, so the form
+            // still works without JavaScript.
+            document.querySelectorAll('form[data-permissions-form]').forEach(function (form) {
+                var boxes = form.querySelectorAll('input[type=checkbox]');
+                var initial = Array.prototype.map.call(boxes, function (box) { return box.checked; });
+                var button = form.querySelector('button[type=submit]');
+                var label = form.querySelector('.bgt-perm-dirty');
+
+                function update() {
+                    var dirty = Array.prototype.some.call(boxes, function (box, i) { return box.checked !== initial[i]; });
+                    button.disabled = !dirty;
+                    label.hidden = !dirty;
+                }
+
+                form.addEventListener('change', update);
+                update();
+            });
+        })();
+    </script>
 }

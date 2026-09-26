@@ -177,6 +177,26 @@
         if (button) button.focus();
     });
 
+    // A tab row that scrolls sideways fades out on the right while more tabs are hidden there.
+    // Rows filled by Alpine get their tabs after this runs, so they are watched for changes.
+    function updateTabFade(row) {
+        var hiddenRight = row.scrollWidth - row.clientWidth - row.scrollLeft > 1;
+        row.classList.toggle('bgt-fade', hiddenRight);
+    }
+
+    var tabRows = document.querySelectorAll('.bgt-tabs');
+    var resizeObserver = window.ResizeObserver && new ResizeObserver(function (entries) {
+        entries.forEach(function (entry) { updateTabFade(entry.target); });
+    });
+    for (var r = 0; r < tabRows.length; r++) {
+        (function (row) {
+            row.addEventListener('scroll', function () { updateTabFade(row); }, { passive: true });
+            new MutationObserver(function () { updateTabFade(row); }).observe(row, { childList: true });
+            if (resizeObserver) resizeObserver.observe(row);
+            updateTabFade(row);
+        })(tabRows[r]);
+    }
+
     // Toasts hide themselves after a moment.
     var toasts = document.querySelectorAll('.bgt-toast');
     for (var t = 0; t < toasts.length; t++) {

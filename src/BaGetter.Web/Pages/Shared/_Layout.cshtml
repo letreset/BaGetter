@@ -111,7 +111,8 @@
                     @if (accessibleFeeds.Count > 1)
                     {
                         <div class="dropdown bgt-feed">
-                            <button type="button" class="bgt-feed-pill" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Switch feed, current: @FeedContext.CurrentFeed.Name">
+                            @* Keeps the menu 12px away from the screen edges on small screens. *@
+                            <button type="button" class="bgt-feed-pill" data-bs-toggle="dropdown" aria-expanded="false" data-bs-popper-config='{"modifiers":[{"name":"preventOverflow","options":{"padding":12}},{"name":"offset","options":{"offset":[0,6]}}]}' aria-label="Switch feed, current: @FeedContext.CurrentFeed.Name">
                                 <span class="bgt-feed-dot"></span>
                                 <span class="bgt-feed-name">@FeedContext.CurrentFeed.Name</span>
                                 <icon name="chevron-down" size="12" />
