@@ -836,19 +836,26 @@ code,
   list-style: none;
   border: 0;
   max-width: 750px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+/* Bootstrap's .nav clearfix pseudo-elements would become flex items and take a gap. */
+.tabbed-info ul:before,
+.tabbed-info ul:after {
+  content: none;
 }
 
 .tabbed-info li {
   padding: 0;
-  margin-right: 5px;
-  margin-bottom: 0;
-  float: left;
+  margin: 0;
   position: relative;
   display: block;
 }
 
   .tabbed-info li a {
-    padding: 5px 10px;
+    padding: 5px 8px;
     margin: 0;
     color: #000;
     background-color: var(--tabbed-info-bg-color);

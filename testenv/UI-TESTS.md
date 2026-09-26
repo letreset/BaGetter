@@ -52,7 +52,7 @@ For every page you open, the browser console should show no errors.
 
 | # | Account | Steps | Expected |
 |---|---|---|---|
-| P1 | `admin` | Open Internal > Contoso.Logging | Version 2.0.0, install tabs (.NET CLI, Package Manager, PackageReference, CPM, Paket CLI, Script & Interactive, File-based Apps, Cake), copy button works |
+| P1 | `admin` | Open Internal > Contoso.Logging | Version 2.0.0, install tabs (.NET CLI, Package Manager, PackageReference, CPM, Paket CLI, Script & Interactive, File-based Apps, Cake) on one line on a desktop screen, lined up with the command box, copy button works |
 | P2 | `admin` | Expand **Readme** | The Contoso.Logging readme with a code block |
 | P3 | `admin` | Expand **Dependencies** | Contoso.Core (>= 2.0.0), grouped by target framework |
 | P4 | `admin` | Open Contoso.Core, expand **Used By** | Contoso.Logging and Contoso.Configuration |
