@@ -144,7 +144,7 @@ public class FeedAuthenticationIntegrationTests : IDisposable
     }
 
     [Fact]
-    public async Task PatToken_WithoutPushPermission_ReturnsUnauthorized()
+    public async Task PatToken_WithoutPushPermission_ReturnsForbidden()
     {
         // Arrange
         var userId = await SeedLocalUserWithPermissionsAsync(canPull: true, canPush: false);
@@ -165,7 +165,7 @@ public class FeedAuthenticationIntegrationTests : IDisposable
         using var response = await _client.SendAsync(request);
 
         // Assert - 401 because no push permission
-        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     [Fact]
@@ -282,6 +282,43 @@ public class FeedAuthenticationIntegrationTests : IDisposable
         using var response = await _client.SendAsync(request);
 
         // Assert
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task LocalAccount_WithoutPushPermission_PushWithBasicAuth_ReturnsForbidden()
+    {
+        await SeedLocalUserWithPermissionsAsync(canPull: true, canPush: false);
+        SetBasicAuth(LocalUsername, LocalPassword);
+
+        using var content = new MultipartFormDataContent();
+        content.Add(new StreamContent(TestResources.GetResourceStream(TestResources.Package)), "package", "package.nupkg");
+        using var response = await _client.PutAsync("api/v2/package", content);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task LocalAccount_WithoutDeletePermission_Delete_ReturnsForbidden()
+    {
+        await SeedLocalUserWithPermissionsAsync(canPull: true, canPush: true);
+        SetBasicAuth(LocalUsername, LocalPassword);
+
+        using var response = await _client.DeleteAsync("api/v2/package/TestData/1.2.3");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("PUT")]
+    [InlineData("DELETE")]
+    public async Task AnonymousPushOrDelete_ReturnsUnauthorized(string method)
+    {
+        var url = method == "PUT" ? "api/v2/package" : "api/v2/package/TestData/1.2.3";
+        using var request = new HttpRequestMessage(new HttpMethod(method), url) { Content = new ByteArrayContent([]) };
+
+        using var response = await _client.SendAsync(request);
+
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
@@ -429,7 +466,7 @@ public class HybridFeedAuthenticationIntegrationTests : IDisposable
         using var response = await _client.SendAsync(request);
 
         // Assert
-        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     [Fact]
