@@ -226,7 +226,9 @@ public class PackageModel : PageModel
         return await ManageVersionAsync(
             "delete", id, version,
             v => _deletionService.TryHardDeletePackageAsync(_feedContext.CurrentFeed.Id, _feedContext.CurrentFeed.Slug, id, v, cancellationToken),
-            RedirectToPage(new { id }),
+            // version = null drops the ambient route value; without it the redirect would point at
+            // the version that was just deleted.
+            RedirectToPage(new { id, version = (string)null }),
             cancellationToken);
     }
 
