@@ -137,7 +137,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: azure/setup-helm@v4
+      - uses: azure/setup-helm@v5
 
       - name: Package chart
         env:
@@ -154,7 +154,7 @@ jobs:
           echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io --username "${{ github.actor }}" --password-stdin
           helm push dist/*.tgz "oci://$CHART_REGISTRY"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: helm-chart
           path: dist/*.tgz
@@ -182,7 +182,7 @@ jobs:
           dotnet publish src/BaGetter --configuration Release --output publish -p:Version="$VERSION" -p:DebugType=none
           (cd publish && zip -qr "../bagetter-$VERSION.zip" .)
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: helm-chart
           path: .
