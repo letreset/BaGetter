@@ -138,7 +138,8 @@
             type="checkbox"
             id="prerelease"
             @(Model.Prerelease ? "checked='checked'" : "")
-            onclick="window.location.href='@SearchLink(prerelease: !Model.Prerelease, page: 1)'" />
+            data-href="@SearchLink(prerelease: !Model.Prerelease, page: 1)"
+            onclick="window.location.href = this.dataset.href" />
     </div>
 </div>
 

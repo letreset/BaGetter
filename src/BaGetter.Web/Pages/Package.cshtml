@@ -329,7 +329,7 @@ else
                           asp-route-id="@Model.Package.Id"
                           asp-route-version="@Model.Package.NormalizedVersionString"
                           style="display:inline"
-                          onsubmit="return confirm('Unlist @Model.Package.Id @Model.Package.NormalizedVersionString? It will be hidden from search and listings. You can relist it later.');">
+                          data-confirm="@($"Unlist {Model.Package.Id} {Model.Package.NormalizedVersionString}? It will be hidden from search and listings. You can relist it later.")">
                         @Html.AntiForgeryToken()
                         <button type="submit" class="btn btn-default">
                             <i class="ms-Icon ms-Icon--Hide" aria-hidden="true"></i>
@@ -341,7 +341,7 @@ else
                           asp-route-id="@Model.Package.Id"
                           asp-route-version="@Model.Package.NormalizedVersionString"
                           style="display:inline"
-                          onsubmit="return confirm('Permanently delete @Model.Package.Id @Model.Package.NormalizedVersionString? This removes the package and its files and cannot be undone.');">
+                          data-confirm="@($"Permanently delete {Model.Package.Id} {Model.Package.NormalizedVersionString}? This removes the package and its files and cannot be undone.")">
                         @Html.AntiForgeryToken()
                         <button type="submit" class="btn btn-danger">
                             <i class="ms-Icon ms-Icon--Delete" aria-hidden="true"></i>

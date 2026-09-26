@@ -37,6 +37,34 @@ public class WebUiAccountAdminTests
         }
     }
 
+    public class DeleteConfirmation : FactsBase
+    {
+        public DeleteConfirmation(ITestOutputHelper output) : base(output)
+        {
+        }
+
+        [Fact]
+        public async Task PutsUsernameIntoAnAttributeInsteadOfScript()
+        {
+            const string username = "x'+(document.title='pwned')+'\"<\\";
+            await WebUiSession.SeedLocalUserAsync(_app, "admin", Password, isAdmin: true);
+            var target = await WebUiSession.SeedLocalUserAsync(_app, username, Password);
+            using (var scope = _app.Services.CreateScope())
+            {
+                await scope.ServiceProvider.GetRequiredService<IUserService>()
+                    .SetEnabledAsync(target.Id, false, CancellationToken.None);
+            }
+
+            using var admin = await WebUiSession.SignInAsync(_app, "admin", Password);
+            var body = await admin.GetStringAsync("/Admin/Accounts");
+
+            Assert.DoesNotContain("onsubmit=", body);
+            Assert.Contains(
+                "data-confirm=\"Are you sure you want to permanently delete the account &#x27;x&#x27;&#x2B;(document.title=&#x27;pwned&#x27;)&#x2B;&#x27;&quot;&lt;\\&#x27;?",
+                body);
+        }
+    }
+
     public class ResetPassword : FactsBase
     {
         public ResetPassword(ITestOutputHelper output) : base(output)

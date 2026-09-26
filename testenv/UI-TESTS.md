@@ -146,4 +146,4 @@ For every page you open, the browser console should show no errors.
 
 | # | Account | Steps | Expected |
 |---|---|---|---|
-| Z1 | `admin` | Create an account named `x'+(document.title='pwned')+'`, disable it, click **Delete** and cancel | The page title doesn't change. **Known issue** [#35](https://github.com/letreset/BaGetter/issues/35) |
+| Z1 | `admin` | Create an account named `x'+(document.title='pwned')+'`, disable it, click **Delete** and cancel | The confirmation shows the username literally; the page title doesn't change |

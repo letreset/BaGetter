@@ -117,4 +117,15 @@
             }
         }
     };
+
+    // Ask for confirmation before submitting a form with a data-confirm attribute. The text
+    // comes from an HTML attribute, never from JavaScript built on the server, so usernames,
+    // slugs and package ids with quotes are shown literally and can't inject code.
+    document.addEventListener('submit', function (event) {
+        var form = event.target;
+        var message = form.getAttribute && form.getAttribute('data-confirm');
+        if (message && !window.confirm(message)) {
+            event.preventDefault();
+        }
+    });
 })();

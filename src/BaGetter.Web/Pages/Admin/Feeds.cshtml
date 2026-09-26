@@ -98,7 +98,7 @@
                             @if (!isDefault)
                             {
                                 <form method="post" asp-page-handler="Delete" style="display:inline"
-                                      onsubmit="return confirm('Are you sure you want to delete feed \'@feed.Slug\'? All packages in this feed will be removed.');">
+                                      data-confirm="@($"Are you sure you want to delete feed '{feed.Slug}'? All packages in this feed will be removed.")">
                                     @Html.AntiForgeryToken()
                                     <input type="hidden" name="feedId" value="@feed.Id" />
                                     <button type="submit" class="btn btn-xs btn-danger">Delete</button>
