@@ -5,7 +5,7 @@ import type * as Preset from '@docusaurus/preset-classic';
 const config: Config = {
   title: 'BaGetter',
   tagline: 'A lightweight, self-hosted NuGet and symbol server',
-  favicon: 'img/favicon.ico',
+  favicon: 'img/favicon.svg',
 
   url: 'https://letreset.github.io',
   baseUrl: '/BaGetter/',
@@ -58,16 +58,15 @@ const config: Config = {
   ],
 
   themeConfig: {
+    image: 'img/social-preview.png',
     colorMode: {
-      defaultMode: 'dark',
+      defaultMode: 'light',
       disableSwitch: false,
-      respectPrefersColorScheme: false,
+      respectPrefersColorScheme: true,
     },
     announcementBar: {
       id: 'release-2-0-0',
       content: '📦 <b><a target="_blank" rel="noopener" href="https://github.com/letreset/BaGetter/releases/tag/v2.0.0">BaGetter 2.0.0</a> is out</b>, with multiple feeds, user accounts and Entra ID sign-in. <a href="/BaGetter/docs/upgrading">Upgrading from 1.x?</a>',
-      backgroundColor: '#243840',
-      textColor: '#ffffff',
       isCloseable: true,
     },
     docs: {
@@ -82,6 +81,7 @@ const config: Config = {
         alt: 'BaGetter logo',
         src: 'img/logo.svg',
       },
+      style: 'dark',
       items: [
         {
           type: 'docSidebar',
@@ -109,7 +109,7 @@ const config: Config = {
       ],
     },
     footer: {
-      style: 'dark',
+      style: 'light',
       links: [
         {
           title: 'Documentation',
@@ -140,7 +140,7 @@ const config: Config = {
     },
     prism: {
       theme: prismThemes.github,
-      darkTheme: prismThemes.dracula,
+      darkTheme: prismThemes.vsDark,
       additionalLanguages: ['csharp', 'json', 'powershell', 'bash', 'yaml', 'docker', 'diff', 'ini'],
     },
   } satisfies Preset.ThemeConfig,
