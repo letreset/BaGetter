@@ -92,8 +92,9 @@ For every page you open, the browser console should show no errors.
 
 | # | Account | Steps | Expected |
 |---|---|---|---|
-| FS1 | `admin` | Open Internal > Settings | Overwrite policy **Prerelease only** and Max major versions **3**, with their "Use global default" boxes cleared. **Known issue** [#31](https://github.com/letreset/BaGetter/issues/31): the fields show empty |
-| FS2 | `admin` | Press **Save Settings** without changes, reopen | Same values as FS1. **Known issue** [#31](https://github.com/letreset/BaGetter/issues/31): the overrides are reset |
+| FS1 | `admin` | Open Internal > Settings | Overwrite policy **Prerelease only** and Max major versions **3**, with their "Use global default" boxes cleared |
+| FS2 | `admin` | Press **Save Settings** without changes, reopen | Same values as FS1 |
+| FS2a | `admin` | Tick **Use global default** for Max major versions, clear it again | The field shows `3` again |
 | FS3 | `admin` | Enter `-3` for Max major versions and save | Validation message. **Known issue** [#36](https://github.com/letreset/BaGetter/issues/36) |
 | FS4 | `admin` | Default > Settings > Mirrors | One mirror, `https://api.nuget.org/v3/index.json`, enabled |
 | FS5 | `admin` | Add a mirror with the URL `not a url` and save | "the package source must be an absolute http(s) URL" |

@@ -262,8 +262,10 @@
         if (checkbox.checked) {
             target.dataset.savedValue = target.value;
             target.value = '';
-        } else {
-            target.value = target.dataset.savedValue || '';
+        } else if ('savedValue' in target.dataset) {
+            // Only restore a value stashed by an earlier toggle. On page load the field already
+            // holds the feed's stored override, and clearing it would save the feed without it.
+            target.value = target.dataset.savedValue;
         }
     }
 
