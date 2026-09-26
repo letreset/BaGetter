@@ -4,9 +4,31 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    # A package goes to the first group that matches it. Major updates outside the first two
+    # groups get a PR of their own, so one breaking package doesn't hold back the rest.
     groups:
-      nuget-deps:
+      # EF Core and its providers must move together.
+      ef-core:
+        patterns:
+          - "Microsoft.EntityFrameworkCore*"
+          - "Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore"
+          - "Npgsql.EntityFrameworkCore.PostgreSQL"
+          - "Pomelo.EntityFrameworkCore.MySql"
+      nuget-client:
+        patterns: ["NuGet.*"]
+      minor-and-patch:
         patterns: ["*"]
+        update-types: ["minor", "patch"]
+    ignore:
+      # EF Core 10 waits for a Pomelo release that supports it: https://github.com/letreset/BaGetter/issues/62
+      - dependency-name: "Microsoft.EntityFrameworkCore*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "Npgsql.EntityFrameworkCore.PostgreSQL"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "Pomelo.EntityFrameworkCore.MySql"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
