@@ -96,7 +96,7 @@ For every page you open, the browser console should show no errors.
 | FS1 | `admin` | Open Internal > Settings | Overwrite policy **Prerelease only** and Max major versions **3**, with their "Use global default" boxes cleared |
 | FS2 | `admin` | Press **Save Settings** without changes, reopen | Same values as FS1 |
 | FS2a | `admin` | Tick **Use global default** for Max major versions, clear it again | The field shows `3` again |
-| FS3 | `admin` | Enter `-3` for Max major versions and save | Validation message. **Known issue** [#36](https://github.com/letreset/BaGetter/issues/36) |
+| FS3 | `admin` | Enter `-3` for Max major versions and save | A message next to the field, "nothing was saved", and the stored value is unchanged |
 | FS4 | `admin` | Default > Settings > Mirrors | One mirror, `https://api.nuget.org/v3/index.json`, enabled |
 | FS5 | `admin` | Add a mirror with the URL `not a url` and save | "the package source must be an absolute http(s) URL" |
 | FS6 | `admin` | Add two mirrors, move the second up with the arrow, remove one | Titles renumber (Mirror 1, Mirror 2); do `down -v` afterwards |
