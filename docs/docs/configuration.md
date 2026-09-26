@@ -315,7 +315,6 @@ BaGetter supports multiple database engines for storing package information:
 - SQLite: `Sqlite`
 - SQL Server: `SqlServer`
 - PostgreSQL: `PostgreSql`
-- Azure Table Storage: `AzureTable`
 
 Each database engine requires a connection string to configure the connection. Please refer to [ConnectionStrings.com](https://www.connectionstrings.com/) to learn how to create the proper connection string for each database engine.
 

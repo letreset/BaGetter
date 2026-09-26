@@ -60,6 +60,10 @@ Nothing changes until you override a setting on a feed. See [Feed settings](feed
 
 Switching away from `Config` turns off anonymous access, `ApiKey` and `Credentials`. Plan the switch before you make it; see [Authentication](authentication.md).
 
+### Azure Table Storage is no longer supported
+
+The `AzureTable` database type can't store feeds, users, groups, permissions or tokens, so BaGetter 2.x stops at startup when `Database:Type` is `AzureTable`. If you use it, move to one of the SQL databases (`Sqlite`, `SqlServer`, `PostgreSql` or `MySql`) before you upgrade: start 1.x with the new database and the same storage, and push your packages again (see [Import packages from a local feed](Import/local-feeds.md)).
+
 ### MySQL: the database moves to utf8mb4
 
 Earlier versions stored MySQL data as `latin1`, so a package whose metadata contains other characters (for example the author "Havlíček", or Polish or Turkish text) failed to push or mirror, and user, group and feed names were limited to latin1 too. A migration now converts the database and every table to `utf8mb4` with the `utf8mb4_unicode_ci` collation. Existing data is kept. This also applies when you upgrade from an earlier 2.x release.

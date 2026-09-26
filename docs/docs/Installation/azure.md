@@ -52,7 +52,7 @@ ALTER ROLE db_ddladmin ADD MEMBER [<identity-name>];
 
 :::warning Azure Table Storage
 
-Upstream BaGetter 1.x could keep its metadata in Azure Table Storage (`Database:Type` = `AzureTable`). That provider doesn't support [feeds](../feeds.md), user accounts or permissions, so it doesn't work with BaGetter 2.x. Use one of the SQL databases above.
+Upstream BaGetter 1.x could keep its metadata in Azure Table Storage (`Database:Type` = `AzureTable`). That provider doesn't support [feeds](../feeds.md), user accounts or permissions, so BaGetter 2.x refuses to start with it. Use one of the SQL databases above.
 
 :::
 

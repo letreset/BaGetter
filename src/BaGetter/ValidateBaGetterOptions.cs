@@ -17,7 +17,6 @@ public class ValidateBaGetterOptions
     private static readonly HashSet<string> _validDatabaseTypes
         = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            "AzureTable",
             "MySql",
             "PostgreSql",
             "Sqlite",
@@ -75,7 +74,14 @@ public class ValidateBaGetterOptions
 
         ValidateRequestRateLimit(options, failures);
 
-        if (!_validDatabaseTypes.Contains(options.Database?.Type))
+        if (string.Equals(options.Database?.Type, "AzureTable", StringComparison.OrdinalIgnoreCase))
+        {
+            failures.Add(
+                $"The '{nameof(BaGetterOptions.Database)}:{nameof(DatabaseOptions.Type)}' value 'AzureTable' is no longer supported, " +
+                "because Azure Table Storage can't store feeds, users or permissions. " +
+                $"Move to one of these databases first: {string.Join(", ", _validDatabaseTypes)}");
+        }
+        else if (!_validDatabaseTypes.Contains(options.Database?.Type))
         {
             failures.Add(
                 $"The '{nameof(BaGetterOptions.Database)}:{nameof(DatabaseOptions.Type)}' config is invalid. " +
