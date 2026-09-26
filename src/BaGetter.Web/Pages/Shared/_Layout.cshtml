@@ -36,6 +36,7 @@
     <link rel="stylesheet" href="~/_content/BaGetter.Web/css/site.css" asp-append-version="true" />
 
     <title>@ViewData["Title"] - BaGetter</title>
+    @await RenderSectionAsync("Head", required: false)
 </head>
 <body>
     <header>

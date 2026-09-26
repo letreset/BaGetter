@@ -14,6 +14,14 @@
     var requiresAuth = AuthOptions.Value.Mode != AuthenticationMode.Config;
     var isAuthenticated = User.Identity?.IsAuthenticated == true;
     var fallbackIconUrl = Url.Content("~/_content/BaGetter.Web/images/default-package-icon-256x256.png");
+    var atomFeedUrl = Model.Found ? Url.RouteUrl(Routes.PackageAtomFeedRouteName, new { id = Model.Package.Id }) : null;
+}
+
+@section Head {
+    @if (atomFeedUrl != null)
+    {
+        <link rel="alternate" type="application/atom+xml" title="@Model.Package.Id versions" href="@atomFeedUrl" />
+    }
 }
 
 @if (requiresAuth && !isAuthenticated)
@@ -350,6 +358,11 @@ else
                         {
                             <span class="text-muted">(@Model.PackageSize)</span>
                         }
+                    </li>
+
+                    <li>
+                        <i class="ms-Icon ms-Icon--News"></i>
+                        <a href="@atomFeedUrl" title="Subscribe to new versions. Feed readers sign in with a personal access token.">Atom feed</a>
                     </li>
                 </ul>
             </div>

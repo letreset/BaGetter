@@ -20,4 +20,5 @@ public class Routes
     public const string PackageDownloadIconRouteName = "package-download-icon";
     public const string SymbolDownloadRouteName = "symbol-download";
     public const string PrefixedSymbolDownloadRouteName = "prefixed-symbol-download";
+    public const string PackageAtomFeedRouteName = "package-atom-feed";
 }

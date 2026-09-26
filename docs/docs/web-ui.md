@@ -48,6 +48,13 @@ A package page shows:
 - Dependencies grouped by target framework, and the packages in this feed that depend on it (**Used by**).
 - The version history, with downloads and dates, and the total download count. On a feed with a [mirror](feeds.md#mirror-read-through-cache), versions that are only available from the mirror are marked **mirror**; they are stored in the feed the first time someone downloads them. A link to a version that doesn't exist says so instead of showing another version.
 - Links to the project, source code and license, when the package provides them, and a download link for the `.nupkg`.
+- A link to the package's [Atom feed](#atom-feed).
+
+### Atom feed
+
+Every package has an Atom feed of its listed versions, newest first (at most 20), at `/packages/{id}/atom.xml`, or `/feeds/{slug}/packages/{id}/atom.xml` for a named feed. The package page links to it, so feed readers can find it from the page URL. Versions that are only available from a mirror are included, unlisted versions aren't.
+
+Feed readers can't use the web UI's sign-in. In the `Local`, `Entra` and `Hybrid` modes they authenticate with Basic auth: your user name and a [personal access token](#my-tokens) as the password. Users without pull permission on the feed get a 404, as on the package page.
 
 ## Unlist, relist and delete
 
