@@ -41,8 +41,17 @@
     <header>
         <nav class="navbar navbar-inverse" role="navigation">
             <div class="container">
+                <div class="navbar-header">
+                    <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+                        <span class="sr-only">Toggle navigation</span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                    </button>
+                    <a class="navbar-brand visible-xs-block" href="~/">BaGetter</a>
+                </div>
                 <div class="row">
-                    <div id="navbar" class="col-sm-12">
+                    <div id="navbar" class="col-sm-12 collapse navbar-collapse">
                         <ul class="nav navbar-nav" role="tablist">
                             @if (showContent)
                             {

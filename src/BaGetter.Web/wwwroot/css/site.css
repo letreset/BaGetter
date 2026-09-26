@@ -504,6 +504,57 @@ h4 {
   left: auto;
 }
 
+/* Small screens: the navigation collapses behind the toggle button. */
+.navbar-inverse .navbar-brand {
+  color: var(--navbar-active-text-color);
+}
+
+.navbar-inverse .navbar-toggle {
+  border-color: var(--navbar-text-color);
+}
+
+.navbar-inverse .navbar-toggle:hover,
+.navbar-inverse .navbar-toggle:focus {
+  background-color: var(--navbar-border-color);
+}
+
+/* .navbar-collapse sets width: auto from 768px up, which would undo col-sm-12 and pull the
+   user menu away from the right edge. */
+@media (min-width: 768px) {
+  #navbar.navbar-collapse {
+    width: 100%;
+  }
+}
+
+@media (max-width: 767px) {
+  #navbar ul,
+  #navbar .navbar-right {
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  #navbar.navbar-collapse {
+    border-top-color: var(--navbar-border-color);
+  }
+
+  /* body is a column flexbox, and the auto margins of .container stop it from stretching, so
+     it grew to the width of its widest content. Pin it to the screen width instead. */
+  body > .container,
+  body > header .container {
+    width: 100%;
+  }
+}
+
+.main-container {
+  overflow-wrap: break-word;
+}
+
+/* Long commands and URLs wrap inside their box instead of widening the page. */
+code,
+.tabbed-info .content .script {
+  overflow-wrap: anywhere;
+}
+
 .dropdown-menu .ms-Icon {
   margin-right: 6px;
   width: 16px;
@@ -784,7 +835,7 @@ h4 {
   padding-left: 0;
   list-style: none;
   border: 0;
-  width: 750px;
+  max-width: 750px;
 }
 
 .tabbed-info li {

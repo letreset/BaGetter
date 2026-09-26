@@ -143,7 +143,7 @@ For every page you open, the browser console should show no errors.
 
 | # | Account | Steps | Expected |
 |---|---|---|---|
-| Y1 | `admin` | Emulate a 390 x 844 viewport, open Internal, a package page, Connect and Admin > Accounts | No horizontal scrolling, collapsed navigation. **Known issue** [#43](https://github.com/letreset/BaGetter/issues/43) |
+| Y1 | `admin` | Emulate a 375 x 812 viewport, open Internal, a package page, Connect, Upload, Statistics, Admin > Accounts and Admin > Feeds | No horizontal page scrolling (wide admin tables scroll inside their box), the navigation is collapsed behind the menu button and opens with it |
 
 ## Security
 
