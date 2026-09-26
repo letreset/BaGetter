@@ -182,7 +182,7 @@ jobs:
           dotnet publish src/BaGetter --configuration Release --output publish -p:Version="$VERSION" -p:DebugType=none
           (cd publish && zip -qr "../bagetter-$VERSION.zip" .)
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: helm-chart
           path: .
