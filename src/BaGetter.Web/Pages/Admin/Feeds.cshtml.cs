@@ -11,6 +11,7 @@ using BaGetter.Core.Feeds;
 using BaGetter.Web.Audit;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -65,6 +66,18 @@ public partial class FeedsModel : PageModel
 
     public string SuccessMessage { get; set; }
     public string ErrorMessage { get; set; }
+
+    /// <summary>
+    /// The create form's properties are bound (and validated) for every POST. Only the Create handler
+    /// uses them, so other handlers drop their errors instead of showing "Slug is required." under the form.
+    /// </summary>
+    public override void OnPageHandlerExecuting(PageHandlerExecutingContext context)
+    {
+        if (context.HandlerMethod?.MethodInfo.Name != nameof(OnPostCreateAsync))
+        {
+            ModelState.Clear();
+        }
+    }
 
     private Guid GetUserId()
     {

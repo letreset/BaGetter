@@ -11,6 +11,7 @@ using BaGetter.Core.Feeds;
 using BaGetter.Web.Audit;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace BaGetter.Web.Pages.Admin;
@@ -61,6 +62,18 @@ public class GroupsModel : PageModel
 
     public string SuccessMessage { get; set; }
     public string ErrorMessage { get; set; }
+
+    /// <summary>
+    /// The create form's properties are bound (and validated) for every POST. Only the CreateGroup handler
+    /// uses them, so other handlers drop their errors instead of showing "Group name is required." under the form.
+    /// </summary>
+    public override void OnPageHandlerExecuting(PageHandlerExecutingContext context)
+    {
+        if (context.HandlerMethod?.MethodInfo.Name != nameof(OnPostCreateGroupAsync))
+        {
+            ModelState.Clear();
+        }
+    }
 
     private Guid GetUserId()
     {

@@ -11,6 +11,7 @@ using BaGetter.Core.Entities;
 using BaGetter.Web.Audit;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Options;
 
@@ -101,6 +102,19 @@ public class AccountsModel : PageModel
             return $"'{target.Username}' is the last enabled administrator.";
 
         return null;
+    }
+
+    /// <summary>
+    /// The create form's properties are bound (and validated) for every POST. Only the Create
+    /// handler uses them, so other handlers drop their errors instead of showing
+    /// "Username is required." under the create form.
+    /// </summary>
+    public override void OnPageHandlerExecuting(PageHandlerExecutingContext context)
+    {
+        if (context.HandlerMethod?.MethodInfo.Name != nameof(OnPostCreateAsync))
+        {
+            ModelState.Clear();
+        }
     }
 
     private async Task AuditAsync(string eventName, Guid userId, CancellationToken cancellationToken, string detail = null)

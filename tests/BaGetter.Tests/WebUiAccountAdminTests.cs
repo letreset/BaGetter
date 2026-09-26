@@ -219,7 +219,11 @@ public class WebUiAccountAdminTests
                 { "userId", bob.Id.ToString() },
                 { "newPassword", NewPassword },
             });
-            Assert.Contains("reset successfully", await response.Content.ReadAsStringAsync());
+            var body = await response.Content.ReadAsStringAsync();
+            Assert.Contains("reset successfully", body);
+            // The create form's required fields aren't part of this post and must not complain.
+            Assert.DoesNotContain(">Username is required.<", body);
+            Assert.DoesNotContain(">Password is required.<", body);
 
             using var bobSession = await WebUiSession.SignInAsync(_app, "bob", NewPassword);
         }
