@@ -30,7 +30,7 @@
     <PackageVersion Include="NuGet.Frameworks" Version="6.14.3" />
     <PackageVersion Include="NuGet.Protocol" Version="6.14.3" />
     <PackageVersion Include="NuGet.Versioning" Version="6.14.3" />
-    <PackageVersion Include="System.Text.Json" Version="9.0.20" />
+    <PackageVersion Include="System.Text.Json" Version="10.0.12" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
     <PackageVersion Include="Moq" Version="4.21.0" />
