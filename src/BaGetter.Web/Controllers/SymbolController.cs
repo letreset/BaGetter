@@ -1,4 +1,5 @@
 using System;
+using System.Net;
 using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
@@ -18,6 +19,8 @@ namespace BaGetter.Web.Controllers;
 [Authorize(AuthenticationSchemes = AuthenticationConstants.NugetBasicAuthenticationScheme, Policy = AuthenticationConstants.NugetUserPolicy)]
 public partial class SymbolController : Controller
 {
+    private const long BytesPerGiB = 1024L * 1024 * 1024;
+
     private readonly IAuthenticationService _authentication;
     private readonly IFeedAuthenticationService _feedAuthentication;
     private readonly IPermissionService _permissionService;
@@ -71,6 +74,15 @@ public partial class SymbolController : Controller
             if (uploadStream == null)
             {
                 HttpContext.Response.StatusCode = 400;
+                return;
+            }
+
+            // The server-wide request limit applies before the feed is known; a feed can only lower it.
+            var maxBytes = (long)_feedSettings.GetMaxPackageSizeGiB(_feedContext.CurrentFeed) * BytesPerGiB;
+            if (uploadStream.Length > maxBytes)
+            {
+                LogSymbolUploadTooLarge("symbol_upload_too_large", _feedContext.CurrentFeed.Slug, HttpContext.User.Identity?.Name ?? "anonymous", HttpContext.Connection.RemoteIpAddress);
+                HttpContext.Response.StatusCode = 413;
                 return;
             }
 
@@ -141,4 +153,7 @@ public partial class SymbolController : Controller
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Exception thrown during symbol upload")]
     private partial void LogUploadException(Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "AUDIT {Event} feed={Feed} actor={Actor} ip={Ip}")]
+    private partial void LogSymbolUploadTooLarge(string @event, string feed, string actor, IPAddress ip);
 }

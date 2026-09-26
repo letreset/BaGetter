@@ -479,6 +479,8 @@ This can be useful if you are hosting a private feed and need to host large pack
 }
 ```
 
+A [feed](feeds.md#feed-settings) can set its own, lower limit. The server-wide value still caps every request, because it applies before BaGetter knows which feed a push is for, so a feed can't raise it. Pushes over a feed's limit are rejected with `413 Payload Too Large`.
+
 ## Registration page size
 
 Packages with many versions are served as a paged [registration index](https://learn.microsoft.com/nuget/api/registration-base-url-resource).
@@ -598,7 +600,7 @@ AUDIT package_upload_succeeded feed=default package_id=Contoso.Utils package_ver
 
 | Field | Value |
 |---|---|
-| Event | `package_{upload,delete,relist}_{succeeded,unauthorized,read_only,not_found}`, plus `package_upload_already_exists` and `package_upload_invalid_package` |
+| Event | `package_{upload,delete,relist}_{succeeded,unauthorized,read_only,not_found}`, plus `package_upload_already_exists`, `package_upload_invalid_package` and `package_upload_too_large`. A symbol package over the feed's size limit logs `symbol_upload_too_large` (with `feed`, `actor` and `ip` only) |
 | `feed` | The feed slug |
 | `package_id`, `package_version` | Empty for uploads that are denied before the package is read |
 | `actor` | The user name (the token owner for personal access tokens), `api-key` for the shared API key in `Config` mode, or `anonymous` |

@@ -21,6 +21,8 @@ namespace BaGetter.Web.Controllers;
 
 public partial class PackagePublishController : Controller
 {
+    private const long BytesPerGiB = 1024L * 1024 * 1024;
+
     private readonly IAuthenticationService _authentication;
     private readonly IFeedAuthenticationService _feedAuthentication;
     private readonly IPermissionService _permissionService;
@@ -88,6 +90,15 @@ public partial class PackagePublishController : Controller
             var identity = TryReadPackageIdentity(uploadStream);
             var packageId = identity?.Id;
             var packageVersion = identity?.Version?.ToNormalizedString();
+
+            // The server-wide request limit applies before the feed is known; a feed can only lower it.
+            var maxBytes = (long)_feedSettings.GetMaxPackageSizeGiB(_feedContext.CurrentFeed) * BytesPerGiB;
+            if (uploadStream.Length > maxBytes)
+            {
+                LogAudit(LogLevel.Warning, "package_upload_too_large", packageId, packageVersion, actor);
+                HttpContext.Response.StatusCode = 413;
+                return;
+            }
 
             var result = await _indexer.IndexAsync(_feedContext.CurrentFeed.Id, _feedContext.CurrentFeed.Slug, uploadStream, cacheFeedUrl: null, cancellationToken);
 
