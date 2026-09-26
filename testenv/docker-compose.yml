@@ -1,0 +1,45 @@
+# Local test environment: the latest BaGetter image with a ready-made data set.
+# See docs/docs/Advanced/test-environment.md.
+#
+#   docker compose -f testenv/docker-compose.yml up -d      # http://localhost:5000
+#   docker compose -f testenv/docker-compose.yml down -v    # stop and reset to the snapshot
+#
+# testenv/data is the committed snapshot (SQLite database and package files). It is mounted
+# read-only and copied into the `data` volume on the first start, so testing never changes the
+# working tree. Set BAGETTER_TAG to test another image, e.g. BAGETTER_TAG=2.1.0.
+
+name: bagetter-test
+
+services:
+  seed-data:
+    image: letreset/bagetter:${BAGETTER_TAG:-latest}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        if [ "$${TESTENV_EMPTY:-0}" = "1" ]; then echo "Starting empty"; exit 0; fi
+        if [ -f /data/db/bagetter.db ]; then echo "Data volume already initialized"; exit 0; fi
+        cp -a /snapshot/. /data/ && echo "Copied the test data snapshot"
+    environment:
+      TESTENV_EMPTY: ${TESTENV_EMPTY:-0}
+    volumes:
+      - ./data:/snapshot:ro
+      - data:/data
+
+  bagetter:
+    image: letreset/bagetter:${BAGETTER_TAG:-latest}
+    depends_on:
+      seed-data:
+        condition: service_completed_successfully
+    ports:
+      - "${BAGETTER_PORT:-5000}:8080"
+    environment:
+      Authentication__Mode: Local
+      # Only used when the database has no administrator (TESTENV_EMPTY=1).
+      Authentication__InitialAdmin__Username: admin
+      Authentication__InitialAdmin__Password: Admin-Test-Password-1
+      Logging__Console__LogLevel__Default: Information
+    volumes:
+      - data:/data
+
+volumes:
+  data:
