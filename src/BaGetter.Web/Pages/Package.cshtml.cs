@@ -12,12 +12,14 @@ using BaGetter.Core.Entities;
 using BaGetter.Core.Feeds;
 using BaGetter.Core.Indexing;
 using BaGetter.Core.Search;
+using BaGetter.Web.Audit;
 using BaGetter.Web.Authentication;
 using Markdig;
 using Microsoft.AspNetCore.Html;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NuGet.Frameworks;
 using NuGet.Versioning;
@@ -36,6 +38,7 @@ public class PackageModel : PageModel
     private readonly IPermissionService _permissions;
     private readonly IPackageDeletionService _deletionService;
     private readonly IFeedSettingsResolver _feedSettings;
+    private readonly WebAuditLog _audit;
     private readonly IOptionsSnapshot<NugetAuthenticationOptions> _authOptions;
 
     static PackageModel()
@@ -54,6 +57,7 @@ public class PackageModel : PageModel
         IPermissionService permissions,
         IPackageDeletionService deletionService,
         IFeedSettingsResolver feedSettings,
+        WebAuditLog audit,
         IOptionsSnapshot<NugetAuthenticationOptions> authOptions)
     {
         _packages = packages ?? throw new ArgumentNullException(nameof(packages));
@@ -64,6 +68,7 @@ public class PackageModel : PageModel
         _permissions = permissions ?? throw new ArgumentNullException(nameof(permissions));
         _deletionService = deletionService ?? throw new ArgumentNullException(nameof(deletionService));
         _feedSettings = feedSettings ?? throw new ArgumentNullException(nameof(feedSettings));
+        _audit = audit ?? throw new ArgumentNullException(nameof(audit));
         _authOptions = authOptions ?? throw new ArgumentNullException(nameof(authOptions));
     }
 
@@ -199,49 +204,72 @@ public class PackageModel : PageModel
 
     public async Task<IActionResult> OnPostUnlistAsync(string id, string version, CancellationToken cancellationToken)
     {
-        if (!NuGetVersion.TryParse(version, out var nugetVersion)) return NotFound();
-
-        if (_feedSettings.GetIsReadOnlyMode(_feedContext.CurrentFeed))
-            return StatusCode(StatusCodes.Status403Forbidden);
-
-        if (!await CanDeleteCurrentFeedAsync(cancellationToken))
-            return StatusCode(StatusCodes.Status403Forbidden);
-
-        await _deletionService.TryUnlistPackageAsync(_feedContext.CurrentFeed.Id, id, nugetVersion, cancellationToken);
-
-        return RedirectToPage(new { id, version });
+        return await ManageVersionAsync(
+            "unlist", id, version,
+            v => _deletionService.TryUnlistPackageAsync(_feedContext.CurrentFeed.Id, id, v, cancellationToken),
+            RedirectToPage(new { id, version }),
+            cancellationToken);
     }
 
     public async Task<IActionResult> OnPostRelistAsync(string id, string version, CancellationToken cancellationToken)
     {
-        if (!NuGetVersion.TryParse(version, out var nugetVersion)) return NotFound();
-
-        if (_feedSettings.GetIsReadOnlyMode(_feedContext.CurrentFeed))
-            return StatusCode(StatusCodes.Status403Forbidden);
-
-        if (!await CanDeleteCurrentFeedAsync(cancellationToken))
-            return StatusCode(StatusCodes.Status403Forbidden);
-
-        await _deletionService.TryRelistPackageAsync(_feedContext.CurrentFeed.Id, id, nugetVersion, cancellationToken);
-
-        return RedirectToPage(new { id, version });
+        return await ManageVersionAsync(
+            "relist", id, version,
+            v => _deletionService.TryRelistPackageAsync(_feedContext.CurrentFeed.Id, id, v, cancellationToken),
+            RedirectToPage(new { id, version }),
+            cancellationToken);
     }
 
     public async Task<IActionResult> OnPostDeleteAsync(string id, string version, CancellationToken cancellationToken)
     {
-        if (!NuGetVersion.TryParse(version, out var nugetVersion)) return NotFound();
+        // The version is gone afterwards; land on the package's default view (latest remaining or not-found).
+        return await ManageVersionAsync(
+            "delete", id, version,
+            v => _deletionService.TryHardDeletePackageAsync(_feedContext.CurrentFeed.Id, _feedContext.CurrentFeed.Slug, id, v, cancellationToken),
+            RedirectToPage(new { id }),
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// Runs an unlist, relist or delete from the Manage section and writes its audit line
+    /// (<c>package_{action}_{succeeded,unauthorized,read_only,not_found}</c>).
+    /// </summary>
+    private async Task<IActionResult> ManageVersionAsync(
+        string action,
+        string id,
+        string version,
+        Func<NuGetVersion, Task<bool>> operation,
+        IActionResult success,
+        CancellationToken cancellationToken)
+    {
+        var feed = _feedContext.CurrentFeed.Slug;
+
+        if (!NuGetVersion.TryParse(version, out var nugetVersion))
+        {
+            _audit.Package(HttpContext, LogLevel.Warning, $"package_{action}_not_found", feed, id, version);
+            return NotFound();
+        }
 
         if (_feedSettings.GetIsReadOnlyMode(_feedContext.CurrentFeed))
+        {
+            _audit.Package(HttpContext, LogLevel.Warning, $"package_{action}_read_only", feed, id, version);
             return StatusCode(StatusCodes.Status403Forbidden);
+        }
 
         if (!await CanDeleteCurrentFeedAsync(cancellationToken))
+        {
+            _audit.Package(HttpContext, LogLevel.Warning, $"package_{action}_unauthorized", feed, id, version);
             return StatusCode(StatusCodes.Status403Forbidden);
+        }
 
-        await _deletionService.TryHardDeletePackageAsync(
-            _feedContext.CurrentFeed.Id, _feedContext.CurrentFeed.Slug, id, nugetVersion, cancellationToken);
+        var found = await operation(nugetVersion);
+        _audit.Package(
+            HttpContext,
+            found ? LogLevel.Information : LogLevel.Warning,
+            found ? $"package_{action}_succeeded" : $"package_{action}_not_found",
+            feed, id, version);
 
-        // The version is gone; land on the package's default view (latest remaining or not-found).
-        return RedirectToPage(new { id });
+        return success;
     }
 
     /// <summary>

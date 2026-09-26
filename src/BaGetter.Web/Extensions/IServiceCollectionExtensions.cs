@@ -2,6 +2,7 @@ using System;
 using System.Text.Json.Serialization;
 using BaGetter.Core;
 using BaGetter.Core.Extensions;
+using BaGetter.Web.Audit;
 using BaGetter.Web.Controllers;
 using BaGetter.Web.Helper;
 using Microsoft.Extensions.DependencyInjection;
@@ -27,6 +28,7 @@ public static class ServiceCollectionExtensions
 
         services.AddHttpContextAccessor();
         services.AddTransient<IUrlGenerator, BaGetterUrlGenerator>();
+        services.AddSingleton<WebAuditLog>();
 
         services.AddSingleton(ApplicationVersionHelper.GetVersion());
 

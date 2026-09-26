@@ -9,6 +9,7 @@ using BaGetter.Core.Authentication;
 using BaGetter.Core.Configuration;
 using BaGetter.Core.Entities;
 using BaGetter.Core.Feeds;
+using BaGetter.Web.Audit;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -21,11 +22,13 @@ public class FeedSettingsModel : PageModel
 {
     private readonly IFeedService _feedService;
     private readonly IUserService _userService;
+    private readonly WebAuditLog _audit;
 
-    public FeedSettingsModel(IFeedService feedService, IUserService userService, IOptions<BaGetterOptions> options)
+    public FeedSettingsModel(IFeedService feedService, IUserService userService, IOptions<BaGetterOptions> options, WebAuditLog audit)
     {
         _feedService = feedService ?? throw new ArgumentNullException(nameof(feedService));
         _userService = userService ?? throw new ArgumentNullException(nameof(userService));
+        _audit = audit ?? throw new ArgumentNullException(nameof(audit));
         GlobalOptions = options?.Value ?? throw new ArgumentNullException(nameof(options));
     }
 
@@ -229,10 +232,16 @@ public class FeedSettingsModel : PageModel
 
             // Only overwrite secrets if a new value was provided; leave blank to keep existing
             if (!string.IsNullOrEmpty(input.AuthPasswordNew))
+            {
                 mirror.AuthPassword = input.AuthPasswordNew;
+                _audit.Admin(HttpContext, "feed_mirror_credentials_changed", Feed.Slug, $"source={mirror.PackageSource} secret=password");
+            }
 
             if (!string.IsNullOrEmpty(input.AuthTokenNew))
+            {
                 mirror.AuthToken = input.AuthTokenNew;
+                _audit.Admin(HttpContext, "feed_mirror_credentials_changed", Feed.Slug, $"source={mirror.PackageSource} secret=token");
+            }
 
             mirrors.Add(mirror);
         }
@@ -347,6 +356,7 @@ public class FeedSettingsModel : PageModel
         ApplyMirrors();
 
         await _feedService.UpdateFeedAsync(Feed, cancellationToken);
+        _audit.Admin(HttpContext, "feed_settings_updated", Feed.Slug, $"mirrors={Feed.Mirrors.Count}");
 
         SuccessMessage = "Settings saved.";
         PopulateFromFeed(Feed);

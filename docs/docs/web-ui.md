@@ -59,7 +59,7 @@ Users with the **Delete** permission on the feed can manage versions on the pack
 
 On a feed in [read-only mode](feeds.md#feed-settings) the **Manage** section and the **Relist** links are hidden, and the actions are refused. The same goes for versions that are only available from a mirror.
 
-The feed's deletion behavior only applies to deletes from NuGet clients (`dotnet nuget delete`). Unlike those, the actions on the package page aren't written to the [audit log](configuration.md#audit-log) yet ([#39](https://github.com/letreset/BaGetter/issues/39)).
+The feed's deletion behavior only applies to deletes from NuGet clients (`dotnet nuget delete`). The actions on the package page are written to the [audit log](configuration.md#audit-log) as `package_unlist_*`, `package_relist_*` and `package_delete_*` lines, and so are all changes on the **Admin** pages.
 
 ## Connect
 

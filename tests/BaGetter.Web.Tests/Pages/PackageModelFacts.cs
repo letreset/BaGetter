@@ -13,11 +13,13 @@ using BaGetter.Core.Entities;
 using BaGetter.Core.Feeds;
 using BaGetter.Core.Indexing;
 using BaGetter.Core.Search;
+using BaGetter.Web.Audit;
 using BaGetter.Web.Pages;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
 using NuGet.Versioning;
@@ -33,6 +35,7 @@ public class PackageModelFacts
     private readonly Mock<IUrlGenerator> _url;
     private readonly Mock<IFeedContext> _feedContext;
     private readonly Mock<IFeedSettingsResolver> _feedSettings = new();
+    private readonly Mock<ILogger<WebAuditLog>> _auditLogger = new();
     private readonly PackageModel _target;
 
     private readonly CancellationToken _cancellation = CancellationToken.None;
@@ -65,6 +68,7 @@ public class PackageModelFacts
             permissions.Object,
             deletionService.Object,
             _feedSettings.Object,
+            new WebAuditLog(_auditLogger.Object),
             authOptions.Object);
 
         _search
@@ -424,7 +428,7 @@ public class PackageModelFacts
 
         var target = new PackageModel(
             _packages.Object, _content.Object, _search.Object, _url.Object,
-            _feedContext.Object, permissions.Object, new Mock<IPackageDeletionService>().Object, _feedSettings.Object, authOptions.Object);
+            _feedContext.Object, permissions.Object, new Mock<IPackageDeletionService>().Object, _feedSettings.Object, new WebAuditLog(_auditLogger.Object), authOptions.Object);
 
         var principal = new ClaimsPrincipal(new ClaimsIdentity(
             new[] { new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()) }, "TestAuth"));
@@ -475,6 +479,54 @@ public class PackageModelFacts
         Assert.Empty(deletion.Invocations);
     }
 
+    [Theory]
+    [InlineData("Unlist", true, LogLevel.Information, "package_unlist_succeeded")]
+    [InlineData("Relist", true, LogLevel.Information, "package_relist_succeeded")]
+    [InlineData("Delete", true, LogLevel.Information, "package_delete_succeeded")]
+    [InlineData("Unlist", false, LogLevel.Warning, "package_unlist_not_found")]
+    public async Task AuditsManageActions(string handler, bool found, LogLevel level, string eventName)
+    {
+        _auditLogger.Setup(l => l.IsEnabled(It.IsAny<LogLevel>())).Returns(true);
+        var (target, deletion) = CreateManagerTarget();
+        var version = NuGetVersion.Parse("1.0.0");
+        deletion.Setup(d => d.TryUnlistPackageAsync(_defaultFeedId, "testpackage", version, _cancellation)).ReturnsAsync(found);
+        deletion.Setup(d => d.TryRelistPackageAsync(_defaultFeedId, "testpackage", version, _cancellation)).ReturnsAsync(found);
+        deletion.Setup(d => d.TryHardDeletePackageAsync(_defaultFeedId, DefaultFeedSlug, "testpackage", version, _cancellation)).ReturnsAsync(found);
+
+        _ = handler switch
+        {
+            "Unlist" => await target.OnPostUnlistAsync("testpackage", "1.0.0", _cancellation),
+            "Relist" => await target.OnPostRelistAsync("testpackage", "1.0.0", _cancellation),
+            _ => await target.OnPostDeleteAsync("testpackage", "1.0.0", _cancellation),
+        };
+
+        VerifyAudit(level, $"AUDIT {eventName} feed=default package_id=testpackage package_version=1.0.0 actor=");
+    }
+
+    [Fact]
+    public async Task AuditsRefusedManageActionOnReadOnlyFeed()
+    {
+        _auditLogger.Setup(l => l.IsEnabled(It.IsAny<LogLevel>())).Returns(true);
+        _feedSettings.Setup(s => s.GetIsReadOnlyMode(It.IsAny<Feed>())).Returns(true);
+        var (target, _) = CreateManagerTarget();
+
+        await target.OnPostDeleteAsync("testpackage", "1.0.0", _cancellation);
+
+        VerifyAudit(LogLevel.Warning, "AUDIT package_delete_read_only feed=default package_id=testpackage package_version=1.0.0 actor=");
+    }
+
+    private void VerifyAudit(LogLevel level, string expectedPrefix)
+    {
+        _auditLogger.Verify(
+            l => l.Log(
+                level,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((state, _) => state.ToString().StartsWith(expectedPrefix)),
+                null,
+                It.IsAny<Func<It.IsAnyType, Exception, string>>()),
+            Times.Once);
+    }
+
     /// <summary>
     /// A page model for a signed-in user with pull and delete permission in Entra mode.
     /// </summary>
@@ -490,7 +542,7 @@ public class PackageModelFacts
         var deletion = new Mock<IPackageDeletionService>();
         var target = new PackageModel(
             _packages.Object, _content.Object, _search.Object, _url.Object,
-            _feedContext.Object, permissions.Object, deletion.Object, _feedSettings.Object, authOptions.Object);
+            _feedContext.Object, permissions.Object, deletion.Object, _feedSettings.Object, new WebAuditLog(_auditLogger.Object), authOptions.Object);
 
         var principal = new ClaimsPrincipal(new ClaimsIdentity(
             new[] { new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()) }, "TestAuth"));

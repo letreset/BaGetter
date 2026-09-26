@@ -69,7 +69,8 @@ For every page you open, the browser console should show no errors.
 | M2 | `alice` | Internal > Contoso.Testing > **Unlist**, then **Relist** | Both work (Package owners have delete on Internal) |
 | M3 | `carol` | Experimental > Contoso.Preview.Ai 0.1.0-alpha.1 > **Delete** | Confirmation, then the version is gone |
 | M4 | `admin` | Archive (read-only) > Contoso.Legacy > **Unlist** | No Manage section and no Relist links; a crafted Unlist POST returns 403 and the version stays listed |
-| M5 | `admin` | Do M1, then check the container log (`docker compose -f testenv/docker-compose.yml logs bagetter`) | An `AUDIT package_relist_succeeded` line. **Known issue** [#39](https://github.com/letreset/BaGetter/issues/39) |
+| M5 | `admin` | Do M1, then check the container log (`docker compose -f testenv/docker-compose.yml logs bagetter`) | An `AUDIT package_relist_succeeded` line (and `package_unlist_succeeded` for the unlist), with `actor=admin` |
+| M6 | `admin` | Disable and enable `bob` on Admin > Accounts, then check the container log | `AUDIT account_disabled target=bob` and `AUDIT account_enabled target=bob` lines with `actor=admin` |
 
 ## Connect and Upload
 
