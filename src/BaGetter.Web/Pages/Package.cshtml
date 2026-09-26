@@ -1,11 +1,15 @@
 @page "/packages/{id}/{version?}"
+@using BaGetter.Core
 @using BaGetter.Core.Configuration
+@using BaGetter.Core.Feeds
 @using System.Globalization
 @using Humanizer
 @using Microsoft.AspNetCore.Html
 @using Microsoft.Extensions.Options
 @model PackageModel
 @inject IOptions<NugetAuthenticationOptions> AuthOptions
+@inject IFeedContext FeedContext
+@inject IUrlGenerator UrlGenerator
 
 @{
     ViewData["Title"] = Model.Found
@@ -13,7 +17,6 @@
         : Model.Package?.Id;
     var requiresAuth = AuthOptions.Value.Mode != AuthenticationMode.Config;
     var isAuthenticated = User.Identity?.IsAuthenticated == true;
-    var fallbackIconUrl = Url.Content("~/_content/BaGetter.Web/images/default-package-icon-256x256.png");
     var atomFeedUrl = Model.Found ? Url.RouteUrl(Routes.PackageAtomFeedRouteName, new { id = Model.Package.Id }) : null;
 }
 
@@ -28,7 +31,7 @@
 {
     // Generic on purpose: anonymous visitors must not learn feed or package names.
     ViewData["Title"] = "Sign in required";
-    <div class="text-center" style="margin-top: 60px;">
+    <div class="bgt-message">
         <h2>Sign in required</h2>
         <p>You need to sign in to view package details.</p>
         <a asp-page="/Login" class="btn btn-primary">Sign in</a>
@@ -38,543 +41,508 @@
 
 @if (Model.VersionNotFound != null)
 {
-    <div>
+    <div class="bgt-message">
         <h2>Version not found</h2>
         <p>Package '@Model.Package.Id' has no version '@Model.VersionNotFound' in this feed.</p>
-        <p><a asp-page="Package" asp-route-id="@Model.Package.Id" asp-route-version="">Show the latest version</a></p>
+        <a asp-page="Package" asp-route-id="@Model.Package.Id" asp-route-version="" class="btn btn-secondary">Show the latest version</a>
     </div>
+    return;
 }
-else if (!Model.Found)
+
+@if (!Model.Found)
 {
-    <div>
+    <div class="bgt-message">
         <h2>Oops, package not found...</h2>
         <p>Could not find package '@Model.Package.Id'.</p>
-        <p>You can try searching on <a href="https://www.nuget.org/packages?q=@Uri.EscapeDataString(Model.Package.Id)" target="_blank" rel="noopener noreferrer">nuget.org</a> package.</p>
-        <p>Think there's a problem? Consider taking a look at our <a href="https://letreset.github.io/BaGetter/docs" target="_blank" rel="noopener noreferrer">documentation</a> or asking for help on our <a href="https://github.com/letreset/BaGetter/issues" target="_blank" rel="noopener noreferrer">GitHub project</a></p>
+        <p>You can try searching on <a href="https://www.nuget.org/packages?q=@Uri.EscapeDataString(Model.Package.Id)" target="_blank" rel="noopener noreferrer">nuget.org</a>.</p>
+        <p>Think there's a problem? Take a look at the <a href="https://letreset.github.io/BaGetter/docs" target="_blank" rel="noopener noreferrer">documentation</a> or ask for help on the <a href="https://github.com/letreset/BaGetter/issues" target="_blank" rel="noopener noreferrer">GitHub project</a>.</p>
     </div>
+    return;
 }
-else
-{
-    <div class="row display-package">
-        <aside class="col-sm-1 package-icon">
-            <img src="@(string.IsNullOrEmpty(Model.IconUrl) ? fallbackIconUrl : Model.IconUrl)"
-                 class="img-responsive"
-                 onerror="this.src='@fallbackIconUrl'"
-                 alt="The package icon" />
-        </aside>
 
-        <article class="col-sm-8 package-details-main">
-            <div class="package-title">
-                <h1>
-                    @Model.Package.Id
+@{
+    var package = Model.Package;
+    var version = package.NormalizedVersionString;
 
-                    <small class="text-nowrap">@Model.Package.NormalizedVersionString</small>
-                </h1>
+    // "latest" marks the newest listed stable version (or the newest listed one when there is no stable version).
+    var latest = Model.Versions.FirstOrDefault(v => v.Listed && !v.IsPrerelease) ?? Model.Versions.FirstOrDefault(v => v.Listed);
+    var isLatest = latest?.Selected == true;
 
-                @if (!string.IsNullOrWhiteSpace(Model.Package.Title)
-                    && !Model.Package.Title.Equals(Model.Package.Id, StringComparison.OrdinalIgnoreCase))
+    var showUsedBy = !Model.IsDotnetTemplate && !Model.IsDotnetTool;
+    var dependencyCount = Model.DependencyGroups.SelectMany(g => g.Dependencies).Select(d => d.PackageId).Distinct(StringComparer.OrdinalIgnoreCase).Count();
+    var maxDownloads = Math.Max(1, Model.Versions.Where(v => v.IsLocal).Select(v => v.Downloads).DefaultIfEmpty(0).Max());
+}
+
+<nav class="bgt-breadcrumb" aria-label="Breadcrumb">
+    <a asp-page="/Index">@FeedContext.CurrentFeed.Name</a><span aria-hidden="true">/</span><span class="current">@package.Id</span>
+</nav>
+
+<div class="bgt-detail">
+    <div class="bgt-detail-main">
+        <div class="bgt-detail-head">
+            <div class="bgt-tile bgt-tile-lg" style="--h: @package.Id.ToHue()" aria-hidden="true">
+                @package.Id.ToPackageInitials()
+                @if (!string.IsNullOrEmpty(Model.IconUrl))
                 {
-                    <p class="package-title-text">@Model.Package.Title</p>
+                    <img src="@Model.IconUrl" alt="" onerror="this.remove()" />
+                }
+            </div>
+            <div style="min-width: 0">
+                <div class="bgt-detail-title">
+                    <h1>@package.Id</h1>
+                    <span class="bgt-detail-version">
+                        @version
+                        @if (isLatest)
+                        {
+                            <span class="bgt-badge bgt-badge-ok">latest</span>
+                        }
+                        @if (!package.Listed)
+                        {
+                            <span class="bgt-badge bgt-badge-warn">unlisted</span>
+                        }
+                    </span>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(package.Title)
+                    && !package.Title.Equals(package.Id, StringComparison.OrdinalIgnoreCase))
+                {
+                    <p class="bgt-detail-subtitle">@package.Title</p>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(package.Description))
+                {
+                    <p class="bgt-detail-desc">@(string.IsNullOrWhiteSpace(package.Summary) ? package.Description : package.Summary)</p>
+                }
+
+                @if (Model.FrameworkBadges.Any())
+                {
+                    <div class="bgt-chips">
+                        @foreach (var framework in Model.FrameworkBadges)
+                        {
+                            <span class="bgt-fw" title="This package targets @framework. The package is compatible with this framework or higher.">@framework</span>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        @if (package.IsPrerelease || !string.IsNullOrEmpty(package.MinClientVersion) || package.RequireLicenseAcceptance)
+        {
+            <ul class="bgt-notes">
+                @if (package.IsPrerelease)
+                {
+                    <li><icon name="info" size="15" />This is a prerelease version of @package.Id.</li>
+                }
+                @if (!string.IsNullOrEmpty(package.MinClientVersion))
+                {
+                    <li><icon name="info" size="15" />Requires NuGet @package.MinClientVersion or higher.</li>
+                }
+                @if (package.RequireLicenseAcceptance)
+                {
+                    <li><icon name="info" size="15" />This package requires license acceptance.</li>
+                }
+            </ul>
+        }
+
+        <div class="bgt-card bgt-card-clip bgt-cmd-card" x-data="{ tabs: installTabs, active: installTabs[0] }">
+            <div class="bgt-tabs bgt-tabs-sm" role="tablist" aria-label="Install command">
+                <template x-for="tab in tabs" :key="tab.name">
+                    <button type="button" class="bgt-tab" role="tab" x-bind:class="{ active: tab.name === active.name }"
+                            x-bind:aria-selected="tab.name === active.name" x-text="tab.name" @@click="active = tab"></button>
+                </template>
+            </div>
+            <div class="bgt-cmd">
+                <code x-text="active.content.join('\n')"></code>
+                <button type="button" class="bgt-cmd-btn" @@click="window.baget.copy(active.content.join('\n'), $el)">
+                    <icon name="copy" size="13" /><span class="bgt-copy-label">Copy</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="bgt-card bgt-card-clip" x-data="{ tab: 'readme' }">
+            <div class="bgt-tabs" role="tablist" aria-label="Package details">
+                @{ TabButton("readme", "Readme", null); }
+                @if (!string.IsNullOrEmpty(package.ReleaseNotes))
+                {
+                    TabButton("release-notes", "Release notes", null);
+                }
+                @{ TabButton("dependencies", "Dependencies", dependencyCount); }
+                @if (showUsedBy)
+                {
+                    TabButton("used-by", "Used by", Model.UsedBy.Count);
+                }
+                @if (Model.Frameworks.Any())
+                {
+                    TabButton("frameworks", "Frameworks", Model.Frameworks.Count);
+                }
+                @{ TabButton("versions", "Versions", Model.Versions.Count); }
+            </div>
+
+            <div class="bgt-tab-body" x-show="tab === 'readme'" role="tabpanel">
+                @if (Model.Readme == null)
+                {
+                    <div class="bgt-markdown bgt-plain">@package.Description</div>
+                }
+                else
+                {
+                    <div class="bgt-markdown">@Model.Readme</div>
                 }
             </div>
 
-            @if (Model.FrameworkBadges.Any())
+            @if (!string.IsNullOrEmpty(package.ReleaseNotes))
             {
-                <div class="framework-badges">
-                    @foreach (var framework in Model.FrameworkBadges)
-                    {
-                        <span class="framework-badge" title="This package targets @framework. The package is compatible with this framework or higher.">@framework</span>
-                    }
+                <div class="bgt-tab-body" x-show="tab === 'release-notes'" x-cloak role="tabpanel">
+                    <div class="bgt-markdown">@Model.ParsedReleaseNotes</div>
                 </div>
             }
 
-            <div class="tabbed-info" x-data="{ tabs: tabs, active: tabs[0] }">
-                <ul class="nav">
-                    <template x-for="tab in tabs" :key="tab.name">
-                        <li x-bind:class="{ active: tab.name === active.name }">
-                            <a href="#" x-text="tab.name" @@click="active = tab"></a>
-                        </li>
-                    </template>
-                </ul>
-
-                <div class="content">
-                    <div class="script">
-                        <template x-for="line in active.content">
-                            <div x-text="active.prefix ? `${active.prefix} ${line}` : line"></div>
-                        </template>
-                    </div>
-
-                    <div class="copy-button">
-                        <button class="btn btn-default btn-warning"
-                                type="button"
-                                data-tottle="popover"
-                                data-placement="bottom"
-                                data-content="Copied"
-                                @@click="window.baget.copyTextToClipboard(active.content.join('\n'), $el)">
-                            <i class="ms-Icon ms-Icon--Copy"></i>
-                        </button>
-                    </div>
-                </div>
+            <div class="bgt-tab-body" x-show="tab === 'dependencies'" x-cloak role="tabpanel">
+                @if (!Model.DependencyGroups.Any())
+                {
+                    <p class="text-muted mb-0">This package has no dependencies.</p>
+                }
+                else
+                {
+                    @foreach (var group in Model.DependencyGroups)
+                    {
+                        <div class="bgt-dep-group">
+                            <div class="bgt-dep-group-name">@group.Name</div>
+                            @if (!group.Dependencies.Any())
+                            {
+                                <div class="bgt-dep text-muted">No dependencies.</div>
+                            }
+                            else
+                            {
+                                @foreach (var dependency in group.Dependencies)
+                                {
+                                    <div class="bgt-dep">
+                                        <a asp-page="Package" asp-route-id="@dependency.PackageId" asp-route-version="@null">@dependency.PackageId</a>
+                                        <span class="bgt-dep-range">@dependency.VersionSpec</span>
+                                    </div>
+                                }
+                            }
+                        </div>
+                    }
+                }
             </div>
 
-            @if (Model.Package.IsPrerelease || !string.IsNullOrEmpty(Model.Package.MinClientVersion) || Model.Package.RequireLicenseAcceptance)
+            @if (showUsedBy)
             {
-                <ul class="list-unstyled package-notes">
-                    @if (Model.Package.IsPrerelease)
+                <div class="bgt-tab-body" x-show="tab === 'used-by'" x-cloak role="tabpanel">
+                    @if (!Model.UsedBy.Any())
                     {
-                        <li><i class="ms-Icon ms-Icon--Info" aria-hidden="true"></i> This is a prerelease version of @Model.Package.Id.</li>
-                    }
-                    @if (!string.IsNullOrEmpty(Model.Package.MinClientVersion))
-                    {
-                        <li><i class="ms-Icon ms-Icon--Info" aria-hidden="true"></i> Requires NuGet @Model.Package.MinClientVersion or higher.</li>
-                    }
-                    @if (Model.Package.RequireLicenseAcceptance)
-                    {
-                        <li><i class="ms-Icon ms-Icon--Info" aria-hidden="true"></i> This package requires license acceptance.</li>
-                    }
-                </ul>
-            }
-
-            @if (!string.IsNullOrWhiteSpace(Model.Package.Summary))
-            {
-                <p class="package-summary">@Model.Package.Summary</p>
-            }
-
-            @{
-                ExpandableSection("Readme", "ms-Icon--Dictionary", expanded: false,
-                    @<div>
-                        @if (Model.Readme == null)
-                        {
-                            <div class="package-description">@Model.Package.Description</div>
-                        }
-                        else
-                        {
-                            <div class="package-readme">@Model.Readme</div>
-                        }
-                    </div>);
-            }
-
-            @if (!Model.IsDotnetTemplate && !Model.IsDotnetTool)
-            {
-                ExpandableSection("Used By", "ms-Icon--BranchFork2", expanded: false,
-                    @<div class="package-used-by">
-                        @if (!Model.UsedBy.Any())
-                        {
-                            <p>No packages depend on @Model.Package.Id.</p>
-                        }
-                        else
-                        {
-                            <p>Showing the top 20 packages that depend on @Model.Package.Id.</p>
-                            <div>
-                                <table>
-                                    <thead>
-                                        <tr>
-                                            <th class="col-sm-10">Packages</th>
-                                            <th class="col-sm-2">Downloads</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach (var package in Model.UsedBy)
-                                        {
-                                            <tr>
-                                                <td>
-                                                    <a href="@Url.Page("/Package", new { package.Id })">@package.Id</a>
-                                                    <div>@package.Description</div>
-                                                </td>
-                                                <td>
-                                                    <i class="ms-Icon ms-Icon--Download" aria-hidden="true"></i>
-                                                    <span>@package.TotalDownloads.ToString("N0", CultureInfo.InvariantCulture)</span>
-                                                </td>
-                                            </tr>
-                                        }
-                                    </tbody>
-                                </table>
-                            </div>
-                        }
-                    </div>);
-            }
-
-            @if (!string.IsNullOrEmpty(Model.Package.ReleaseNotes))
-            {
-                ExpandableSection("Release Notes", "ms-Icon--ReadingMode", expanded: false,
-                    @<div class="package-release-notes">@Model.ParsedReleaseNotes</div>);
-            }
-
-            @{ ExpandableSection("Dependencies", "ms-Icon--Packages", expanded: false,
-                @<div class="dependency-groups">
-                    @if (!Model.DependencyGroups.Any())
-                    {
-                        @:This package has no dependencies.
+                        <p class="text-muted mb-0">No packages in this feed depend on @package.Id.</p>
                     }
                     else
                     {
-                        foreach (var group in Model.DependencyGroups)
-                        {
-                            <h4>
-                                <span>@group.Name</span>
-                            </h4>
-
-                            <ul class="list-unstyled dependency-group">
-                                @if (!group.Dependencies.Any())
-                                {
-                                    <li>No dependencies.</li>
-                                }
-                                else
-                                {
-                                    @foreach (var dependency in group.Dependencies)
+                        <p class="text-muted" style="font-size: 13px">Showing the top 20 packages that depend on @package.Id.</p>
+                        <div class="bgt-used-grid">
+                            @foreach (var dependent in Model.UsedBy)
+                            {
+                                <div class="bgt-used">
+                                    <a href="@Url.Page("/Package", new { dependent.Id })" class="bgt-stretched">@dependent.Id</a>
+                                    @if (!string.IsNullOrWhiteSpace(dependent.Description))
                                     {
-                                        <li>
-                                            <a asp-page="Package"
-                                               asp-route-id="@dependency.PackageId"
-                                               asp-route-version="@null">
-                                                @dependency.PackageId
-                                            </a>
-
-                                            <span> @dependency.VersionSpec</span>
-                                        </li>
+                                        <div class="bgt-used-desc">@dependent.Description</div>
                                     }
-                                }
-                            </ul>
-                        }
+                                    <div class="bgt-used-dl">@dependent.TotalDownloads.ToString("N0", CultureInfo.InvariantCulture) downloads</div>
+                                </div>
+                            }
+                        </div>
                     }
-                </div>);
+                </div>
             }
 
             @if (Model.Frameworks.Any())
             {
-                ExpandableSection("Frameworks", "ms-Icon--Library", expanded: false,
-                    @<ul class="list-unstyled package-frameworks">
+                <div class="bgt-tab-body" x-show="tab === 'frameworks'" x-cloak role="tabpanel">
+                    <div class="bgt-chips">
                         @foreach (var framework in Model.Frameworks)
                         {
-                            <li>@framework</li>
+                            <span class="bgt-fw">@framework</span>
                         }
-                    </ul>);
+                    </div>
+                </div>
             }
 
-            @{ ExpandableSection("Versions", "ms-Icon--Stopwatch", expanded: true,
-                @<div class="version-list" x-data="{ showAll: false, includePrerelease: true }">
-                    @if (Model.HasPrereleaseVersions)
-                    {
-                        <label class="checkbox-inline version-prerelease-filter">
-                            <input type="checkbox" x-model="includePrerelease" /> Include prerelease
-                        </label>
-                    }
-                    <table class="table borderless">
+            @* The inner x-data is a separate Alpine component, so the tab condition stays on the outer element. *@
+            <div x-show="tab === 'versions'" x-cloak role="tabpanel">
+            <div class="bgt-tab-body" x-data="{ showAll: false, includePrerelease: true }">
+                <div class="bgt-table-wrap">
+                    <table class="bgt-table">
                         <thead>
                             <tr>
                                 <th>Version</th>
                                 <th>Downloads</th>
-                                <th>Last updated</th>
+                                <th>Published</th>
+                                <th><span class="visually-hidden">Actions</span></th>
                             </tr>
                         </thead>
-                        <tbody class="no-border">
+                        <tbody>
                             @for (var i = 0; i < Model.Versions.Count; i++)
                             {
-                                var version = Model.Versions[i];
+                                var row = Model.Versions[i];
                                 var alwaysShow = Json.Serialize(i < DefaultVisibleVersions);
-                                var isPrerelease = Json.Serialize(version.IsPrerelease);
+                                var isPrerelease = Json.Serialize(row.IsPrerelease);
+                                var rowVersion = row.Version.ToNormalizedString();
+                                var percent = row.IsLocal ? (int)Math.Round(row.Downloads * 100.0 / maxDownloads) : 0;
 
-                                <tr class="@(version.Selected ? "bg-info" : "")" x-show="(includePrerelease || !@isPrerelease) && (showAll || !includePrerelease || @alwaysShow)">
-                                    <td>
-                                        <a asp-page="Package" asp-route-version="@version.Version"
-                                           style="@(version.Listed ? null : "text-decoration: line-through;")">@version.Version.ToNormalizedString()</a>
-                                        @if (!version.Listed)
+                                <tr class="@(row.Selected ? "current" : null)" x-show="(includePrerelease || !@isPrerelease) && (showAll || !includePrerelease || @alwaysShow)">
+                                    <td class="bgt-ver">
+                                        <a asp-page="Package" asp-route-version="@rowVersion" class="@(row.Listed ? null : "bgt-unlisted")">@rowVersion</a>
+                                        @if (row.Selected)
                                         {
-                                            <span class="text-muted" style="margin-left:6px;">(unlisted)</span>
-                                            @if (Model.CanManage && version.IsLocal)
+                                            <span class="bgt-badge bgt-badge-ok ms-2">current</span>
+                                        }
+                                        @if (!row.Listed)
+                                        {
+                                            <span class="bgt-badge ms-2">unlisted</span>
+                                            @if (Model.CanManage && row.IsLocal)
                                             {
                                                 <form method="post" asp-page-handler="Relist"
-                                                      asp-route-id="@Model.Package.Id"
-                                                      asp-route-version="@version.Version.ToNormalizedString()"
-                                                      style="display:inline; margin-left:6px;">
+                                                      asp-route-id="@package.Id"
+                                                      asp-route-version="@rowVersion"
+                                                      class="d-inline ms-2">
                                                     @Html.AntiForgeryToken()
-                                                    <button type="submit" class="link-button" title="Relist this version">Relist</button>
+                                                    <button type="submit" class="btn-link-plain" style="font-size: 13px" title="Relist this version">Relist</button>
                                                 </form>
                                             }
                                         }
-                                        @if (!version.IsLocal)
+                                        @if (!row.IsLocal)
                                         {
-                                            <span class="label label-default" style="margin-left:6px;" title="Available from a mirror, not stored in this feed yet">mirror</span>
+                                            <span class="bgt-badge ms-2" title="Available from a mirror, not stored in this feed yet">mirror</span>
                                         }
                                     </td>
-                                    <td>@(version.IsLocal ? version.Downloads.ToString("N0", CultureInfo.InvariantCulture) : "")</td>
-                                    <td>@if (version.LastUpdated.HasValue) { @Html.DisplayDate(version.LastUpdated.Value) }</td>
+                                    <td>
+                                        @if (row.IsLocal)
+                                        {
+                                            <div class="bgt-bar-cell">
+                                                <div class="bgt-bar" aria-hidden="true"><div style="width: @(percent)%"></div></div>
+                                                @row.Downloads.ToString("N0", CultureInfo.InvariantCulture)
+                                            </div>
+                                        }
+                                    </td>
+                                    <td class="bgt-date">@if (row.LastUpdated.HasValue) { @Html.DisplayDate(row.LastUpdated.Value) }</td>
+                                    <td class="text-end">
+                                        @if (row.IsLocal)
+                                        {
+                                            <a href="@UrlGenerator.GetPackageDownloadUrl(package.Id, row.Version)" class="text-muted" style="font-size: 13px">Download</a>
+                                        }
+                                    </td>
                                 </tr>
                             }
                         </tbody>
                     </table>
+                </div>
 
-                    @if (Model.Versions.Count > DefaultVisibleVersions)
-                    {
-                        @* Hiding prereleases lifts the row cap, so the toggle is only needed with them shown. *@
-                        <button type="button" class="link-button" x-show="includePrerelease" @@click="showAll = !showAll">
-                            <i class="ms-Icon" x-bind:class="{ 'ms-Icon--CalculatorAddition': !showAll, 'ms-Icon--CalculatorSubtract': showAll }"></i>
-                            <span x-text="showAll ? 'Show less' : 'Show more'"></span>
-                        </button>
-                    }
-
-                </div>);
-            }
-        </article>
-
-        <aside class="col-sm-3 package-details-info">
-            <div>
-                <h2>Info</h2>
-
-                <ul class="list-unstyled ms-Icon-ul">
-                    <li>
-                        <i class="ms-Icon ms-Icon--History" aria-hidden="true"></i>
-                        Last updated @Html.DisplayDate(Model.LastUpdated, Model.LastUpdated.Humanize(culture: CultureInfo.InvariantCulture))
-                    </li>
-
-                    @if (!string.IsNullOrEmpty(Model.Package.ProjectUrlString))
-                    {
-                        <li>
-                            <i class="ms-Icon ms-Icon--Globe"></i>
-                            <a href="@Model.Package.ProjectUrlString">Project URL</a>
-                        </li>
-                    }
-
-                    @if (!string.IsNullOrEmpty(Model.Package.RepositoryUrlString))
-                    {
-                        <li>
-                            <span class="icon github-icon" aria-hidden="true"></span>
-                            <a href="@Model.Package.RepositoryUrlString">Source code</a>
-                        </li>
-                    }
-
-                    @if (!string.IsNullOrEmpty(Model.LicenseUrl))
-                    {
-                        <li>
-                            <i class="ms-Icon ms-Icon--Certificate"></i>
-                            <a href="@Model.LicenseUrl">@Model.LicenseText</a>
-                        </li>
-                    }
-
-                    <li>
-                        <i class="ms-Icon ms-Icon--CloudDownload"></i>
-                        <a href="@Model.PackageDownloadUrl">Download package</a>
-                        @if (Model.PackageSize != null)
+                @if (Model.HasPrereleaseVersions || Model.Versions.Count > DefaultVisibleVersions)
+                {
+                    <div class="bgt-table-tools">
+                        @if (Model.HasPrereleaseVersions)
                         {
-                            <span class="text-muted">(@Model.PackageSize)</span>
+                            <label class="form-check form-switch">
+                                <input type="checkbox" class="form-check-input" role="switch" x-model="includePrerelease" />
+                                <span class="form-check-label" style="font-size: 13px">Include prerelease</span>
+                            </label>
                         }
-                    </li>
-
-                    <li>
-                        <i class="ms-Icon ms-Icon--News"></i>
-                        <a href="@atomFeedUrl" title="Subscribe to new versions. Feed readers sign in with a personal access token.">Atom feed</a>
-                    </li>
-                </ul>
-            </div>
-
-            <div>
-                <h2>Statistics</h2>
-
-                <ul class="list-unstyled ms-Icon-ul">
-                    <li>
-                        <i class="ms-Icon ms-Icon--Download"></i>
-                        @Model.TotalDownloads.ToString("N0", CultureInfo.InvariantCulture) total downloads
-                    </li>
-
-                    <li>
-                        <i class="ms-Icon ms-Icon--Giftbox"></i>
-                        @Model.Package.Downloads.ToString("N0", CultureInfo.InvariantCulture) downloads of current version
-                    </li>
-
-                    @if (Model.DailyDownloadAverage.HasValue)
-                    {
-                        <li>
-                            <i class="ms-Icon ms-Icon--CalendarDay"></i>
-                            @Model.DailyDownloadAverage.Value.ToString("N0", CultureInfo.InvariantCulture) per day average
-                        </li>
-                    }
-                </ul>
-            </div>
-
-            @if (Model.Package.Authors.Any())
-            {
-                <div>
-                    <h2>Authors</h2>
-
-                    <p>@string.Join(", ", Model.Package.Authors)</p>
-                </div>
-            }
-
-            @if (!string.IsNullOrWhiteSpace(Model.Package.Copyright))
-            {
-                <div>
-                    <h2>Copyright</h2>
-
-                    <p class="package-copyright">@Model.Package.Copyright</p>
-                </div>
-            }
-
-            @if (Model.Package.Tags.Any())
-            {
-                <div>
-                    <h2>Tags</h2>
-
-                    <p>
-                        @foreach(var tag in Model.Package.Tags)
+                        else
                         {
-                            <span class="tag">@tag</span>
+                            <span></span>
                         }
-                    </p>
-                </div>
-            }
-
-            @if (Model.CanManage && Model.IsStoredLocally)
-            {
-                <div>
-                    <h2>Manage</h2>
-
-                    <p class="text-muted">
-                        Unlist hides this version from search and listings but keeps the file.
-                        Delete permanently removes the package and its files.
-                    </p>
-
-                    <form method="post" asp-page-handler="Unlist"
-                          asp-route-id="@Model.Package.Id"
-                          asp-route-version="@Model.Package.NormalizedVersionString"
-                          style="display:inline"
-                          data-confirm="@($"Unlist {Model.Package.Id} {Model.Package.NormalizedVersionString}? It will be hidden from search and listings. You can relist it later.")">
-                        @Html.AntiForgeryToken()
-                        <button type="submit" class="btn btn-default">
-                            <i class="ms-Icon ms-Icon--Hide" aria-hidden="true"></i>
-                            Unlist
-                        </button>
-                    </form>
-
-                    <form method="post" asp-page-handler="Delete"
-                          asp-route-id="@Model.Package.Id"
-                          asp-route-version="@Model.Package.NormalizedVersionString"
-                          style="display:inline"
-                          data-confirm="@($"Permanently delete {Model.Package.Id} {Model.Package.NormalizedVersionString}? This removes the package and its files and cannot be undone.")">
-                        @Html.AntiForgeryToken()
-                        <button type="submit" class="btn btn-danger">
-                            <i class="ms-Icon ms-Icon--Delete" aria-hidden="true"></i>
-                            Delete
-                        </button>
-                    </form>
-                </div>
-            }
-        </aside>
+                        @if (Model.Versions.Count > DefaultVisibleVersions)
+                        {
+                            @* Hiding prereleases lifts the row cap, so the toggle is only needed with them shown. *@
+                            <button type="button" class="btn-link-plain" style="font-size: 13px" x-show="includePrerelease" @@click="showAll = !showAll"
+                                    x-text="showAll ? 'Show fewer versions' : 'Show all @Model.Versions.Count versions'">Show all versions</button>
+                        }
+                    </div>
+                }
+            </div>
+            </div>
+        </div>
     </div>
-}
 
-@if (Model.Found)
-{
-    <script type="text/javascript">
-        let tabs = [
-            @if (Model.IsDotnetTemplate)
+    <aside class="bgt-detail-aside">
+        <div class="bgt-card bgt-stats3">
+            <div>
+                <div class="value">@Model.TotalDownloads.ToString("N0", CultureInfo.InvariantCulture)</div>
+                <div class="label">Total</div>
+            </div>
+            <div>
+                <div class="value">@package.Downloads.ToString("N0", CultureInfo.InvariantCulture)</div>
+                <div class="label">This version</div>
+            </div>
+            <div>
+                <div class="value">@(Model.DailyDownloadAverage?.ToString("N0", CultureInfo.InvariantCulture) ?? "n/a")</div>
+                <div class="label">Per day</div>
+            </div>
+        </div>
+
+        <div class="bgt-card bgt-side-card">
+            <div class="bgt-card-label">About</div>
+            <div class="bgt-kv">
+                <div><span>Updated</span><span>@Html.DisplayDate(Model.LastUpdated, Model.LastUpdated.Humanize(culture: CultureInfo.InvariantCulture))</span></div>
+                @if (!string.IsNullOrEmpty(Model.LicenseUrl))
+                {
+                    <div><span>License</span><a href="@Model.LicenseUrl" rel="noopener noreferrer">@Model.LicenseText</a></div>
+                }
+                @if (Model.PackageSize != null)
+                {
+                    <div><span>Size</span><span>@Model.PackageSize</span></div>
+                }
+                @if (package.Authors.Any())
+                {
+                    <div><span>Authors</span><span>@string.Join(", ", package.Authors)</span></div>
+                }
+            </div>
+            <div class="bgt-side-links">
+                @if (!string.IsNullOrEmpty(package.ProjectUrlString))
+                {
+                    <a href="@package.ProjectUrlString" rel="noopener noreferrer">Project website &#x2197;</a>
+                }
+                @if (!string.IsNullOrEmpty(package.RepositoryUrlString))
+                {
+                    <a href="@package.RepositoryUrlString" rel="noopener noreferrer">Source repository &#x2197;</a>
+                }
+                <a href="@atomFeedUrl" title="Subscribe to new versions. Feed readers sign in with a personal access token.">Atom feed</a>
+            </div>
+            @if (!string.IsNullOrWhiteSpace(package.Copyright))
             {
-                <text>
-                {
-                    name: ".NET CLI",
-                    prefix: ">",
-                    content: ["dotnet new --install @Model.Package.Id::@Model.Package.NormalizedVersionString"],
-                },
-                </text>
+                <p class="bgt-copyright">@package.Copyright</p>
             }
-            else if (Model.IsDotnetTool)
+            <a href="@Model.PackageDownloadUrl" class="btn btn-secondary btn-block"><icon name="arrow-down" size="15" />Download .nupkg</a>
+        </div>
+
+        @if (package.Tags.Any())
+        {
+            <div class="bgt-card bgt-side-card">
+                <div class="bgt-card-label">Tags</div>
+                <div class="bgt-chips">
+                    @foreach (var tag in package.Tags)
+                    {
+                        <a class="bgt-chip bgt-chip-lg" asp-page="/Index" asp-route-tag="@tag">@tag</a>
+                    }
+                </div>
+            </div>
+        }
+
+        @if (Model.CanManage && Model.IsStoredLocally)
+        {
+            <div class="bgt-danger-zone">
+                <div class="bgt-card-label mb-1">Manage</div>
+                <p>Unlisting hides this version from search but keeps the file. Deleting permanently removes this version and its files.</p>
+                <div class="bgt-actions">
+                    @if (package.Listed)
+                    {
+                        <form method="post" asp-page-handler="Unlist"
+                              asp-route-id="@package.Id"
+                              asp-route-version="@version"
+                              data-confirm="@($"Unlist {package.Id} {version}? It will be hidden from search and listings. You can relist it later.")">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-secondary btn-sm">Unlist @version</button>
+                        </form>
+                    }
+                    <form method="post" asp-page-handler="Delete"
+                          asp-route-id="@package.Id"
+                          asp-route-version="@version"
+                          data-confirm="@($"Permanently delete {package.Id} {version}? This removes the package and its files and cannot be undone.")">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-outline-danger btn-sm">Delete @version</button>
+                    </form>
+                </div>
+            </div>
+        }
+    </aside>
+</div>
+
+<script type="text/javascript">
+    let installTabs = [
+        @if (Model.IsDotnetTemplate)
+        {
+            <text>
             {
-                <text>
-                {
-                    name: ".NET CLI (Global)",
-                    prefix: ">",
-                    content: ["dotnet tool install --global @Model.Package.Id --version @Model.Package.NormalizedVersionString"],
-                },
-                {
-                    name: ".NET CLI (Local)",
-                    prefix: ">",
-                    content: ["dotnet tool install @Model.Package.Id --version @Model.Package.NormalizedVersionString"],
-                },
-                </text>
-            }
-            else
+                name: ".NET CLI",
+                content: ["dotnet new --install @package.Id::@version"],
+            },
+            </text>
+        }
+        else if (Model.IsDotnetTool)
+        {
+            <text>
             {
-                // A constant, so it is written raw: the encoder would turn '&' into '&amp;' inside the script.
-                var cakePrerelease = Model.Package.IsPrerelease ? Html.Raw("&prerelease") : HtmlString.Empty;
-                <text>
-                {
-                    name: ".NET CLI",
-                    prefix: ">",
-                    content: ["dotnet add package @Model.Package.Id --version @Model.Package.NormalizedVersionString"],
-                },
-                {
-                    name: "Package Manager",
-                    prefix: "PM>",
-                    content: ["NuGet\\Install-Package @Model.Package.Id -Version @Model.Package.NormalizedVersionString"]
-                },
-                {
-                    name: "PackageReference",
-                    prefix: "",
-                    content: ["<PackageReference Include=\"@Model.Package.Id\" Version=\"@Model.Package.NormalizedVersionString\" />"]
-                },
-                {
-                    name: "CPM",
-                    prefix: "",
-                    content: [
-                        "<!-- Directory.Packages.props -->",
-                        "<PackageVersion Include=\"@Model.Package.Id\" Version=\"@Model.Package.NormalizedVersionString\" />",
-                        "<!-- Project file -->",
-                        "<PackageReference Include=\"@Model.Package.Id\" />"
-                    ]
-                },
-                {
-                    name: "Paket CLI",
-                    prefix: ">",
-                    content: ["paket add @Model.Package.Id --version @Model.Package.NormalizedVersionString"]
-                },
-                {
-                    name: "Script & Interactive",
-                    prefix: "",
-                    content: ["#r \"nuget: @Model.Package.Id, @Model.Package.NormalizedVersionString\""]
-                },
-                {
-                    name: "File-based Apps",
-                    prefix: "",
-                    content: ["#:package @(Model.Package.Id)@@@(Model.Package.NormalizedVersionString)"]
-                },
-                {
-                    name: "Cake",
-                    prefix: "",
-                    content: [
-                        "// Install @Model.Package.Id as a Cake Addin",
-                        "#addin nuget:?package=@Model.Package.Id&version=@(Model.Package.NormalizedVersionString)@(cakePrerelease)",
-                        "// Install @Model.Package.Id as a Cake Tool",
-                        "#tool nuget:?package=@Model.Package.Id&version=@(Model.Package.NormalizedVersionString)@(cakePrerelease)"
-                    ]
-                },
-                </text>
-            }
-        ];
-    </script>
-}
+                name: ".NET CLI (Global)",
+                content: ["dotnet tool install --global @package.Id --version @version"],
+            },
+            {
+                name: ".NET CLI (Local)",
+                content: ["dotnet tool install @package.Id --version @version"],
+            },
+            </text>
+        }
+        else
+        {
+            // A constant, so it is written raw: the encoder would turn '&' into '&amp;' inside the script.
+            var cakePrerelease = package.IsPrerelease ? Html.Raw("&prerelease") : HtmlString.Empty;
+            <text>
+            {
+                name: ".NET CLI",
+                content: ["dotnet add package @package.Id --version @version"],
+            },
+            {
+                name: "Package Manager",
+                content: ["NuGet\\Install-Package @package.Id -Version @version"]
+            },
+            {
+                name: "PackageReference",
+                content: ["<PackageReference Include=\"@package.Id\" Version=\"@version\" />"]
+            },
+            {
+                name: "CPM",
+                content: [
+                    "<!-- Directory.Packages.props -->",
+                    "<PackageVersion Include=\"@package.Id\" Version=\"@version\" />",
+                    "<!-- Project file -->",
+                    "<PackageReference Include=\"@package.Id\" />"
+                ]
+            },
+            {
+                name: "Paket",
+                content: ["paket add @package.Id --version @version"]
+            },
+            {
+                name: "Script",
+                content: ["#r \"nuget: @package.Id, @version\""]
+            },
+            {
+                name: "File-based apps",
+                content: ["#:package @(package.Id)@@@(version)"]
+            },
+            {
+                name: "Cake",
+                content: [
+                    "// Install @package.Id as a Cake Addin",
+                    "#addin nuget:?package=@package.Id&version=@(version)@(cakePrerelease)",
+                    "// Install @package.Id as a Cake Tool",
+                    "#tool nuget:?package=@package.Id&version=@(version)@(cakePrerelease)"
+                ]
+            },
+            </text>
+        }
+    ];
+</script>
 
 @functions {
 
     private const int DefaultVisibleVersions = 5;
 
-    private void ExpandableSection(string title, string icon, bool expanded, Func<object, IHtmlContent> template)
+    private void TabButton(string key, string label, int? count)
     {
-        <div class="expandable-section" x-data="{ expanded: @Json.Serialize(expanded) }">
-            <h2>
-                <button type="button" class="link-button" @@click="expanded = !expanded">
-                    <i x-bind:class="{ 'ms-Icon--ChevronDown': expanded, 'ms-Icon--ChevronRight': !expanded }"
-                    class="ms-Icon">
-                    </i>
-                    <span>
-                        @if (!string.IsNullOrWhiteSpace(icon))
-                        {
-                            <i class="ms-Icon @icon" aria-hidden="true"></i>
-                        }
-                        @title
-                    </span>
-                </button>
-            </h2>
-
-        <div x-show="expanded">@template(null)</div>
-        </div>
+        <button type="button" class="bgt-tab" role="tab" x-bind:class="{ active: tab === '@key' }" x-bind:aria-selected="tab === '@key'" @@click="tab = '@key'">
+            @label
+            @if (count.HasValue)
+            {
+                <span class="bgt-tab-count">@count.Value.ToString(CultureInfo.InvariantCulture)</span>
+            }
+        </button>
     }
 }

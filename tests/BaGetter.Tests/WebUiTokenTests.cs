@@ -40,7 +40,7 @@ public class WebUiTokenTests : IDisposable
         using var session = await WebUiSession.SignInAsync(_app, "dev", Password);
 
         var menu = await session.GetStringAsync("/Account/Tokens");
-        Assert.Contains("Create new token", menu);
+        Assert.Contains("Create token", menu);
 
         using var create = await session.PostFormAsync("/Account/Tokens", "Create", new Dictionary<string, string>
         {

@@ -915,8 +915,8 @@ public class WebUiAccountToggleTests : IDisposable
         Assert.Contains("ToggleCanLoginToUI", body, StringComparison.OrdinalIgnoreCase);
 
         // Page should contain the button labels
-        Assert.Contains("Disable", body, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("Revoke Web Access", body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Disable account", body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Disable web sign-in", body, StringComparison.OrdinalIgnoreCase);
     }
 
     private static async Task<bool> SignInLocalUserAsync(HttpClient client, string username, string password)

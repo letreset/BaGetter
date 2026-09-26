@@ -68,6 +68,11 @@ public class AccountsModel : PageModel
     public bool NewCanLoginToUI { get; set; }
 
     public string SuccessMessage { get; set; }
+
+    /// <summary>The result of an action that redirects back to this page, shown once as a toast.</summary>
+    [TempData]
+    public string ToastMessage { get; set; }
+
     public string NewTokenPlaintext { get; set; }
     public string ErrorMessage { get; set; }
 
@@ -117,10 +122,13 @@ public class AccountsModel : PageModel
         }
     }
 
-    private async Task AuditAsync(string eventName, Guid userId, CancellationToken cancellationToken, string detail = null)
+    /// <returns>The account's username, for the result message.</returns>
+    private async Task<string> AuditAsync(string eventName, Guid userId, CancellationToken cancellationToken, string detail = null)
     {
         var user = await _userService.FindByIdAsync(userId, cancellationToken);
-        _audit.Admin(HttpContext, eventName, user?.Username ?? userId.ToString(), detail);
+        var username = user?.Username ?? userId.ToString();
+        _audit.Admin(HttpContext, eventName, username, detail);
+        return username;
     }
 
     private Guid GetUserId()
@@ -204,7 +212,8 @@ public class AccountsModel : PageModel
         }
 
         await _userService.SetEnabledAsync(userId, !isEnabled, cancellationToken);
-        await AuditAsync(isEnabled ? "account_disabled" : "account_enabled", userId, cancellationToken);
+        var username = await AuditAsync(isEnabled ? "account_disabled" : "account_enabled", userId, cancellationToken);
+        ToastMessage = isEnabled ? $"Account '{username}' disabled." : $"Account '{username}' enabled.";
 
         return RedirectToPage();
     }
@@ -223,7 +232,8 @@ public class AccountsModel : PageModel
         }
 
         await _userService.SetCanLoginToUIAsync(userId, !canLoginToUI, cancellationToken);
-        await AuditAsync(canLoginToUI ? "account_web_access_revoked" : "account_web_access_granted", userId, cancellationToken);
+        var username = await AuditAsync(canLoginToUI ? "account_web_access_revoked" : "account_web_access_granted", userId, cancellationToken);
+        ToastMessage = canLoginToUI ? $"Web sign-in disabled for '{username}'." : $"Web sign-in allowed for '{username}'.";
 
         return RedirectToPage();
     }
@@ -255,6 +265,7 @@ public class AccountsModel : PageModel
 
         await _userService.SetAdminAsync(userId, !isAdmin, cancellationToken);
         _audit.Admin(HttpContext, isAdmin ? "account_admin_revoked" : "account_admin_granted", user.Username);
+        ToastMessage = isAdmin ? $"Administrator role removed from '{user.Username}'." : $"'{user.Username}' is now an administrator.";
 
         return RedirectToPage();
     }
@@ -265,7 +276,8 @@ public class AccountsModel : PageModel
             return RedirectToPage("/Index");
 
         await _userService.ResetFailedLoginCountAsync(userId, cancellationToken);
-        await AuditAsync("account_unlocked", userId, cancellationToken);
+        var username = await AuditAsync("account_unlocked", userId, cancellationToken);
+        ToastMessage = $"Account '{username}' unlocked.";
 
         return RedirectToPage();
     }

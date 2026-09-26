@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.AspNetCore.Mvc.TagHelpers;
 using Microsoft.AspNetCore.Razor.TagHelpers;
 
 namespace BaGetter.Web;
@@ -22,7 +24,8 @@ public class NavLinkTagHelper : TagHelper
     {
         if (IsActiveLink())
         {
-            output.Attributes.SetAttribute("class", "active");
+            output.AddClass("active", HtmlEncoder.Default);
+            output.Attributes.SetAttribute("aria-current", "page");
         }
     }
 
