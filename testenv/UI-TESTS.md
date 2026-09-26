@@ -15,7 +15,7 @@ For every page you open, the browser console should show no errors.
 
 | # | Account | Steps | Expected |
 |---|---|---|---|
-| S1 | none | Open `/` | "Sign in required" and a **Sign in** button, no packages or feed names. **Known issue** [#34](https://github.com/letreset/BaGetter/issues/34): the page title names the feed |
+| S1 | none | Open `/` | "Sign in required" and a **Sign in** button, no packages or feed names, and the page title is "Sign in required - BaGetter" |
 | S2 | none | Sign in as `admin` with a wrong password | "Invalid username or password.", the username is kept |
 | S3 | none | Sign in as `admin` | Lands on the first feed in the Admin > Feeds order, user menu shows `admin` |
 | S4 | none | Open `/Login?ReturnUrl=https%3A%2F%2Fexample.com%2F` and sign in | Stays on the BaGetter site |
@@ -125,7 +125,7 @@ For every page you open, the browser console should show no errors.
 
 | # | Account | Steps | Expected |
 |---|---|---|---|
-| X1 | none | Open `/feeds/internal/packages/Contoso.Logging` | Sign-in prompt, and the page title doesn't name the package. **Known issue** [#34](https://github.com/letreset/BaGetter/issues/34) |
+| X1 | none | Open `/feeds/internal/packages/Contoso.Logging` | Sign-in prompt, and the page title doesn't name the package |
 | X2 | `carol` | Open `/feeds/internal/packages/Contoso.Logging` | No Manage section; a crafted Unlist POST returns 403 |
 | X3 | none | `curl -u carol:<password> -X PUT -F package=@testenv/packages/Contoso.Mail.1.0.0.nupkg http://localhost:5000/feeds/internal/api/v2/package` | 403. **Known issue** [#46](https://github.com/letreset/BaGetter/issues/46): 401 |
 

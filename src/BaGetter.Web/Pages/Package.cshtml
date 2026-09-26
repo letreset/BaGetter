@@ -10,7 +10,7 @@
 @{
     ViewData["Title"] = Model.Found
         ? Model.Package.Id + " " + Model.Package.NormalizedVersionString
-        : Model.Package.Id;
+        : Model.Package?.Id;
     var requiresAuth = AuthOptions.Value.Mode != AuthenticationMode.Config;
     var isAuthenticated = User.Identity?.IsAuthenticated == true;
     var fallbackIconUrl = Url.Content("~/_content/BaGetter.Web/images/default-package-icon-256x256.png");
@@ -18,6 +18,8 @@
 
 @if (requiresAuth && !isAuthenticated)
 {
+    // Generic on purpose: anonymous visitors must not learn feed or package names.
+    ViewData["Title"] = "Sign in required";
     <div class="text-center" style="margin-top: 60px;">
         <h2>Sign in required</h2>
         <p>You need to sign in to view package details.</p>

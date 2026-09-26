@@ -23,6 +23,8 @@
 
 @if (requiresAuth && !isAuthenticated)
 {
+    // Generic on purpose: anonymous visitors must not learn feed or package names.
+    ViewData["Title"] = "Sign in required";
     <div class="text-center" style="margin-top: 60px;">
         <h2>Sign in required</h2>
         <p>You need to sign in to view upload instructions.</p>

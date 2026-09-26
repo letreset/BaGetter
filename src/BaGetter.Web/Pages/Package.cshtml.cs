@@ -93,6 +93,8 @@ public class PackageModel : PageModel
 
     public async Task<IActionResult> OnGetAsync(string id, string version, CancellationToken cancellationToken)
     {
+        if (FeedAccessGuard.RequiresSignIn(HttpContext, _authOptions.Value.Mode)) return Page();
+
         var denied = await FeedAccessGuard.CheckReadAccessAsync(
             HttpContext, _feedContext, _permissions, _authOptions.Value.Mode, cancellationToken);
         if (denied != null) return denied;

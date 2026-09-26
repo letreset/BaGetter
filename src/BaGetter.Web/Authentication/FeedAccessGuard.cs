@@ -20,6 +20,18 @@ namespace BaGetter.Web.Authentication;
 public static class FeedAccessGuard
 {
     /// <summary>
+    /// Returns true when the visitor has to sign in before seeing anything of a feed
+    /// (<c>Local</c>, <c>Entra</c> and <c>Hybrid</c> modes, anonymous request). Page handlers
+    /// return <c>Page()</c> right away in that case, without loading feed data or calling
+    /// upstreams, and the view only renders the "Sign in required" prompt.
+    /// </summary>
+    public static bool RequiresSignIn(HttpContext httpContext, AuthenticationMode authMode)
+    {
+        return authMode != AuthenticationMode.Config
+            && httpContext.User.Identity?.IsAuthenticated != true;
+    }
+
+    /// <summary>
     /// Returns null when the user may read the current feed, or a short-circuit
     /// <see cref="IActionResult"/> otherwise. Use for feed-specific pages (package
     /// details, statistics) where denying access as 404 is correct.
@@ -37,8 +49,8 @@ public static class FeedAccessGuard
         var user = httpContext.User;
         if (user.Identity?.IsAuthenticated != true)
         {
-            // Let the view render — _Layout shows a "Sign in required" prompt. Returning
-            // a ChallengeResult here would trigger the NuGet Basic auth browser popup.
+            // Callers check RequiresSignIn first; the view shows a "Sign in required" prompt.
+            // Returning a ChallengeResult here would trigger the NuGet Basic auth browser popup.
             return null;
         }
 
