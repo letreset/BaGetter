@@ -129,8 +129,9 @@
             return;
         }
 
-        var packagesUrl = document.body.getAttribute('data-packages-url');
-        if (!packagesUrl) return;
+        // Set by _Layout. Only a path on this site is followed, never a scheme or another host.
+        var packagesUrl = window.bagetterPackagesUrl;
+        if (typeof packagesUrl !== 'string' || !/^\/(?![\/\\])/.test(packagesUrl)) return;
         event.preventDefault();
         try { sessionStorage.setItem(focusSearchKey, '1'); } catch (e) { }
         window.location.href = packagesUrl;
