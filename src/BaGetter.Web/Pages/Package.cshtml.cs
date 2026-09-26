@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -145,6 +146,16 @@ public class PackageModel : PageModel
 
     public string IconUrl { get; private set; }
     public string LicenseUrl { get; private set; }
+
+    /// <summary>
+    /// "{expression} license" for packages with a license expression, otherwise "License".
+    /// </summary>
+    public string LicenseText { get; private set; }
+
+    /// <summary>
+    /// The .nupkg size, e.g. "2.43 MB", or null when it isn't known.
+    /// </summary>
+    public string PackageSize { get; private set; }
     public string PackageDownloadUrl { get; private set; }
 
     public async Task<IActionResult> OnGetAsync(string id, string version, CancellationToken cancellationToken)
@@ -232,7 +243,18 @@ public class PackageModel : PageModel
         IconUrl = Package.HasEmbeddedIcon
             ? _url.GetPackageIconDownloadUrl(Package.Id, packageVersion)
             : Package.IconUrlString;
-        LicenseUrl = Package.LicenseUrlString;
+        if (string.IsNullOrEmpty(Package.LicenseExpression))
+        {
+            LicenseUrl = Package.LicenseUrlString;
+            LicenseText = "License";
+        }
+        else
+        {
+            LicenseUrl = "https://licenses.nuget.org/" + Uri.EscapeDataString(Package.LicenseExpression);
+            LicenseText = Package.LicenseExpression + " license";
+        }
+
+        PackageSize = Package.Size.HasValue ? FormatSize(Package.Size.Value) : null;
         PackageDownloadUrl = _url.GetPackageDownloadUrl(Package.Id, packageVersion);
 
         return Page();
@@ -317,6 +339,24 @@ public class PackageModel : PageModel
     private static bool IsLocal(Package package)
     {
         return package.Key != 0;
+    }
+
+    /// <summary>
+    /// Formats a size with binary units and the invariant culture, e.g. "812 B", "2.43 MB".
+    /// </summary>
+    private static string FormatSize(long bytes)
+    {
+        string[] units = ["B", "KB", "MB", "GB", "TB"];
+
+        double size = bytes;
+        var unit = 0;
+        while (size >= 1024 && unit < units.Length - 1)
+        {
+            size /= 1024;
+            unit++;
+        }
+
+        return size.ToString("0.##", CultureInfo.InvariantCulture) + " " + units[unit];
     }
 
     /// <summary>

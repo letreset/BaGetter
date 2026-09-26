@@ -69,6 +69,7 @@ public partial class PackageIndexingService : IPackageIndexingService
             package.CachedFrom = cacheFeedUrl;
             package.Published = _time.UtcNow;
             package.FeedId = feedId;
+            package.Size = packageStream.Length;
 
             nuspecStream = await packageReader.GetNuspecAsync(cancellationToken);
             nuspecStream = await nuspecStream.AsTemporaryFileStreamAsync(cancellationToken);

@@ -107,6 +107,7 @@ public partial class V3UpstreamClient : IUpstreamClient
             RequireLicenseAcceptance = metadata.RequireLicenseAcceptance,
             Summary = metadata.Summary,
             Title = metadata.Title,
+            LicenseExpression = string.IsNullOrEmpty(metadata.LicenseExpression) ? null : metadata.LicenseExpression,
             IconUrl = ParseUri(metadata.IconUrl),
             LicenseUrl = ParseUri(metadata.LicenseUrl),
             ProjectUrl = ParseUri(metadata.ProjectUrl),

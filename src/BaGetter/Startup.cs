@@ -8,6 +8,7 @@ using BaGetter.Core.Configuration;
 using BaGetter.Core.Email;
 using BaGetter.Core.Entities;
 using BaGetter.Core.Extensions;
+using BaGetter.Core.Indexing;
 using BaGetter.Core.Notifications;
 using BaGetter.Core.Search;
 using BaGetter.Core.Storage;
@@ -64,6 +65,9 @@ public class Startup
 
         // Emails token owners as their personal access tokens approach expiry.
         services.AddHostedService<PatExpiryNotificationService>();
+
+        // Fills size, copyright and license expression of packages stored before they were recorded.
+        services.AddHostedService<PackageMetadataBackfillService>();
 
         services.AddHealthChecks();
 

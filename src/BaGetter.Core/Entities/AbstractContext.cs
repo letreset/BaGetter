@@ -19,6 +19,7 @@ public abstract class AbstractContext<TContext> : DbContext, IContext where TCon
     public const int MaxPackageTypeVersionLength = 64;
     public const int MaxRepositoryTypeLength = 100;
     public const int MaxTargetFrameworkLength = 256;
+    public const int MaxLicenseExpressionLength = 500;
 
     public const int MaxPackageDependencyVersionRangeLength = 256;
 
@@ -168,6 +169,8 @@ public abstract class AbstractContext<TContext> : DbContext, IContext where TCon
         package.Property(p => p.MinClientVersion).HasMaxLength(MaxPackageMinClientVersionLength);
         package.Property(p => p.Summary).HasMaxLength(DefaultMaxStringLength);
         package.Property(p => p.Title).HasMaxLength(MaxPackageTitleLength);
+        package.Property(p => p.Copyright).HasMaxLength(DefaultMaxStringLength);
+        package.Property(p => p.LicenseExpression).HasMaxLength(MaxLicenseExpressionLength);
         package.Property(p => p.RepositoryType).HasMaxLength(MaxRepositoryTypeLength);
         package.Property(p => p.CachedFrom).HasMaxLength(DefaultMaxStringLength);
 

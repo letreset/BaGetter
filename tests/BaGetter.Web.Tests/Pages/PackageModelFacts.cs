@@ -427,6 +427,57 @@ public class PackageModelFacts
     }
 
     [Fact]
+    public async Task LinksTheLicenseExpressionAndShowsTheSize()
+    {
+        var package = CreatePackage("1.0.0");
+        package.LicenseExpression = "MIT OR Apache-2.0";
+        package.LicenseUrl = new Uri("https://licenses.nuget.org/MIT%20OR%20Apache-2.0");
+        package.Size = 2_548_000;
+        _packages
+            .Setup(m => m.FindPackagesAsync(It.IsAny<Guid>(), "testpackage", _cancellation))
+            .ReturnsAsync(new List<Package> { package });
+
+        await _target.OnGetAsync("testpackage", "1.0.0", _cancellation);
+
+        Assert.Equal("MIT OR Apache-2.0 license", _target.LicenseText);
+        Assert.Equal("https://licenses.nuget.org/MIT%20OR%20Apache-2.0", _target.LicenseUrl);
+        Assert.Equal("2.43 MB", _target.PackageSize);
+    }
+
+    [Fact]
+    public async Task FallsBackToTheLicenseUrlWithoutSize()
+    {
+        var package = CreatePackage("1.0.0");
+        package.LicenseUrl = new Uri("https://license.test/");
+        _packages
+            .Setup(m => m.FindPackagesAsync(It.IsAny<Guid>(), "testpackage", _cancellation))
+            .ReturnsAsync(new List<Package> { package });
+
+        await _target.OnGetAsync("testpackage", "1.0.0", _cancellation);
+
+        Assert.Equal("License", _target.LicenseText);
+        Assert.Equal("https://license.test/", _target.LicenseUrl);
+        Assert.Null(_target.PackageSize);
+    }
+
+    [Theory]
+    [InlineData(812, "812 B")]
+    [InlineData(1536, "1.5 KB")]
+    [InlineData(1073741824, "1 GB")]
+    public async Task FormatsTheSizeWithTheInvariantCulture(long size, string expected)
+    {
+        var package = CreatePackage("1.0.0");
+        package.Size = size;
+        _packages
+            .Setup(m => m.FindPackagesAsync(It.IsAny<Guid>(), "testpackage", _cancellation))
+            .ReturnsAsync(new List<Package> { package });
+
+        await _target.OnGetAsync("testpackage", "1.0.0", _cancellation);
+
+        Assert.Equal(expected, _target.PackageSize);
+    }
+
+    [Fact]
     public async Task StatisticsIncludeUnlistedPackages()
     {
         var now = DateTime.Now;

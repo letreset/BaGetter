@@ -230,6 +230,10 @@ namespace BaGetter.Database.PostgreSql.Migrations
                         .HasMaxLength(4000)
                         .HasColumnType("character varying(4000)");
 
+                    b.Property<string>("Copyright")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
                     b.Property<string>("Description")
                         .HasMaxLength(4000)
                         .HasColumnType("character varying(4000)");
@@ -261,6 +265,10 @@ namespace BaGetter.Database.PostgreSql.Migrations
                     b.Property<string>("Language")
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
+
+                    b.Property<string>("LicenseExpression")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<string>("LicenseUrl")
                         .HasMaxLength(4000)
@@ -313,6 +321,9 @@ namespace BaGetter.Database.PostgreSql.Migrations
 
                     b.Property<int>("SemVerLevel")
                         .HasColumnType("integer");
+
+                    b.Property<long?>("Size")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Summary")
                         .HasMaxLength(4000)

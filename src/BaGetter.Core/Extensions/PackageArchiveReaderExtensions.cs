@@ -68,6 +68,8 @@ public static class PackageArchiveReaderExtensions
             SemVerLevel = GetSemVerLevel(nuspec),
             Summary = nuspec.GetSummary(),
             Title = nuspec.GetTitle(),
+            Copyright = nuspec.GetCopyright(),
+            LicenseExpression = GetLicenseExpression(nuspec),
             IconUrl = ParseUri(nuspec.GetIconUrl()),
             LicenseUrl = ParseUri(nuspec.GetLicenseUrl()),
             ProjectUrl = ParseUri(nuspec.GetProjectUrl()),
@@ -78,6 +80,13 @@ public static class PackageArchiveReaderExtensions
             PackageTypes = GetPackageTypes(nuspec),
             TargetFrameworks = GetTargetFrameworks(packageReader),
         };
+    }
+
+    private static string GetLicenseExpression(NuspecReader nuspec)
+    {
+        var license = nuspec.GetLicenseMetadata();
+
+        return license?.Type == LicenseType.Expression ? license.License : null;
     }
 
     // Based off https://github.com/NuGet/NuGetGallery/blob/master/src/NuGetGallery.Core/SemVerLevelKey.cs

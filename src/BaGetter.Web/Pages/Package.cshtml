@@ -339,13 +339,17 @@ else
                     {
                         <li>
                             <i class="ms-Icon ms-Icon--Certificate"></i>
-                            <a href="@Model.LicenseUrl">License</a>
+                            <a href="@Model.LicenseUrl">@Model.LicenseText</a>
                         </li>
                     }
 
                     <li>
                         <i class="ms-Icon ms-Icon--CloudDownload"></i>
                         <a href="@Model.PackageDownloadUrl">Download package</a>
+                        @if (Model.PackageSize != null)
+                        {
+                            <span class="text-muted">(@Model.PackageSize)</span>
+                        }
                     </li>
                 </ul>
             </div>
@@ -380,6 +384,15 @@ else
                     <h2>Authors</h2>
 
                     <p>@string.Join(", ", Model.Package.Authors)</p>
+                </div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(Model.Package.Copyright))
+            {
+                <div>
+                    <h2>Copyright</h2>
+
+                    <p class="package-copyright">@Model.Package.Copyright</p>
                 </div>
             }
 

@@ -231,6 +231,10 @@ namespace BaGetter.Database.MySql.Migrations
                         .HasMaxLength(4000)
                         .HasColumnType("text");
 
+                    b.Property<string>("Copyright")
+                        .HasMaxLength(4000)
+                        .HasColumnType("text");
+
                     b.Property<string>("Description")
                         .HasMaxLength(4000)
                         .HasColumnType("text");
@@ -262,6 +266,10 @@ namespace BaGetter.Database.MySql.Migrations
                     b.Property<string>("Language")
                         .HasMaxLength(20)
                         .HasColumnType("varchar(20)");
+
+                    b.Property<string>("LicenseExpression")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
 
                     b.Property<string>("LicenseUrl")
                         .HasMaxLength(4000)
@@ -314,6 +322,9 @@ namespace BaGetter.Database.MySql.Migrations
 
                     b.Property<int>("SemVerLevel")
                         .HasColumnType("int");
+
+                    b.Property<long?>("Size")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Summary")
                         .HasMaxLength(4000)

@@ -168,6 +168,7 @@ public partial class V2UpstreamClient : IUpstreamClient, IDisposable
             RequireLicenseAcceptance = package.RequireLicenseAcceptance,
             Summary = package.Summary,
             Title = package.Title,
+            LicenseExpression = package.LicenseMetadata?.Type == LicenseType.Expression ? package.LicenseMetadata.License : null,
             IconUrl = package.IconUrl,
             LicenseUrl = package.LicenseUrl,
             ProjectUrl = package.ProjectUrl,

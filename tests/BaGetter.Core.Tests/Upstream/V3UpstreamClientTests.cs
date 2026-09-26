@@ -129,6 +129,7 @@ public class V3UpstreamClientTests
                         IconUrl = "https://icon.test/",
                         Language = "Language",
                         LicenseUrl = "https://license.test/",
+                        LicenseExpression = "MIT",
                         Listed = true,
                         MinClientVersion = "1.0.0",
                         PackageContentUrl = "https://content.test/",
@@ -188,6 +189,8 @@ public class V3UpstreamClientTests
             Assert.Equal("Title", package.Title);
             Assert.Equal("https://icon.test/", package.IconUrlString);
             Assert.Equal("https://license.test/", package.LicenseUrlString);
+            Assert.Equal("MIT", package.LicenseExpression);
+            Assert.Null(package.Size);
             Assert.Equal("", package.ProjectUrlString);
             Assert.Equal("", package.RepositoryUrlString);
             Assert.Null(package.RepositoryType);

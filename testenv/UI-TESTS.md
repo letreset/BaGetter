@@ -67,6 +67,8 @@ For every page you open, the browser console should show no errors.
 | P13 | `admin` | Experimental > Contoso.Preview.Ai, then Internal > Contoso.Logging | "This is a prerelease version of Contoso.Preview.Ai." under the install box; no such note on Contoso.Logging |
 | P14 | `admin` | Statistics of Contoso.Logging | A "per day average" line next to the total downloads |
 | P15 | `admin` | Default > `/packages/Newtonsoft.Json` (needs internet), clear **Include prerelease** | Only the prerelease rows disappear, the remaining stable versions are all shown (no 5-row cap) and **Show more** is hidden; ticking it again restores the list. Contoso.Logging (no prereleases) has no checkbox |
+| P16 | `admin` | Info of Internal > Contoso.Logging (on an image with this change the startup backfill fills the snapshot's packages) | The license link reads "MIT license" and opens `https://licenses.nuget.org/MIT`; **Download package** is followed by the size, e.g. "(8.21 KB)" |
+| P17 | `carol` | Pack a package with `<Copyright>Copyright (c) Contoso</Copyright>` and push it to Experimental, then open it | A **Copyright** section in the sidebar with that text |
 
 ## Package management
 
