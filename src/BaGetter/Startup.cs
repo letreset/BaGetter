@@ -117,7 +117,6 @@ public class Startup
         app.AddEntraAuthentication(Configuration, Environment);
 
         // Add database providers.
-        app.AddAzureTableDatabase();
         app.AddMySqlDatabase();
         app.AddPostgreSqlDatabase();
         app.AddSqliteDatabase();
