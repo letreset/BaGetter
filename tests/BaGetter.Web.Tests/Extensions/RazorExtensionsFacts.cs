@@ -31,4 +31,34 @@ public class RazorExtensionsFacts
             }
         }
     }
+
+    public class ToFileSize
+    {
+        [Theory]
+        [InlineData(0L, "0 B")]
+        [InlineData(812L, "812 B")]
+        [InlineData(7787L, "7.6 KB")]
+        [InlineData(2548039L, "2.43 MB")]
+        [InlineData(5368709120L, "5 GB")]
+        public void UsesBinaryUnits(long bytes, string expected)
+        {
+            Assert.Equal(expected, bytes.ToFileSize());
+        }
+
+        [Fact]
+        public void UsesTheInvariantCulture()
+        {
+            var originalCulture = CultureInfo.CurrentCulture;
+            try
+            {
+                CultureInfo.CurrentCulture = new CultureInfo("tr-TR");
+
+                Assert.Equal("7.6 KB", 7787L.ToFileSize());
+            }
+            finally
+            {
+                CultureInfo.CurrentCulture = originalCulture;
+            }
+        }
+    }
 }

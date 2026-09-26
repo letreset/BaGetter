@@ -1225,6 +1225,11 @@ code,
   flex-wrap: nowrap;
 }
 
+/* Statistics: most downloaded and recently published */
+.statistics-lists {
+  margin-top: 24px;
+}
+
 /* Admin > Groups: the same username column width in every group, so the member tables line up */
 .group-members-table > thead > tr > th:first-child {
   width: 40%;

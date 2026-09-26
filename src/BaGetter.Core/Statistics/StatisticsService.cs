@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using BaGetter.Core.Entities;
 using BaGetter.Core.Extensions;
@@ -38,6 +39,46 @@ public class StatisticsService : IStatisticsService
             .CountAsync();
         scope.Dispose();
         return packagesVersionsCount;
+    }
+
+    public async Task<FeedStatistics> GetFeedStatisticsAsync(Guid feedId, int listSize, CancellationToken cancellationToken)
+    {
+        using var scope = _serviceProvider.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<IContext>();
+        var versions = dbContext.Packages.Where(p => p.FeedId == feedId);
+
+        var totalDownloads = await versions.SumAsync(p => p.Downloads, cancellationToken);
+        var totalSize = await versions.SumAsync(p => p.Size ?? 0, cancellationToken);
+        var totalVersions = await versions.CountAsync(cancellationToken);
+        var prereleaseVersions = await versions.CountAsync(p => p.IsPrerelease, cancellationToken);
+        var unlistedVersions = await versions.CountAsync(p => !p.Listed, cancellationToken);
+
+        var mostDownloaded = await versions
+            .GroupBy(p => p.Id)
+            .Select(g => new PackageDownloadCount { Id = g.Key, Downloads = g.Sum(p => p.Downloads) })
+            .Where(p => p.Downloads > 0)
+            .OrderByDescending(p => p.Downloads)
+            .ThenBy(p => p.Id)
+            .Take(listSize)
+            .ToListAsync(cancellationToken);
+
+        var recentlyPublished = await versions
+            .Where(p => p.Listed)
+            .OrderByDescending(p => p.Published)
+            .Take(listSize)
+            .Select(p => new PublishedPackageVersion { Id = p.Id, Version = p.NormalizedVersionString, Published = p.Published })
+            .ToListAsync(cancellationToken);
+
+        return new FeedStatistics
+        {
+            TotalDownloads = totalDownloads,
+            TotalSizeBytes = totalSize,
+            StableVersions = totalVersions - prereleaseVersions,
+            PrereleaseVersions = prereleaseVersions,
+            UnlistedVersions = unlistedVersions,
+            MostDownloaded = mostDownloaded,
+            RecentlyPublished = recentlyPublished,
+        };
     }
 
     public IEnumerable<string> GetKnownServices()

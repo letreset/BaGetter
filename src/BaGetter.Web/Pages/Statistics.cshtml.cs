@@ -14,6 +14,11 @@ namespace BaGetter.Web.Pages;
 
 public class StatisticsModel : PageModel
 {
+    /// <summary>
+    /// How many packages and versions the most downloaded and recently published lists show.
+    /// </summary>
+    public const int ListSize = 10;
+
     private readonly IOptionsSnapshot<StatisticsOptions> _options;
     private readonly IFeedContext _feedContext;
     private readonly IStatisticsService _statisticsService;
@@ -37,6 +42,7 @@ public class StatisticsModel : PageModel
     public string FeedName { get; private set; }
     public int PackagesTotal { get; private set; }
     public int VersionsTotal { get; private set; }
+    public FeedStatistics FeedStatistics { get; private set; }
 
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
@@ -51,6 +57,7 @@ public class StatisticsModel : PageModel
         FeedName = feed.Name;
         PackagesTotal = await _statisticsService.GetPackagesTotalAmount(feed.Id);
         VersionsTotal = await _statisticsService.GetVersionsTotalAmount(feed.Id);
+        FeedStatistics = await _statisticsService.GetFeedStatisticsAsync(feed.Id, ListSize, cancellationToken);
         return Page();
     }
 }
